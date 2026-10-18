@@ -1,6 +1,6 @@
 [package]
 name = "jibbers-hotload"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "In-game hotload mod for Jibbers: a version.dll proxy that loads the hotload core into the game"
 

@@ -14,6 +14,10 @@ const ACS: &str = "Assembly-CSharp.dll";
 
 /// `MapLoadEvent { MapData map; Terrain[] terrains }` handler: remembers which map is loaded.
 unsafe extern "C" fn on_map_load(_this: *mut c_void, ev: *mut c_void) {
+    let _ = std::panic::catch_unwind(|| unsafe { record_map(ev) });
+}
+
+unsafe fn record_map(ev: *mut c_void) {
     if ev.is_null() {
         return;
     }

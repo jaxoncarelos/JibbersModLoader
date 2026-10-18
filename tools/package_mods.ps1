@@ -47,7 +47,7 @@ try {
         'JibbersReshred-Standalone' = @('version.dll', 'JibbersMods/jibbers_reshred.dll')
     }
     $manifest = [ordered]@{
-        version = '0.1.0'
+        version = '0.1.1'
         channel = 'release-candidate'
         builtUtc = [DateTime]::UtcNow.ToString('o')
         abi = 4

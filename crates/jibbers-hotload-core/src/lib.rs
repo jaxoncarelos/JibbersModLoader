@@ -160,6 +160,14 @@ fn dispatch(req: &Value) -> Result<Value, String> {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn jh_core_init(host: *const abi::Host) -> u32 {
+    // A panic must not unwind out of an extern "C" fn (that aborts the game): report failure instead.
+    std::panic::catch_unwind(|| init(host)).unwrap_or_else(|_| {
+        log::info("core: panicked during init; giving up");
+        0
+    })
+}
+
+unsafe fn init(host: *const abi::Host) -> u32 {
     if host.is_null() || (*host).abi_version != abi::ABI_VERSION {
         return 0;
     }
@@ -201,6 +209,10 @@ pub unsafe extern "C" fn jh_core_handle(req: *const u8, len: usize, out: *mut *m
 /// Called by the loader just before this core is unloaded (developer `reload-core`).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn jh_core_unload() {
+    let _ = std::panic::catch_unwind(|| unload());
+}
+
+unsafe fn unload() {
     #[cfg(not(any(feature = "atmosphere-only", feature = "reshred-only")))]
     {
         modmenu::stop();
