@@ -1,0 +1,21 @@
+[package]
+name = "jibbers-hotload"
+version = "0.1.0"
+edition = "2021"
+description = "In-game hotload mod for Jibbers: a version.dll proxy that loads the hotload core into the game"
+
+[lib]
+# Built as version.dll so UnityPlayer.dll loads it from the game folder.
+name = "version"
+crate-type = ["cdylib"]
+
+[features]
+# Release build for players: no TCP server, attaches on its own, loads the developer core only if it is
+# in the game folder (plugins in JibbersMods always load). Owns the shared Mods tab without that core.
+release = ["dep:serde"]
+
+[dependencies]
+retour = "0.3"
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = "1"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_SystemServices", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

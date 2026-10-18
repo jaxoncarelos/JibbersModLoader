@@ -1,0 +1,17 @@
+[package]
+name = "my-mod"
+version = "0.1.0"
+edition = "2021"
+description = "Starter Jibbers mod: settings in the Mods tab, a per-frame hook, a custom command"
+publish = false
+
+[lib]
+name = "my_mod"
+crate-type = ["cdylib"]
+
+# Keeps this package (and your copies of it) out of the SDK's own workspace.
+[workspace]
+
+[dependencies]
+# When you copy this folder out of the SDK, point this at the SDK's crates/jibbers-mod-sdk.
+jibbers-mod-sdk = { path = "../crates/jibbers-mod-sdk" }

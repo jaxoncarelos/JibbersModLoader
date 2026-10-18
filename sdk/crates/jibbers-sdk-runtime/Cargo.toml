@@ -1,0 +1,17 @@
+[package]
+name = "jibbers-sdk-runtime"
+version.workspace = true
+edition.workspace = true
+description = "SDK runtime plugin (jibbers_sdk.dll): shared services for mods and the signed auto-updater that refreshes the SDK on game load"
+
+[lib]
+name = "jibbers_sdk"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jibbers-mod-sdk = { path = "../jibbers-mod-sdk" }
+serde.workspace = true
+serde_json.workspace = true
+windows-sys = { workspace = true, features = ["Win32_Networking_WinHttp"] }
+sha2 = "0.10"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }

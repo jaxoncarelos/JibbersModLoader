@@ -1,0 +1,10 @@
+[package]
+name = "jibbers-mod-sdk"
+version.workspace = true
+edition.workspace = true
+description = "SDK for Jibbers mods: plugin ABI, IL2CPP/Unity helpers, settings schema and the declare_plugin! macro"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+windows-sys.workspace = true

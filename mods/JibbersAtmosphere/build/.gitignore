@@ -1,0 +1,4 @@
+# Only the bundle is kept (so building the mod doesn't need Unity); Unity's manifests are noise.
+*
+!.gitignore
+!jibbers_atmosphere.bundle

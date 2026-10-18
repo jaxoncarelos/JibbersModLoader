@@ -1,0 +1,16 @@
+{
+  "builds": [
+    {
+      "assemblySize": 111196160,
+      "headerHash": "ede5061cb8201fa4",
+      "label": "Jibbers Playtest 2026-10-18 build (GameAssembly 111196160 B)",
+      "note": "The build the mods were developed and tested on.",
+      "peTimestamp": 1792292363,
+      "unity": "6000.3.12f1 (fca03ac9b0d5)",
+      "validated": "2026-10-18"
+    }
+  ],
+  "generated": "2026-10-18T19:47:34Z",
+  "schema": 1,
+  "sdkVersion": "0.0.0"
+}

@@ -1,0 +1,17 @@
+[package]
+name = "jibbers-sdk-publish"
+version.workspace = true
+edition.workspace = true
+description = "Maintainer tool: generates the update signing key and builds a signed SDK release (manifest + assets) for the auto-updater"
+
+[[bin]]
+name = "sdk-publish"
+path = "src/main.rs"
+
+[dependencies]
+jibbers-sdk-runtime = { path = "../jibbers-sdk-runtime" }
+jibbers-mod-sdk = { path = "../jibbers-mod-sdk" }
+serde_json.workspace = true
+sha2 = "0.10"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+getrandom = "0.3"
