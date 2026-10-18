@@ -6,12 +6,12 @@
 #
 # -UpdateUrl   folder URL that serves manifest.json, manifest.json.sig and the assets (for GitHub:
 #              https://github.com/<owner>/<repo>/releases/latest/download). Compiled into the runtime.
-#              Without it the updater stays idle (placeholder URL).
+#              Defaults to this repo's latest release; pass -UpdateUrl '' to build with the updater idle.
 # -Publish     also write a signed update release for this version into dist/sdk-release/<version>
 #              (needs the signing key from `sdk-publish keygen`). Upload every file in that folder.
 # Does not read or start the game.
 [CmdletBinding()]
-param([string]$UpdateUrl, [string]$Publish, [switch]$SkipTests, [string]$Key)
+param([string]$UpdateUrl = 'https://github.com/jaxoncarelos/JibbersModLoader/releases/latest/download', [string]$Publish, [switch]$SkipTests, [string]$Key)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -64,7 +64,7 @@ try {
     $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
     Write-Host "SDK $version packaged: $zip"
     Write-Host "sha256 $hash"
-    if (-not $UpdateUrl) { Write-Host 'Note: no -UpdateUrl given; auto-update is idle in this build.' }
+    if (-not $UpdateUrl) { Write-Host 'Note: empty -UpdateUrl; auto-update is idle in this build.' }
 
     if ($Publish) {
         # The update bundle is the same tree the zip carries (docs, template, SDK source), minus

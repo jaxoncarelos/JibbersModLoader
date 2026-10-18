@@ -58,13 +58,13 @@ installs a release only if the Ed25519 signature verifies against a key compiled
 with rollback. The runtime DLL itself is replaced in `JibbersMods\`, so new runtime features load at the next launch.
 State is in `JibbersMods\sdk\installed.json`. `version.dll` and other mods are never touched.
 
-The update URL is compiled in (`tools\package_sdk.ps1 -UpdateUrl <https folder>`; until set, the updater is idle).
+The update URL is compiled in. `tools\package_sdk.ps1` defaults it to this repo's latest GitHub release; `-UpdateUrl <https folder>` overrides it and `-UpdateUrl ''` leaves the updater idle.
 
 ## Publishing an SDK release (maintainer)
 
 ```powershell
 cargo run -p jibbers-sdk-publish -- keygen          # once; back the key up. Paste the public key into trust.rs
-tools\package_sdk.ps1 -UpdateUrl https://github.com/<owner>/<repo>/releases/latest/download -Publish 0.2.0
+tools\package_sdk.ps1 -Publish 0.2.0
 ```
 
 This produces `dist\JibbersModSDK.zip` (for new users) and `dist\sdk-release\0.2.0\` (manifest, signature, assets). Upload every
