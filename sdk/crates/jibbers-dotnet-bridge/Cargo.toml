@@ -1,0 +1,15 @@
+[package]
+name = "jibbers-dotnet-bridge"
+version.workspace = true
+edition.workspace = true
+description = ".NET bridge plugin (jibbers_dotnet.dll): hosts the .NET runtime in the game and loads the C# SDK and C# mods"
+
+[lib]
+name = "jibbers_dotnet"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jibbers-mod-sdk = { path = "../jibbers-mod-sdk" }
+serde_json.workspace = true
+retour = "0.3"
+windows-sys.workspace = true

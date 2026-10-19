@@ -213,6 +213,17 @@ pub unsafe fn unload() {
         let f = rt.unload;
         let _ = std::panic::catch_unwind(f);
     }
+    // The game must never call into this DLL once it is gone: drop what the SDK handed out.
+    if crate::events::any() || crate::vars::any() {
+        let r = crate::host::pump::run(|| unsafe {
+            let a = crate::events::unsubscribe_all();
+            let b = crate::vars::unwatch_all();
+            a.and(b)
+        });
+        if let Err(e) = r.and_then(|r| r) {
+            crate::log::info(format!("unload: could not remove game subscriptions: {e}"));
+        }
+    }
 }
 
 /// Generates the four exports the loader looks for (`jh_core_init`, `jh_core_handle`,

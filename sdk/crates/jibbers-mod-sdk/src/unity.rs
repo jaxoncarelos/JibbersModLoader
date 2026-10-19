@@ -17,6 +17,32 @@ pub struct Vec3 {
     pub z: f32,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
+#[repr(C)]
+pub struct Vec2 {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
+#[repr(C)]
+pub struct Quat {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
+}
+
+/// `UnityEngine.Color` (linear RGBA, 0..1).
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
+#[repr(C)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
+
 pub unsafe fn class(img: &str, ns: &str, name: &str) -> R<*mut Class> {
     il2cpp::class(img, ns, name).ok_or_else(|| format!("class {ns}.{name} not found in {img}"))
 }

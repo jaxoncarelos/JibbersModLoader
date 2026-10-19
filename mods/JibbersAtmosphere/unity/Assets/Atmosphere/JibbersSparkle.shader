@@ -22,6 +22,28 @@ Shader "Hidden/JibbersAtmosphere/Sparkle"
             #include "JibbersCommon.cginc"
 
             float4 _JA_Sparkle; // x intensity, y fraction of cells with a crystal, z fade-out distance (m), w crystal size (m)
+            // World boxes around the nearest characters (centre C, extents E), refreshed every
+            // frame by the core. Individual vectors: the game's build has no global array setter,
+            // and its scriptable pipeline ignores camera command buffers (no stencil mask).
+            float4 _JA_CharBox0C, _JA_CharBox0E, _JA_CharBox1C, _JA_CharBox1E;
+            float4 _JA_CharBox2C, _JA_CharBox2E, _JA_CharBox3C, _JA_CharBox3E;
+            float4 _JA_CharBox4C, _JA_CharBox4E, _JA_CharBox5C, _JA_CharBox5E;
+            float4 _JA_CharBox6C, _JA_CharBox6E, _JA_CharBox7C, _JA_CharBox7E;
+            float _JA_CharBoxCount;
+
+            bool InBox(float3 p, float4 c, float4 e) { return all(abs(p - c.xyz) <= e.xyz); }
+            bool OnCharacter(float3 p)
+            {
+                float n = _JA_CharBoxCount;
+                return (n > 0.5 && InBox(p, _JA_CharBox0C, _JA_CharBox0E))
+                    || (n > 1.5 && InBox(p, _JA_CharBox1C, _JA_CharBox1E))
+                    || (n > 2.5 && InBox(p, _JA_CharBox2C, _JA_CharBox2E))
+                    || (n > 3.5 && InBox(p, _JA_CharBox3C, _JA_CharBox3E))
+                    || (n > 4.5 && InBox(p, _JA_CharBox4C, _JA_CharBox4E))
+                    || (n > 5.5 && InBox(p, _JA_CharBox5C, _JA_CharBox5E))
+                    || (n > 6.5 && InBox(p, _JA_CharBox6C, _JA_CharBox6E))
+                    || (n > 7.5 && InBox(p, _JA_CharBox7C, _JA_CharBox7E));
+            }
 
             float4 Hash43(float3 p)
             {
@@ -39,6 +61,7 @@ Shader "Hidden/JibbersAtmosphere/Sparkle"
                 float eye = LinearEyeDepth(raw);
                 if (eye > _JA_Sparkle.z) discard;
                 float3 p = _WorldSpaceCameraPos + f.ray * eye;
+                if (OnCharacter(p)) discard; // clothing, skis and boots never glitter
                 float3 viewDir = normalize(f.ray);
                 float3 n = NormalAt(f, p, viewDir);
                 if (n.y < 0.3) discard; // snow lies on fairly flat ground

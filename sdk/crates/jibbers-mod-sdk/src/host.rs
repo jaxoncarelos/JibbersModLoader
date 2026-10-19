@@ -45,6 +45,30 @@ pub mod pump {
         job();
     }
 
+    /// Runs `f` on Unity's main thread from a new thread, without blocking the caller, and logs a
+    /// failure as `<label>: ...`. Retries while the main thread is busy (loading, minimised) for up
+    /// to `patience`. For setup that must run on the main thread but is started from
+    /// `Plugin::init`, such as [`crate::events::subscribe`].
+    pub fn later(label: &'static str, patience: std::time::Duration, f: impl FnOnce() -> Result<(), String> + Send + 'static) {
+        std::thread::spawn(move || {
+            let start = std::time::Instant::now();
+            let slot = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+            loop {
+                let s = slot.clone();
+                // The closure moves out only when the job runs, so a timed-out attempt can retry.
+                match run(move || s.lock().unwrap().take().map(|f| f())) {
+                    Ok(Some(Ok(()))) => return,
+                    Ok(Some(Err(e))) => return crate::log::info(format!("{label}: {e}")),
+                    Ok(None) => return,
+                    Err(_) if start.elapsed() < patience && slot.lock().unwrap().is_some() => {
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                    }
+                    Err(e) => return crate::log::info(format!("{label}: {e}")),
+                }
+            }
+        });
+    }
+
     /// Runs `f` on Unity's main thread, blocks until it has run, and returns its result.
     /// Every Unity/IL2CPP call belongs in here (or in a hook callback, which is already on the
     /// main thread). Errors if the main thread didn't pick the job up in time (game minimised or
@@ -81,11 +105,18 @@ pub mod pump {
 pub unsafe fn pre_hook_method(image: &str, namespace: &str, class: &str, method: &str, argc: i32, cb: PreHookFn) -> Result<(), String> {
     let k = il2cpp::class(image, namespace, class).ok_or_else(|| format!("class {namespace}.{class} not found in {image}"))?;
     let m = il2cpp::method(k, method, argc).ok_or_else(|| format!("{class}.{method}/{argc} not found"))?;
+    pre_hook(m, &format!("{class}.{method}"), cb)
+}
+
+/// [`pre_hook_method`] for a method you already resolved (for an obfuscated class, through
+/// [`crate::symbols::method`]; or use [`crate::symbols::hook`], which also checks the limits).
+/// `label` names it in errors and the log.
+pub unsafe fn pre_hook(m: *const il2cpp::Method, label: &str, cb: PreHookFn) -> Result<(), String> {
     match (host().pre_hook)(m as *const c_void, cb) {
         0 => Ok(()),
         rc => {
-            log::info(format!("hook {class}.{method} failed ({rc})"));
-            Err(format!("hook {class}.{method} failed ({rc}: 1 null method, 2 no free slot, 3 enable failed, 4 detour failed, 5 target shared by too many plugins)"))
+            log::info(format!("hook {label} failed ({rc})"));
+            Err(format!("hook {label} failed ({rc}: 1 null method, 2 no free slot, 3 enable failed, 4 detour failed, 5 target shared by too many plugins, 6 unsupported signature)"))
         }
     }
 }

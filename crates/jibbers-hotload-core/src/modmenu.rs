@@ -1,7 +1,7 @@
-//! The **Mods** tab in the game's own Options window: one collapsible section per plugin, holding
+//! The **Mods** tab in the game's main-menu and phone Options windows: one collapsible section per plugin, holding
 //! that plugin's settings.
 //!
-//! The Options window (`UI/MainMenu/OptionsMenu`) is a `TabMenu`: a row of tab buttons
+//! Each Options window is a `TabMenu`: a row of tab buttons
 //! (`Tabs/GameplayButton`, ...) and one page per tab (`Windows/Gameplay`, ...), each page a
 //! `VerticalList` of the game's widgets: `ToggleButton` (on/off), `ArrowSelection` (◀ value ▶) and
 //! `LabeledSlider`. We clone the Gameplay tab button and page ("Mod_Tab", "Mod_Page"), empty the page,
@@ -19,13 +19,16 @@
 
 use crate::il2cpp::{self, api, type_name, Class, Object};
 use crate::unity::{self, R};
-use crate::{host, log};
+use crate::{host, log, symbols};
 use serde_json::{json, Value};
 use std::ffi::c_void;
 use std::ptr::null_mut;
 use std::sync::Mutex;
 
-const OPTIONS: &str = "MainMenu/OptionsMenu/Content";
+const OPTIONS: &[&str] = &[
+    "PhoneCanvas/PhoneMenu/OptionsMenu/Content",
+    "MainMenu/OptionsMenu/Content",
+];
 const OURS: &str = "Mod_";
 
 /// What a widget changes: plugin id, schema key, and how to turn the widget's value into JSON.
@@ -61,6 +64,9 @@ static CONTROLS: Mutex<Vec<Control>> = Mutex::new(Vec::new());
 /// be taken as user edits. (Main thread only, like every callback here.)
 static APPLYING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SECTIONS: Mutex<Vec<Section>> = Mutex::new(Vec::new());
+static STORE_IDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static STORE_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static STORE_MESSAGE: Mutex<String> = Mutex::new(String::new());
 
 // ---- talking to plugins through the loader ---------------------------------------------------
 
@@ -100,7 +106,31 @@ fn call(id: u32, req: &Value) -> Value {
     }
 }
 
+/// Hotkeys can change settings while the phone is closed. Read them again on entry, without
+/// holding our locks across plugin calls (a plugin may run game callbacks).
+fn sync_values() -> bool {
+    let mut changed = false;
+    let ids: Vec<u32> = SECTIONS.lock().unwrap().iter().map(|s| s.plugin).collect();
+    for id in ids {
+        let reply = call(id, &json!({"cmd": "plugin.get"}));
+        if let Some(values) = reply.get("values").and_then(Value::as_object) {
+            for ctl in CONTROLS.lock().unwrap().iter_mut().filter(|c| c.plugin == id) {
+                if let Some(value) = values.get(&ctl.key) {
+                    changed |= ctl.value != *value;
+                    ctl.value = value.clone();
+                }
+            }
+        }
+    }
+    changed
+}
+
 // ---- Unity helpers -----------------------------------------------------------------------------
+
+/// The current scene's Options content (phone in a map, main menu otherwise).
+pub(crate) unsafe fn options(ui: *mut Object) -> *mut Object {
+    OPTIONS.iter().map(|path| find(ui, path)).find(|tr| !tr.is_null()).unwrap_or(null_mut())
+}
 
 pub(crate) unsafe fn ui_root() -> R<*mut Object> {
     let sm = unity::class(unity::CORE, "UnityEngine.SceneManagement", "SceneManager")?;
@@ -252,6 +282,44 @@ unsafe fn resized(arr: *mut Object, n: usize) -> R<*mut Object> {
     Ok(new)
 }
 
+/// The cursor searches these cached rows, independently of TabMenu's button/page arrays.
+unsafe fn navigation_items(menu: *mut Object) -> R<Vec<*mut Object>> {
+    unsafe fn list_items(list: *mut Object) -> R<Vec<*mut Object>> {
+        let n = unity::field_val::<i32>(list, "_size")?;
+        let items = unity::array_items(unity::field_obj(list, "_items")?);
+        if n < 0 || n as usize > items.len() {
+            return Err("invalid navigation list size".into());
+        }
+        Ok(items.into_iter().take(n as usize).collect())
+    }
+    let rows = symbols::get_obj(menu, "ui.navigatable_menu.rows")?;
+    let mut items = Vec::new();
+    for row in list_items(rows)? {
+        items.extend(list_items(row)?);
+    }
+    Ok(items)
+}
+
+/// Recollect the row after adding/removing a tab. Layout alone leaves its cursor cache stale.
+unsafe fn refresh_tab_row(tab_row: *mut Object, added: Option<*mut Object>) -> R<()> {
+    let row = component(tab_row, "NavigatableMenu")?;
+    symbols::call(row, "ui.navigatable_menu.layout", &mut [])?;
+    symbols::call(row, "ui.navigatable_menu.collect", &mut [])?;
+    if let Some(button) = added {
+        // A clone of an initialized widget can miss the collection event. Register it through the
+        // game's own API, which also assigns its parent menu and its position in the cached rows.
+        if !navigation_items(row)?.contains(&button) {
+            symbols::call(row, "ui.navigatable_menu.add_button", &mut [button as *mut c_void])?;
+        }
+        let items = navigation_items(row)?;
+        if !items.contains(&button) {
+            return Err("Mods tab missing from cursor navigation".into());
+        }
+        log::info(format!("mods menu: tab cursor navigation has {} buttons (Mods registered)", items.len()));
+    }
+    Ok(())
+}
+
 // ---- callbacks (main thread) ---------------------------------------------------------------------
 
 fn changed(id: usize, value: Value) {
@@ -300,9 +368,15 @@ fn changed(id: usize, value: Value) {
 pub fn teardown() {
     unsafe {
         let Ok(ui) = ui_root() else { return };
-        let content = find(ui, OPTIONS);
+        let content = options(ui);
         let tabs = find(content, "TabMenu");
         let Ok(tab_menu) = component(tabs, "TabMenu") else { return };
+        // A layout/readiness error before cloning anything must not change the player's tab.
+        if [find(tabs, "Tabs"), find(tabs, "Windows")].into_iter().all(|parent| {
+            children(parent).into_iter().all(|c| !unity::name(go_of(c).unwrap_or(null_mut())).starts_with(OURS))
+        }) {
+            return;
+        }
         let a = api();
         if let (Ok(bf), Ok(pf)) = (field_by_type(tab_menu, "Button[]"), field_by_type(tab_menu, "System.ValueTuple<UnityEngine.RectTransform,NavigatableMenu>[]")) {
             let get = |f| {
@@ -317,8 +391,14 @@ pub fn teardown() {
             }
         }
         if let Ok(f) = field_by_type(tab_menu, "System.Int32") {
-            let mut first = 0i32;
-            (a.field_set_value)(tab_menu, f, &mut first as *mut i32 as _);
+            // Force the game's switch routine to restore both the visible page and navigation.
+            // Merely resetting the index leaves an empty window if Mods was open at teardown.
+            let mut none = -1i32;
+            (a.field_set_value)(tab_menu, f, &mut none as *mut i32 as _);
+        }
+        if let Some(m) = tab_switch(tab_menu) {
+            let (mut first, mut instant, mut focus) = (0i32, true, false);
+            let _ = il2cpp::invoke(m, tab_menu as *mut c_void, &mut [&mut first as *mut i32 as _, &mut instant as *mut bool as _, &mut focus as *mut bool as _]);
         }
         for parent in [find(tabs, "Tabs"), find(tabs, "Windows")] {
             for c in children(parent) {
@@ -327,6 +407,8 @@ pub fn teardown() {
                 }
             }
         }
+        let _ = refresh_tab_row(find(tabs, "Tabs"), None);
+        let _ = refresh_phone_targets();
         CONTROLS.lock().unwrap().clear();
         SECTIONS.lock().unwrap().clear();
         log::info("mods menu: removed");
@@ -347,9 +429,11 @@ unsafe extern "C" fn on_float(id: usize, v: f32, _m: *const c_void) {
 
 /// The Mods tab button was clicked: `id` is its index in the TabMenu.
 unsafe extern "C" fn on_tab(id: usize, _button: *mut Object, _m: *const c_void) {
+    log::info(format!("mods menu: Mods tab clicked ({id})"));
     let _ = std::panic::catch_unwind(|| unsafe {
-        let Ok(content) = ui_root().map(|ui| find(ui, OPTIONS)) else { return };
+        let Ok(content) = ui_root().map(|ui| options(ui)) else { return };
         let Ok(tm) = component(find(content, "TabMenu"), "TabMenu") else { return };
+        sync_values();
         match tab_switch(tm) {
             Some(m) => {
                 let (mut i, mut a, mut b) = (id as i32, true, false);
@@ -394,7 +478,7 @@ fn header_text(name: &str, open: bool) -> String {
 }
 
 unsafe fn our_list() -> R<*mut Object> {
-    let content = find(ui_root()?, OPTIONS);
+    let content = options(ui_root()?);
     let list = find(content, &format!("TabMenu/Windows/{OURS}Page/VList"));
     if list.is_null() {
         return Err("Mods page not built".into());
@@ -425,18 +509,6 @@ fn refresh_soon() {
     });
 }
 
-/// The method of `o`'s class named `name` whose parameter types are exactly `sig`.
-unsafe fn method_on(o: *mut Object, name: &str, sig: &[&str]) -> Option<*const il2cpp::Method> {
-    let mut k = (api().object_get_class)(o);
-    while !k.is_null() {
-        if let Some(m) = il2cpp::method_sig(k, name, sig) {
-            return Some(m);
-        }
-        k = (api().class_get_parent)(k);
-    }
-    None
-}
-
 /// Puts each visible row in the state we want, after the widget's own Start has run: header labels
 /// and click handlers, choice lists, slider ranges and every current value.
 unsafe fn refresh() -> R<()> {
@@ -462,9 +534,58 @@ unsafe fn refresh() -> R<()> {
         })
         .collect();
     APPLYING.store(true, std::sync::atomic::Ordering::Relaxed);
-    let r = apply(&row, &sections, &controls);
+    let r = apply(&row, &sections, &controls).and_then(|_| refresh_form());
     APPLYING.store(false, std::sync::atomic::Ordering::Relaxed);
     r
+}
+
+/// FormMenu's generated controls live below Content, rather than directly below VList.
+/// Refresh their displayed getter values and collect them after an accordion changes layout.
+unsafe fn refresh_form() -> R<()> {
+    let form = our_form()?;
+    unity::callv(form, "Refresh", &mut [])?;
+    symbols::call(form, "ui.navigatable_menu.collect", &mut [])?;
+    refresh_phone_targets()?;
+    Ok(())
+}
+
+/// The phone raycasts against its own cached widget array, separate from TabMenu navigation.
+/// New tabs and generated form controls must enter that cache to receive mouse clicks.
+unsafe fn refresh_phone_targets() -> R<()> {
+    let phone = find(ui_root()?, "PhoneCanvas");
+    if phone.is_null() {
+        return Ok(());
+    }
+    let go = go_of(phone)?;
+    let component_k = unity::class(unity::CORE, "UnityEngine", "Component")?;
+    let components = unity::callv(go, "GetComponents", &mut [unity::type_object(component_k) as _])?;
+    let mut cache = None;
+    for c in unity::array_items(components) {
+        if !c.is_null() {
+            if let Ok(field) = field_by_type(c, "UIBehaviour[]") {
+                cache = Some((c, field));
+                break;
+            }
+        }
+    }
+    let (owner, field) = cache.ok_or("phone widget cache not found")?;
+    let widget_k = unity::class("Assembly-CSharp.dll", "", "UIBehaviour")?;
+    let mut inactive = true;
+    // Resolve the non-generic overload explicitly; matching only by argument count can select
+    // a generic List overload and leave the phone's raycast cache unchanged.
+    let get = il2cpp::method_sig((api().object_get_class)(go), "GetComponentsInChildren", &["System.Type", "System.Boolean"])
+        .ok_or("GameObject.GetComponentsInChildren(Type, bool) missing")?;
+    let widgets = il2cpp::invoke(get, go as _, &mut [unity::type_object(widget_k) as _, &mut inactive as *mut bool as _])?;
+    let mut old = null_mut();
+    (api().field_get_value)(owner, field, &mut old as *mut _ as _);
+    if unity::array_items(old) != unity::array_items(widgets) {
+        let items = unity::array_items(widgets);
+        let typed = (api().array_new)(widget_k, items.len());
+        for (i, item) in items.iter().enumerate() { *il2cpp::array_data::<*mut Object>(typed).add(i) = *item; }
+        (api().field_set_value)(owner, field, typed as *mut c_void);
+        log::info(format!("mods menu: phone mouse targets refreshed ({} widgets)", items.len()));
+    }
+    Ok(())
 }
 
 unsafe fn apply(
@@ -491,23 +612,17 @@ unsafe fn apply(
         match kind {
             Kind::Toggle => {
                 let w = component(r, "ToggleButton")?;
-                if let Some(f) = il2cpp::field((a.object_get_class)(w), "isOn") {
-                    let mut on = value.as_bool().unwrap_or(false);
-                    (a.field_set_value)(w, f, &mut on as *mut bool as _);
-                }
-                // re-render "Label: On/Off" (the no-argument refresh method)
-                if let Some(m) = method_on(w, "hcj", &[]) {
-                    let _ = il2cpp::invoke(m, w as *mut c_void, &mut []);
+                let _ = symbols::set(w, "ui.toggle_button.is_on", value.as_bool().unwrap_or(false));
+                // re-render "Label: On/Off"
+                if let Err(e) = symbols::call(w, "ui.toggle_button.refresh", &mut []) {
+                    log::info(format!("mods menu: {e}"));
                 }
                 hook(w, "System.Action<System.Boolean>", on_bool as *const () as usize, cid)?;
             }
             Kind::Choice(opts) => {
                 let w = component(r, "ArrowSelection")?;
                 // the template (respawn hold time) parses its options as numbers; ours are names
-                if let Some(f) = il2cpp::field((api().object_get_class)(w), "globalIsFloat") {
-                    let mut no = false;
-                    (api().field_set_value)(w, f, &mut no as *mut bool as _);
-                }
+                let _ = symbols::set(w, "ui.arrow_selection.is_float", false);
                 let sk = unity::class("mscorlib.dll", "System", "String")?;
                 let arr = (a.array_new)(sk, opts.len());
                 for (i, o) in opts.iter().enumerate() {
@@ -515,12 +630,7 @@ unsafe fn apply(
                 }
                 let mut idx = opts.iter().position(|o| Some(o.as_str()) == value.as_str()).unwrap_or(0) as i32;
                 let mut notify = false;
-                match method_on(w, "guh", &["System.String[]", "System.Int32", "System.Boolean"]) {
-                    Some(m) => {
-                        il2cpp::invoke(m, w as *mut c_void, &mut [arr as *mut c_void, &mut idx as *mut i32 as _, &mut notify as *mut bool as _])?;
-                    }
-                    None => log::info("mods menu: ArrowSelection set-options not found"),
-                }
+                symbols::call(w, "ui.arrow_selection.set_options", &mut [arr as *mut c_void, &mut idx as *mut i32 as _, &mut notify as *mut bool as _])?;
                 hook(w, "System.Action<System.Int32>", on_int as *const () as usize, cid)?;
             }
             Kind::Slider => {
@@ -533,12 +643,7 @@ unsafe fn apply(
                 let mut v = value.as_f64().unwrap_or(0.0) as f32;
                 let mut notify = false;
                 // set value + label without firing the change callback
-                match method_on(w, "gxd", &["System.Single", "System.Boolean"]) {
-                    Some(m) => {
-                        il2cpp::invoke(m, w as *mut c_void, &mut [&mut v as *mut f32 as _, &mut notify as *mut bool as _])?;
-                    }
-                    None => log::info("mods menu: LabeledSlider set-value not found"),
-                }
+                symbols::call(w, "ui.labeled_slider.set_value", &mut [&mut v as *mut f32 as _, &mut notify as *mut bool as _])?;
                 hook(w, "System.Action<System.Single>", on_float as *const () as usize, cid)?;
             }
         }
@@ -571,18 +676,28 @@ unsafe fn tab_switch(tm: *mut Object) -> Option<*const il2cpp::Method> {
 
 /// Adds (or rebuilds) the Mods tab. Safe to call repeatedly.
 pub fn build(_req: &Value) -> R<Value> {
+    let result = unsafe { build_tab() };
+    if result.is_err() {
+        // Never leave a registered but half-built page: ensure must be able to retry next tick.
+        teardown();
+    }
+    result
+}
+
+unsafe fn build_tab() -> R<Value> {
     unsafe {
         let a = api();
-        let content = find(ui_root()?, OPTIONS);
+        let content = options(ui_root()?);
+        if content.is_null() {
+            return Err("Options menu is not available yet".into());
+        }
         let tabs = find(content, "TabMenu");
         let tab_row = find(tabs, "Tabs");
         let pages = find(tabs, "Windows");
-        let gameplay_btn = find(tab_row, "GameplayButton");
         let gameplay = find(pages, "Gameplay");
-        let tpl_toggle = find(gameplay, "VList/SnowboardToggleButton");
-        let tpl_choice = find(gameplay, "VList/RespawnHoldTimeSelection");
-        let tpl_slider = find(pages, "Audio/VList/VolumeSlider");
-        if [content, tabs, tab_row, pages, gameplay_btn, gameplay, tpl_toggle, tpl_choice, tpl_slider].iter().any(|p| p.is_null()) {
+        // FormMenu creates its own controls. The phone has no SnowboardToggleButton, so do not
+        // require unused main-menu widget templates here.
+        if [content, tabs, tab_row, pages, gameplay, find(gameplay, "VList")].iter().any(|p| p.is_null()) {
             return Err("Options window layout changed (game update?)".into());
         }
         let tab_menu = component(tabs, "TabMenu")?;
@@ -607,35 +722,39 @@ pub fn build(_req: &Value) -> R<Value> {
 
         // Tab button + page.
         let tab_index = base;
-        let b = clone(gameplay_btn, tab_row, &format!("{OURS}Tab"))?;
-        set_text(b, "LabelText", "Mods");
-        // The clone carries the Gameplay tab's state, which is "selected" (grey, not clickable)
-        // whenever Gameplay is the open tab. Take the look of an unselected game tab instead.
-        let selectable = "<uhg>k__BackingField"; // UIBehaviour: interactable (false = the open tab)
+        // UIBehaviour's interactable flag is false on the open tab.
         let idle = children(tab_row).into_iter().find(|c| {
             !unity::name(go_of(*c).unwrap_or(null_mut())).starts_with(OURS)
-                && component(*c, "Button").ok().and_then(|w| unity::field_val::<bool>(w, selectable).ok()) == Some(true)
-        });
-        if let (Some(idle), Ok(ours)) = (idle, component(b, "Button")) {
-            if let Some(f) = il2cpp::field((a.object_get_class)(ours), selectable) {
-                let mut yes = true;
-                (a.field_set_value)(ours, f, &mut yes as *mut bool as _);
-            }
-            // the button eases its image towards a target colour it keeps itself; copy that too
-            if let (Ok(idle_btn), Ok(f)) = (component(idle, "Button"), field_by_type(ours, "UnityEngine.Color")) {
-                let mut c = [0f32; 4];
-                (a.field_get_value)(idle_btn, f, c.as_mut_ptr() as _);
-                (a.field_set_value)(ours, f, c.as_mut_ptr() as _);
-            }
-            if let (Ok(from), Ok(to)) = (component(idle, "Image"), component(b, "Image")) {
-                if let Ok(c) = unity::callv(from, "get_color", &mut []) {
-                    let _ = unity::callv(to, "set_color", &mut [(a.object_unbox)(c)]);
+                && component(*c, "Button").ok().and_then(|w| symbols::get::<bool>(w, "ui.behaviour.interactable").ok()) == Some(true)
+        }).ok_or("no unselected Options tab to clone")?;
+        let b = clone(idle, tab_row, &format!("{OURS}Tab"))?;
+        set_text(b, "LabelText", "Mods");
+        let bw = component(b, "Button")?;
+        let idle_btn = component(idle, "Button")?;
+        // Copy the whole palette, including UIBehaviour's normal/focused/disabled colors. Copying
+        // only Button's own Color field (the pressed color) leaves the selected grey behind.
+        let mut k = (a.object_get_class)(bw);
+        while !k.is_null() {
+            let mut it = null_mut();
+            loop {
+                let f = (a.class_get_fields)(k, &mut it);
+                if f.is_null() {
+                    break;
+                }
+                if (a.field_get_flags)(f) & 0x10 == 0 && type_name((a.field_get_type)(f)) == "UnityEngine.Color" {
+                    let mut color = [0f32; 4];
+                    (a.field_get_value)(idle_btn, f, color.as_mut_ptr() as _);
+                    (a.field_set_value)(bw, f, color.as_mut_ptr() as _);
                 }
             }
+            k = (a.class_get_parent)(k);
         }
-        let bw = component(b, "Button")?;
+        // Unlike writing the backing field, this updates the Image from the current palette too.
+        let mut yes = true;
+        symbols::call(bw, "ui.behaviour.set_interactable", &mut [&mut yes as *mut bool as _])?;
         hook(bw, "System.Action<Button>", on_tab as *const () as usize, tab_index)?;
         let page = clone(gameplay, pages, &format!("{OURS}Page"))?;
+        set_active(page, false);
         let list = find(page, "VList");
         for c in children(list) {
             destroy(c)?;
@@ -662,10 +781,8 @@ pub fn build(_req: &Value) -> R<Value> {
         // controller/keyboard navigation of the tab goes into the form
         let pairs = get(pages_f);
         *(il2cpp::array_data::<u8>(pairs).add(tab_index * tuple_size) as *mut [*mut Object; 2]) = [page, form];
-        // the tab row (a HorizontalList) places its buttons once; let it place ours too
-        if let Ok(row) = component(tab_row, "NavigatableMenu") {
-            let _ = unity::callv(row, "gwp", &mut []);
-        }
+        refresh_tab_row(tab_row, Some(bw))?;
+        refresh_phone_targets()?;
         // Options opens on whichever tab the TabMenu remembers; after a rebuild that index can point
         // at a page that no longer exists (an empty window). Always start on the first tab.
         if let Ok(f) = field_by_type(tab_menu, "System.Int32") {
@@ -707,12 +824,12 @@ fn repeated_error(last: &mut Option<String>, e: &str) -> bool {
 }
 
 /// Rebuilds the Mods tab if the Options window doesn't have it (Ok(true) = rebuilt). Does nothing
-/// while there is no main menu (a map is loaded) or the Options window isn't there yet. Cheap when
+/// while the scene's Options window isn't there yet. Cheap when
 /// the tab is present. Main thread only.
 pub fn ensure() -> R<bool> {
     unsafe {
         let Ok(ui) = ui_root() else { return Ok(false) };
-        let tabs = find(find(ui, OPTIONS), "TabMenu");
+        let tabs = find(options(ui), "TabMenu");
         if tabs.is_null() {
             return Ok(false);
         }
@@ -731,6 +848,26 @@ pub fn ensure() -> R<bool> {
         let tab = !find(tabs, &format!("Tabs/{OURS}Tab")).is_null();
         let page = !find(tabs, &format!("Windows/{OURS}Page")).is_null();
         if !needs_build(tab, page, registered) {
+            // PhoneCanvas initializes its own cache again when opening/recreating the phone.
+            // Repair that independently of setting changes, including after map transitions.
+            refresh_phone_targets()?;
+            let catalog_sequence = jibbers_distribution::manager::snapshot(&crate::game_dir()).catalog.map(|c| c.sequence).unwrap_or(0);
+            if catalog_sequence != STORE_SEQUENCE.load(std::sync::atomic::Ordering::Relaxed)
+                && !unity::call_unbox::<bool>(go_of(tabs)?, "get_activeInHierarchy").unwrap_or(false) {
+                return build(&Value::Null).map(|_| true);
+            }
+            // Reopening Options can restore the last tab without clicking its button again.
+            let message = jibbers_distribution::manager::message(&crate::game_dir());
+            let message_changed = {
+                let mut previous = STORE_MESSAGE.lock().unwrap();
+                let changed = *previous != message; *previous = message; changed
+            };
+            if sync_values() || message_changed {
+                APPLYING.store(true, std::sync::atomic::Ordering::Relaxed);
+                let refreshed = refresh_form();
+                APPLYING.store(false, std::sync::atomic::Ordering::Relaxed);
+                refreshed?;
+            }
             return Ok(false);
         }
         build(&Value::Null).map(|_| true)
@@ -758,10 +895,18 @@ pub fn watch() {
                 }
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
+            let flag = crate::game_dir().join("JibbersMods").join("dump_ui.flag");
+            if flag.exists() {
+                let _ = std::fs::remove_file(&flag);
+                match crate::pump::run(|| unsafe { dump_ui() }).and_then(|r| r) {
+                    Ok(n) => log::info(format!("ui dump: {n} objects written")),
+                    Err(e) => log::info(format!("ui dump failed: {e}")),
+                }
+            }
             match crate::pump::run(ensure).and_then(|r| r) {
                 Ok(true) => {
                     last_err = None;
-                    log::info("mods menu: rebuilt after the main menu was recreated");
+                    log::info("mods menu: built for the current scene's Options window");
                 }
                 Ok(false) => last_err = None,
                 Err(e) => {
@@ -772,6 +917,128 @@ pub fn watch() {
             }
         }
     }));
+}
+
+/// Writes the scene's UI hierarchy (every object under the `UI` root, active or not, with its
+/// components) to `jibbers_ui_dump.txt` beside the game, so the in-game phone's layout can be
+/// matched. Triggered by creating `JibbersMods\dump_ui.flag`. Main thread only.
+unsafe fn dump_ui() -> R<usize> {
+    const MAX_NODES: usize = 4000;
+    const MAX_DEPTH: usize = 12;
+    let a = api();
+    let root = ui_root()?;
+    let mut out = String::new();
+    let mut count = 0usize;
+    let mut stack: Vec<(*mut Object, usize, String)> = vec![(root, 0, "UI".to_string())];
+    while let Some((tr, depth, path)) = stack.pop() {
+        if count >= MAX_NODES {
+            out.push_str("... truncated\n");
+            break;
+        }
+        count += 1;
+        let go = go_of(tr)?;
+        let active = unity::call_unbox::<bool>(go, "get_activeSelf").unwrap_or(false);
+        let mut comps = Vec::new();
+        let mut details = Vec::new();
+        let want_fields = path == "UI/PhoneCanvas" || path.contains("/Mod_Page/") || (path.contains("OptionsMenu/Content/TabMenu")
+            && (path.ends_with("/TabMenu") || path.ends_with("/Tabs") || path.contains("/Tabs/")));
+        if let Ok(comp_k) = unity::class(unity::CORE, "UnityEngine", "Component") {
+            if let Ok(all) = unity::callv(go, "GetComponents", &mut [unity::type_object(comp_k) as *mut c_void]) {
+                for c in unity::array_items(all) {
+                    if !c.is_null() {
+                        let n = il2cpp::cstr((a.class_get_name)((a.object_get_class)(c)));
+                        if want_fields && matches!(n.as_str(), "Button" | "FormMenu" | "TabMenu" | "HorizontalList" | "Image" | "pe") {
+                            details.push(format!("{}  <{n}> {}", "  ".repeat(depth), component_fields(c)));
+                            if n == "HorizontalList" || n == "FormMenu" {
+                                let names = navigation_items(c).map(|items| items.into_iter().map(|b| unity::name(b)).collect::<Vec<_>>().join(", "));
+                                details.push(format!("{}  <cursor navigation> {}", "  ".repeat(depth), names.unwrap_or_else(|e| e)));
+                            }
+                        }
+                        if n != "Transform" && n != "RectTransform" {
+                            comps.push(n);
+                        }
+                    }
+                }
+            }
+        }
+        let pos = unity::call_unbox::<[f32; 2]>(tr, "get_anchoredPosition").map(|p| format!(" pos({:.0},{:.0})", p[0], p[1])).unwrap_or_default();
+        let size = unity::call_unbox::<[f32; 2]>(tr, "get_sizeDelta").map(|p| format!(" size({:.0},{:.0})", p[0], p[1])).unwrap_or_default();
+        out.push_str(&format!("{}{} [{}] {}{pos}{size}\n", "  ".repeat(depth), path.rsplit('/').next().unwrap_or(&path), if active { "on" } else { "off" }, comps.join(",")));
+        for d in details {
+            out.push_str(&d);
+            out.push('\n');
+        }
+        if depth < MAX_DEPTH {
+            for c in children(tr).into_iter().rev() {
+                let name = unity::name(go_of(c).unwrap_or(null_mut()));
+                stack.push((c, depth + 1, format!("{path}/{name}")));
+            }
+        }
+    }
+    std::fs::write(crate::game_dir().join("jibbers_ui_dump.txt"), out).map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
+/// Field names, types and simple values of a component (and its parents), for the UI dump.
+unsafe fn component_fields(c: *mut Object) -> String {
+    let a = api();
+    let mut parts = Vec::new();
+    let mut k = (a.object_get_class)(c);
+    while !k.is_null() && parts.len() < 120 {
+        let mut it: *mut c_void = null_mut();
+        loop {
+            let f = (a.class_get_fields)(k, &mut it);
+            if f.is_null() {
+                break;
+            }
+            if (a.field_get_flags)(f) & 0x10 != 0 {
+                continue;
+            }
+            let name = il2cpp::cstr((a.field_get_name)(f));
+            let ty_ptr = (a.field_get_type)(f);
+            let ty = type_name(ty_ptr);
+            // field_get_value writes the whole value. Nullable<Color> alone needs 20 bytes;
+            // Graphic and other components can contain larger structs as well.
+            let fk = (a.class_from_type)(ty_ptr);
+            if fk.is_null() {
+                continue;
+            }
+            let value_type = (a.class_is_valuetype)(fk);
+            let size = if value_type { (a.class_value_size)(fk, null_mut()).max(0) as usize } else { std::mem::size_of::<usize>() };
+            let mut buf = vec![0u8; size.max(16)];
+            (a.field_get_value)(c, f, buf.as_mut_ptr() as *mut c_void);
+            let value = match ty.as_str() {
+                "System.Boolean" => (buf[0] != 0).to_string(),
+                "System.Int32" => i32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]).to_string(),
+                "System.Single" => f32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]).to_string(),
+                "UnityEngine.Color" => {
+                    let f = |i: usize| f32::from_le_bytes([buf[i * 4], buf[i * 4 + 1], buf[i * 4 + 2], buf[i * 4 + 3]]);
+                    format!("({:.2},{:.2},{:.2},{:.2})", f(0), f(1), f(2), f(3))
+                }
+                _ if value_type => "-".to_string(),
+                _ => {
+                    let p = usize::from_le_bytes([buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]]) as *mut Object;
+                    if p.is_null() {
+                        "null".to_string()
+                    } else if ty.ends_with("[]") {
+                        if ty == "UIBehaviour[]" {
+                            let mods = unity::array_items(p).into_iter().any(|w| unity::name(w) == "Mod_Tab");
+                            format!("[{}; Mods tab={mods}]", (a.array_length)(p))
+                        } else {
+                            format!("[{}]", (a.array_length)(p))
+                        }
+                    } else if matches!(ty.as_str(), "UnityEngine.RectTransform" | "UnityEngine.UI.Image" | "NavigatableMenu" | "HorizontalList") {
+                        format!("{} ({p:p})", unity::name(p))
+                    } else {
+                        "set".to_string()
+                    }
+                }
+            };
+            parts.push(format!("{name}:{ty}={value}"));
+        }
+        k = (a.class_get_parent)(k);
+    }
+    parts.join("; ")
 }
 
 /// Stops the watcher and waits for it (before this code is unloaded).
@@ -835,7 +1102,7 @@ unsafe fn arg_delegate(m: *const il2cpp::Method, i: u32, f: usize, id: usize) ->
 
 /// The FormMenu inside our page.
 unsafe fn our_form() -> R<*mut Object> {
-    let page = find(find(ui_root()?, OPTIONS), &format!("TabMenu/Windows/{OURS}Page"));
+    let page = find(options(ui_root()?), &format!("TabMenu/Windows/{OURS}Page"));
     if page.is_null() {
         return Err("Mods page not built".into());
     }
@@ -858,11 +1125,12 @@ unsafe fn fill_form(parent: *mut Object) -> R<(*mut Object, usize)> {
         return Err("FormMenu create returned null".into());
     }
     let accordion = form_method(Some("Accordion"), &["System.String", "System.Action", "System.Boolean"])?;
-    // Match the Options pages: the form's default style is built for big windows (70 px rows);
-    // the Options rows are ~40 px apart with small text. One scale factor shrinks it all.
+    // The phone's native rows are larger than the compact desktop Options rows.
+    let phone = !find(ui_root()?, OPTIONS[0]).is_null();
     if let Ok(style) = unity::field_obj(form, "localStyle") {
         if !style.is_null() {
-            for (name, v) in [("scale", 0.56f32), ("paddingLeft", 0.0), ("paddingRight", 0.0), ("paddingTop", 0.0)] {
+            let values = [("scale", if phone { 1.0f32 } else { 0.56f32 }), ("paddingLeft", 0.0), ("paddingRight", 0.0), ("paddingTop", 0.0)];
+            for (name, v) in values {
                 if let Some(f) = il2cpp::field((api().object_get_class)(style), name) {
                     let mut v = v;
                     (api().field_set_value)(style, f, &mut v as *mut f32 as _);
@@ -906,7 +1174,75 @@ unsafe fn fill_form(parent: *mut Object) -> R<(*mut Object, usize)> {
         let mut open = false;
         il2cpp::invoke(accordion, form as *mut c_void, &mut [il2cpp::string(&name) as *mut c_void, build as *mut c_void, &mut open as *mut bool as _])?;
     }
+    let store = arg_delegate(accordion, 1, on_store as *const () as usize, 0)?;
+    let mut closed = false;
+    il2cpp::invoke(accordion, form as _, &mut [il2cpp::string("Install and update mods") as _, store as _, &mut closed as *mut bool as _])?;
+    STORE_SEQUENCE.store(jibbers_distribution::manager::snapshot(&crate::game_dir()).catalog.map(|c| c.sequence).unwrap_or(0), std::sync::atomic::Ordering::Relaxed);
     Ok((form, made))
+}
+
+unsafe extern "C" fn on_store(_id: usize, _m: *const c_void) {
+    let _ = std::panic::catch_unwind(|| unsafe {
+        if let Err(error) = fill_store() { log::info(format!("mod catalog menu: {error}")); }
+        refresh_soon();
+    });
+}
+
+unsafe fn fill_store() -> R<()> {
+    let form = our_form()?;
+    let snap = jibbers_distribution::manager::snapshot(&crate::game_dir());
+    let info = form_method(Some("Info"), &["System.Func<System.String>", "System.Boolean", "System.String"])?;
+    let status = arg_delegate(info, 0, store_message as *const () as usize, 0)?;
+    let mut wrap = true;
+    il2cpp::invoke(info, form as _, &mut [status as _, &mut wrap as *mut bool as _, il2cpp::string("") as _])?;
+    let button = form_method(Some("Button"), &["System.String", "System.Action"])?;
+    let check = arg_delegate(button, 1, store_check as *const () as usize, 0)?;
+    il2cpp::invoke(button, form as _, &mut [il2cpp::string("Check for updates") as _, check as _])?;
+    let toggle = form_method(None, &["System.String", "System.Func<System.Boolean>", "System.Action<System.Boolean>", "System.Boolean"])?;
+    let mut ids = vec![String::new()]; // index 0 is the auto-update preference
+    let mut entries = vec![("Automatically update on launch".to_string(), snap.config.auto_update)];
+    if let Some(catalog) = snap.catalog {
+        for p in catalog.packages.into_iter().filter(|p| p.id != "loader") {
+            let installed = snap.installed.packages.get(&p.id).map(|p| p.version.as_str());
+            let state = match installed { Some(v) if v == p.version => "installed", Some(_) => "update available", None => "install" };
+            entries.push((format!("{} {} ({state})", p.name, p.version), snap.config.wanted.contains(&p.id)));
+            ids.push(p.id);
+        }
+    }
+    *STORE_IDS.lock().unwrap() = ids;
+    for (id, (label, mut value)) in entries.into_iter().enumerate() {
+        let get = arg_delegate(toggle, 1, store_get as *const () as usize, id)?;
+        let set = arg_delegate(toggle, 2, store_set as *const () as usize, id)?;
+        il2cpp::invoke(toggle, form as _, &mut [il2cpp::string(&label) as _, get as _, set as _, &mut value as *mut bool as _])?;
+    }
+    Ok(())
+}
+
+unsafe extern "C" fn store_message(_id: usize, _m: *const c_void) -> *mut Object {
+    std::panic::catch_unwind(|| il2cpp::string(&jibbers_distribution::manager::message(&crate::game_dir()))).unwrap_or(null_mut())
+}
+unsafe extern "C" fn store_check(_id: usize, _m: *const c_void) {
+    let _ = std::panic::catch_unwind(|| jibbers_distribution::manager::check(&crate::game_dir()));
+}
+unsafe extern "C" fn store_get(id: usize, _m: *const c_void) -> bool {
+    std::panic::catch_unwind(|| {
+        let key = STORE_IDS.lock().unwrap().get(id).cloned();
+        if id == 0 { jibbers_distribution::manager::selected(&crate::game_dir(), None) }
+        else { key.is_some_and(|key| jibbers_distribution::manager::selected(&crate::game_dir(), Some(&key))) }
+    }).unwrap_or(false)
+}
+unsafe extern "C" fn store_set(id: usize, value: bool, _m: *const c_void) {
+    let _ = std::panic::catch_unwind(|| {
+        if APPLYING.load(std::sync::atomic::Ordering::Relaxed) { return; }
+        let root = crate::game_dir();
+        let result = if id == 0 { jibbers_distribution::manager::set_auto_update(&root, value) }
+        else {
+            let key = STORE_IDS.lock().unwrap().get(id).cloned();
+            key.ok_or_else(|| "catalog changed; reopen Mods".to_string()).and_then(|key| jibbers_distribution::manager::select(&root, &key, value))
+        };
+        if let Err(error) = result { jibbers_distribution::manager::set_message(&root, error); }
+        refresh_soon();
+    });
 }
 
 /// The game fills an Accordion through this callback (when the section is built or opened): add
@@ -915,6 +1251,9 @@ unsafe extern "C" fn on_section(id: usize, _m: *const c_void) {
     let _ = std::panic::catch_unwind(|| unsafe {
         if let Err(e) = fill_section(id) {
             log::info(format!("mods menu: section {id}: {e}"));
+        } else {
+            // Let the form finish constructing the new widgets before collecting mouse targets.
+            refresh_soon();
         }
     });
 }
@@ -1003,15 +1342,14 @@ unsafe extern "C" fn get_int(id: usize, _m: *const c_void) -> i32 {
 pub fn test(req: &Value) -> R<Value> {
     unsafe {
         if req.get("open").is_some() {
-            let mk = unity::class("Assembly-CSharp.dll", "", "MainMenu")?;
-            let mm = *unity::find_objects(mk)?.first().ok_or("main menu not open")?;
-            let options = unity::field_obj(mm, "toz").ok().filter(|o| !o.is_null()).ok_or("options window not found")?;
+            let mm = *symbols::live("ui.main_menu")?.first().ok_or("main menu not open")?;
+            let options_win = symbols::get_obj(mm, "ui.main_menu.options").ok().filter(|o| !o.is_null()).ok_or("options window not found")?;
             let ui_window = unity::class("Assembly-CSharp.dll", "", "UIWindow")?;
             let close = il2cpp::method_sig(ui_window, "Close", &["UIWindow", "System.Boolean"]).ok_or("UIWindow.Close missing")?;
             let mut instant = true;
-            il2cpp::invoke(close, mm as *mut c_void, &mut [options as *mut c_void, &mut instant as *mut bool as _])?;
+            il2cpp::invoke(close, mm as *mut c_void, &mut [options_win as *mut c_void, &mut instant as *mut bool as _])?;
             // the Mods tab is the last one
-            let content = find(ui_root()?, OPTIONS);
+            let content = options(ui_root()?);
             let tm = component(find(content, "TabMenu"), "TabMenu")?;
             let n = unity::array_items({
                 let f = field_by_type(tm, "Button[]")?;
@@ -1029,7 +1367,7 @@ pub fn test(req: &Value) -> R<Value> {
         }
         if req.get("tabs").is_some() {
             // test: the tab buttons' state, to compare ours with the game's
-            let row = find(find(ui_root()?, OPTIONS), "TabMenu/Tabs");
+            let row = find(options(ui_root()?), "TabMenu/Tabs");
             let mut out = serde_json::Map::new();
             for c in children(row) {
                 let n = unity::name(go_of(c)?);
@@ -1042,8 +1380,8 @@ pub fn test(req: &Value) -> R<Value> {
         if let Some(how) = req.get("layout").and_then(Value::as_str) {
             let list = our_list()?;
             match how {
-                "gwp" => {
-                    unity::callv(component(list, "NavigatableMenu")?, "gwp", &mut [])?;
+                "layout" => {
+                    symbols::call(component(list, "NavigatableMenu")?, "ui.navigatable_menu.layout", &mut [])?;
                 }
                 "refresh" => {
                     let form = our_form()?;
@@ -1061,16 +1399,13 @@ pub fn test(req: &Value) -> R<Value> {
             return Ok(json!({"ok": true}));
         }
         if let Some(i) = req.get("expand").and_then(Value::as_u64) {
-            // test: open accordion `i` the way a click does (FormMenu's (rg, bool) open/close)
+            // test: open accordion `i` the way a click does (FormMenu's section open/close)
             let form = our_form()?;
-            let rows_f = field_by_type(form, "System.Collections.Generic.List<qj>")?;
-            let mut rows: *mut Object = null_mut();
-            (api().field_get_value)(form, rows_f, &mut rows as *mut _ as _);
+            let rows = symbols::get_obj(form, "ui.form_menu.rows")?;
             let items = unity::field_obj(rows, "_items")?;
             let row = *unity::array_items(items).get(i as usize).ok_or("no such row")?;
-            let open = form_method(None, &["rg", "System.Boolean"])?;
             let mut yes = true;
-            il2cpp::invoke(open, form as *mut c_void, &mut [row as *mut c_void, &mut yes as *mut bool as _])?;
+            symbols::call(form, "ui.form_menu.set_open", &mut [row as *mut c_void, &mut yes as *mut bool as _])?;
             return Ok(json!({"ok": true}));
         }
         if let Some(i) = req.get("fold").and_then(Value::as_u64) {

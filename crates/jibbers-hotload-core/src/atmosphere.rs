@@ -79,7 +79,7 @@ pub struct Settings {
     pub cloud_size: f32,
     /// Fraction of the sky covered by clouds (0..1).
     pub cloud_coverage: f32,
-    /// Cloud height above the map's lowest point (m); sets how shadows shift with the sun angle.
+    /// Cloud shadow height above the player's camera (m); sets how shadows shift with the sun angle.
     pub cloud_height: f32,
     /// Cloud drift (m/s, world x/z).
     pub cloud_speed: [f32; 2],
@@ -119,9 +119,10 @@ pub struct Settings {
     pub speed_frost_kmh: [f32; 2],
     /// Low cloud sea in the valleys below the map (0 = off, 1 = thick).
     pub cloud_bank: f32,
-    /// Top of the cloud bank as a fraction of the map's height range (0 = its lowest point, 1 = its
-    /// highest). It only forms outside the map's rectangle, so it never covers rideable ground.
+    /// Legacy terrain-relative top, used while the player's camera is unavailable.
     pub cloud_bank_top: f32,
+    /// Distance below the player's camera to the top of the cloud bank (m).
+    pub cloud_bank_distance: f32,
     /// Distance past the map edge over which the cloud bank fades in (m).
     pub cloud_bank_margin: f32,
     /// Thickness of the cloud bank (m).
@@ -216,6 +217,7 @@ impl Default for Settings {
             speed_frost_kmh: [60.0, 120.0],
             cloud_bank: 1.0,
             cloud_bank_top: 0.55,
+            cloud_bank_distance: 180.0,
             cloud_bank_margin: 120.0,
             cloud_bank_thickness: 250.0,
             cloud_bank_size: 450.0,
@@ -621,6 +623,16 @@ fn clamp01(v: f32) -> f32 {
     v.clamp(0.0, 1.0)
 }
 
+/// Follow the rider's view rather than the map's lowest terrain, which can be thousands of metres
+/// below the imported riding surface. Keep the old terrain anchor until a camera is available.
+fn cloud_bank_bounds(s: &Settings, camera_height: Option<f32>, floor: f32, terrain_top: f32) -> (f32, f32) {
+    let top = match camera_height.filter(|y| y.is_finite()) {
+        Some(y) => y - s.cloud_bank_distance.max(0.0),
+        None => floor + s.cloud_bank_top * (terrain_top - floor).max(50.0),
+    };
+    (top - s.cloud_bank_thickness.max(1.0), top)
+}
+
 /// Pushes the current settings and the game's sky state into the shader globals.
 unsafe fn update(st: &mut State, env: *mut Object) {
     let ids = match st.ids {
@@ -643,6 +655,7 @@ unsafe fn update(st: &mut State, env: *mut Object) {
     }
     snow_surface(st, &s);
     if !s.enabled {
+        crate::sparkle_mask::update(false, None);
         set_vec(&ids, ids.fog_color, [0.0; 4]);
         set_vec(&ids, ids.snow, [0.0; 4]);
         set_vec(&ids, ids.cloud, [0.0; 4]);
@@ -689,6 +702,8 @@ unsafe fn update(st: &mut State, env: *mut Object) {
         }
     }
     let floor = st.floor.as_ref().map(|f| f.1).unwrap_or(0.0);
+    let camera = camera_position(st);
+    let sparkle_mask_ready = crate::sparkle_mask::update(s.sparkle > 0.0, camera.map(|p| [p.x, p.y, p.z]));
 
     let fc = game_fog_color();
     let (sun_dir, sun_col) = sun();
@@ -708,15 +723,15 @@ unsafe fn update(st: &mut State, env: *mut Object) {
     // Flakes are lit by the sky plus a little sun, never brighter than white.
     let lit = |i: usize| (amb[i] * 1.25 + glow[i] * 0.25).min(1.0);
     set_vec(&ids, ids.snow_color, [lit(0), lit(1), lit(2), clamp01(s.snow_opacity)]);
-    set_vec(&ids, ids.cloud, [s.cloud_shadows.max(0.0), 1.0 / s.cloud_size.max(1.0), clamp01(s.cloud_coverage), floor + s.cloud_height]);
+    set_vec(&ids, ids.cloud, [s.cloud_shadows.max(0.0), 1.0 / s.cloud_size.max(1.0), clamp01(s.cloud_coverage), camera.map(|p| p.y).unwrap_or(floor) + s.cloud_height]);
     set_vec(&ids, ids.cloud2, [s.cloud_speed[0], s.cloud_speed[1], s.cloud_softness, if s.debug_split { 1.0 } else { 0.0 }]);
     set_vec(&ids, ids.cloud_tint, [s.cloud_tint[0], s.cloud_tint[1], s.cloud_tint[2], 1.0]);
     set_vec(&ids, ids.ao, [s.ao.max(0.0), s.ao_radius.max(0.05), s.ao_distance, s.ao_min_angle.to_radians().sin()]);
     set_vec(&ids, ids.ao_tint, [s.ao_tint[0], s.ao_tint[1], s.ao_tint[2], 1.0]);
-    set_vec(&ids, ids.sparkle, [s.sparkle.max(0.0), clamp01(s.sparkle_density), s.sparkle_distance, s.sparkle_size.max(0.002)]);
+    set_vec(&ids, ids.sparkle, [if sparkle_mask_ready { s.sparkle.max(0.0) } else { 0.0 }, clamp01(s.sparkle_density), s.sparkle_distance, s.sparkle_size.max(0.002)]);
     set_vec(&ids, ids.shafts, [s.sun_shafts.max(0.0), s.sun_shaft_reach.clamp(0.05, 1.0), 0.96, s.sun_shaft_sharpness]);
 
-    let mut v = camera_velocity(st);
+    let mut v = camera_velocity(st, camera);
     for i in 0..3 {
         v[i] += s.debug_cam_vel[i];
     }
@@ -725,8 +740,8 @@ unsafe fn update(st: &mut State, env: *mut Object) {
     let t = clamp01((kmh - k0) / (k1 - k0).max(1.0));
     set_vec(&ids, ids.cam_vel, [v[0], v[1], v[2], kmh / 3.6]);
     set_vec(&ids, ids.speed, [s.speed_streaks.max(0.0), s.speed_frost.max(0.0) * t * t * (3.0 - 2.0 * t), 0.0, 0.0]);
-    let top = floor + s.cloud_bank_top * (st.top - floor).max(50.0);
-    set_vec(&ids, ids.bank, [s.cloud_bank.max(0.0), top - s.cloud_bank_thickness.max(1.0), top, 1.0 / s.cloud_bank_size.max(1.0)]);
+    let (base, top) = cloud_bank_bounds(&s, camera.map(|p| p.y), floor, st.top);
+    set_vec(&ids, ids.bank, [s.cloud_bank.max(0.0), base, top, 1.0 / s.cloud_bank_size.max(1.0)]);
     set_vec(&ids, ids.bank2, [s.cloud_bank_speed[0], s.cloud_bank_speed[1], clamp01(s.cloud_bank_coverage), s.cloud_bank_margin]);
     set_vec(&ids, ids.map_rect, st.rect);
 }
@@ -854,9 +869,8 @@ unsafe fn gc_free(h: isize) {
     }
 }
 
-/// Smoothed world velocity of the game camera (m/s). Teleports, respawns and paused frames don't
-/// count as movement.
-unsafe fn camera_velocity(st: &mut State) -> [f32; 3] {
+/// Current rider-view position, shared by the cloud anchors and camera velocity calculation.
+unsafe fn camera_position(st: &mut State) -> Option<Vec3> {
     if st.cam_check_in == 0 || st.cam == 0 {
         st.cam_check_in = 300;
         if st.cam != 0 {
@@ -878,9 +892,15 @@ unsafe fn camera_velocity(st: &mut State) -> [f32; 3] {
     if unity::is_null(tr) {
         st.cam_check_in = 0;
         st.last_cam = None;
-        return st.cam_vel;
+        return None;
     }
-    let Ok(p) = unity::call_unbox::<Vec3>(tr, "get_position") else { return st.cam_vel };
+    unity::call_unbox::<Vec3>(tr, "get_position").ok().filter(|p| p.x.is_finite() && p.y.is_finite() && p.z.is_finite())
+}
+
+/// Smoothed world velocity of the game camera (m/s). Teleports, respawns and paused frames don't
+/// count as movement.
+unsafe fn camera_velocity(st: &mut State, position: Option<Vec3>) -> [f32; 3] {
+    let Some(p) = position else { return st.cam_vel };
     let dt = unity::class(unity::CORE, "UnityEngine", "Time")
         .and_then(|k| unity::call(k, null_mut(), "get_deltaTime", &mut []))
         .map(|o| il2cpp::unbox::<f32>(o))
@@ -1102,5 +1122,35 @@ pub fn screenshot(req: &Value) -> R<Value> {
         let k = unity::class("UnityEngine.ScreenCaptureModule.dll", "UnityEngine", "ScreenCapture")?;
         unity::call(k, null_mut(), "CaptureScreenshot", &mut [il2cpp::string(path) as _])?;
         Ok(json!({"ok": true, "path": path}))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clouds_keep_their_distance_on_elevated_maps_and_after_respawn() {
+        let s = Settings::default();
+        for elevation in [100.0, 5500.0, -300.0, 12000.0] {
+            let (base, top) = cloud_bank_bounds(&s, Some(elevation), 0.0, 150.0);
+            assert_eq!(elevation - top, 180.0);
+            assert_eq!(top - base, 250.0);
+        }
+    }
+
+    #[test]
+    fn cloud_distance_and_thickness_are_independent_of_terrain() {
+        let s = Settings { cloud_bank_distance: 350.0, cloud_bank_thickness: 120.0, ..Settings::default() };
+        assert_eq!(cloud_bank_bounds(&s, Some(6000.0), 0.0, 100.0), (5530.0, 5650.0));
+        assert_eq!(cloud_bank_bounds(&s, Some(6000.0), 5900.0, 6500.0), (5530.0, 5650.0));
+    }
+
+    #[test]
+    fn old_settings_gain_player_relative_clouds_and_missing_camera_has_a_fallback() {
+        let s: Settings = serde_json::from_value(json!({"cloudBankTop": 0.5, "cloudBankThickness": 100.0})).unwrap();
+        assert_eq!(s.cloud_bank_distance, 180.0);
+        assert_eq!(cloud_bank_bounds(&s, None, 100.0, 500.0), (200.0, 300.0));
+        assert_eq!(cloud_bank_bounds(&s, Some(f32::NAN), 100.0, 500.0), (200.0, 300.0));
     }
 }

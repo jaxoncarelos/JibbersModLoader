@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- No test framework package: the offline build has no NuGet. Run with `dotnet run`. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jibbers.Sdk\Jibbers.Sdk.csproj" />
+    <!-- The C# mod ports, for their game-free logic (camera math, smoothing, ...). -->
+    <ProjectReference Include="..\..\..\mods\cs\Filmer\Filmer.csproj" />
+    <ProjectReference Include="..\..\..\mods\cs\SkiSmooth\SkiSmooth.csproj" />
+    <ProjectReference Include="..\..\..\mods\cs\Reshred\Reshred.csproj" />
+    <ProjectReference Include="..\..\..\mods\cs\Atmosphere\Atmosphere.csproj" />
+    <ProjectReference Include="..\..\..\mods\cs\FastLoad\FastLoad.csproj" />
+    <ProjectReference Include="..\..\..\mods\cs\CollisionStream\CollisionStream.csproj" />
+  </ItemGroup>
+
+</Project>

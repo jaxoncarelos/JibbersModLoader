@@ -1,0 +1,13 @@
+[package]
+name = "jibbers-sdk-devtools"
+version.workspace = true
+edition.workspace = true
+description = "Developer tools plugin (jibbers_devtools.dll): live probes by symbol name for mod developers"
+
+[lib]
+name = "jibbers_devtools"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jibbers-mod-sdk = { path = "../jibbers-mod-sdk" }
+serde_json.workspace = true

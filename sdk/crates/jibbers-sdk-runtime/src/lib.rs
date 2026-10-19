@@ -7,15 +7,17 @@
 //! 2. **The auto-updater**: shortly after the game starts it checks a signed manifest and installs a
 //!    newer SDK release (this DLL, the docs and the SDK sources) under `JibbersMods\`. See `update`.
 //!
-//! The runtime does nothing to the game itself: it hooks nothing and touches no Unity objects.
+//! The runtime does nothing to the game itself: it hooks nothing and touches no Unity objects. The
+//! `sdk.symbols.*` commands only read the game's IL2CPP metadata (class, field and method lists).
 
 pub mod http;
 pub mod manifest;
 pub mod trust;
 pub mod update;
+pub mod loader_migration;
 
 use jibbers_mod_sdk::plugin::{Info, Plugin};
-use jibbers_mod_sdk::{declare_plugin, host, json, log, settings, Setting, Value};
+use jibbers_mod_sdk::{declare_plugin, host, json, log, settings, symbols, Setting, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -24,7 +26,7 @@ use std::time::Duration;
 pub const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Commands this runtime answers. Mods can test for one with `jibbers_mod_sdk::runtime::has_feature`.
-pub const FEATURES: &[&str] = &["sdk.info", "sdk.plugins", "sdk.paths", "sdk.log", "sdk.build", "sdk.update.status", "sdk.update.check"];
+pub const FEATURES: &[&str] = &["sdk.info", "sdk.plugins", "sdk.paths", "sdk.log", "sdk.build", "sdk.update.status", "sdk.update.check", "sdk.symbols.report", "sdk.symbols.dump"];
 
 /// The compatibility list this runtime shipped with (`sdk/compat/compat.json`). Like the loader's
 /// own copy, it is superseded by a newer one the updater installed.
@@ -80,6 +82,9 @@ fn run_check() {
     let cfg = update::Config { base_urls, mods_dir, keys: trust::KEYS, loader_abi: jibbers_mod_sdk::abi::ABI_VERSION };
     let outcome = std::panic::catch_unwind(|| update::check_and_apply(&cfg, &http::WinHttp)).unwrap_or_else(|_| update::Outcome::Failed("internal error (panic) while updating".into()));
     log::info(format!("sdk update: {}", outcome.to_json()));
+    if matches!(outcome, update::Outcome::Updated { .. } | update::Outcome::UpToDate { .. }) {
+        schedule_loader_update();
+    }
     if matches!(outcome, update::Outcome::Updated { .. }) {
         // The loader decided at launch; a list that now covers this game build takes effect at the next one.
         let b = game_build();
@@ -132,6 +137,27 @@ fn game_build() -> Value {
     })
 }
 
+/// `sdk.symbols.report`: what every catalogue symbol resolves to on the running build.
+fn symbols_report() -> Result<Value, String> {
+    host::pump::run(|| unsafe { symbols::report() })?
+}
+
+/// `sdk.symbols.dump`: writes the game's class metadata for the offline `sdk-symbols` tool.
+fn symbols_dump(req: &Value) -> Result<Value, String> {
+    let path = match req.get("path").and_then(Value::as_str) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => jibbers_mod_sdk::game_dir().join("jibbers_symbols_dump.json"),
+    };
+    let images: Vec<String> = match req.get("images") {
+        Some(Value::Array(a)) => a.iter().map(|v| v.as_str().map(str::to_string).ok_or("images must be strings")).collect::<Result<_, _>>()?,
+        Some(_) => return Err("images must be an array of image names".into()),
+        None => vec![],
+    };
+    let p = path.clone();
+    let classes = host::pump::run(move || unsafe { symbols::dump(&p, &images.iter().map(String::as_str).collect::<Vec<_>>()) })??;
+    Ok(json!({"path": path, "classes": classes}))
+}
+
 fn info() -> Value {
     json!({
         "sdkVersion": RUNTIME_VERSION,
@@ -181,6 +207,16 @@ fn write_log(req: &Value) -> Result<Value, String> {
 
 pub struct SdkRuntime;
 
+static LOADER_SCHEDULED: AtomicBool = AtomicBool::new(false);
+fn schedule_loader_update() {
+    if LOADER_SCHEDULED.swap(true, Ordering::SeqCst) { return; }
+    match loader_migration::schedule(&jibbers_mod_sdk::game_dir(), trust::KEYS) {
+        Ok(true) => log::info("sdk: verified loader update scheduled for game exit; new phone UI takes effect next launch"),
+        Ok(false) => { LOADER_SCHEDULED.store(false, Ordering::SeqCst); }
+        Err(error) => { LOADER_SCHEDULED.store(false, Ordering::SeqCst); log::info(format!("sdk: loader update was not scheduled: {error}")); }
+    }
+}
+
 impl Plugin for SdkRuntime {
     const INFO: Info = Info {
         id: "sdk",
@@ -204,6 +240,9 @@ impl Plugin for SdkRuntime {
         } else if std::env::var_os("JIBBERS_SDK_NO_UPDATE").is_some() {
             log::info("sdk: auto-update disabled by JIBBERS_SDK_NO_UPDATE");
         } else if update_url_configured() || update::read_installed(&jibbers_mod_sdk::mods_dir()).is_some_and(|i| i.base_url.is_some()) {
+            // A legacy updater may have delivered this runtime and loader payload last launch.
+            // Filesystem work only; no host/plugin calls while the loader holds its core lock.
+            std::thread::spawn(schedule_loader_update);
             spawn_check(START_DELAY);
         } else {
             log::info("sdk: this build has no update URL; auto-update is idle");
@@ -219,6 +258,8 @@ impl Plugin for SdkRuntime {
             "sdk.build" => Ok(game_build()),
             "sdk.update.status" => Ok(json!({"update": status(), "running": RUNNING.load(Ordering::SeqCst)})),
             "sdk.update.check" => Ok(json!({"started": spawn_check(Duration::ZERO), "update": status()})),
+            "sdk.symbols.report" => symbols_report(),
+            "sdk.symbols.dump" => symbols_dump(req),
             _ => return None,
         })
     }
@@ -244,8 +285,8 @@ mod tests {
     fn answers_its_commands() {
         let rt = Runtime::new::<SdkRuntime>(None).unwrap();
         for f in FEATURES {
-            if matches!(*f, "sdk.plugins" | "sdk.update.check") {
-                continue; // need the loader / the network
+            if matches!(*f, "sdk.plugins" | "sdk.update.check" | "sdk.symbols.report" | "sdk.symbols.dump") {
+                continue; // need the loader / the network / the game
             }
             let r = rt.handle(&json!({"cmd": f, "msg": "hello"}));
             assert!(r.is_ok(), "{f}: {r:?}");

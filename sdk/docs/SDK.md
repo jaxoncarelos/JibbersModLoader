@@ -50,7 +50,9 @@ Other plugins: `host::list_plugins()`, `host::call_plugin(id, &json)`, `host::ca
 
 `il2cpp` (raw lookups) and `unity` (class/method calls, field access, GC handles, object search, arrays) are thin and
 `unsafe`, main thread only. Classes are found by assembly image, namespace and name (`unity::class("Assembly-CSharp.dll", "", "MjScene")`),
-members by name. Game code is obfuscated: confirm names against the game with a probe before relying on them.
+members by name. Game code is obfuscated: for game classes, use the stable names in `symbols` instead
+(`symbols::hook("camera.follow.late_update", cb)`, `symbols::get_obj(cam, "camera.follow.target")`). They are found by
+shape and survive game updates. See [SYMBOLS.md](SYMBOLS.md) and [SYMBOLS-REFERENCE.md](SYMBOLS-REFERENCE.md).
 
 ## Logging
 

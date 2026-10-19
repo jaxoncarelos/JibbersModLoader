@@ -4,12 +4,15 @@ members = [
     "crates/jibbers-mod-sdk",
     "crates/jibbers-sdk-runtime",
     "crates/jibbers-sdk-publish",
+    "crates/jibbers-sdk-symbols",
+    "crates/jibbers-sdk-devtools",
+    "crates/jibbers-dotnet-bridge",
 ]
 # The template is a standalone package (it is meant to be copied next to crates/ and edited).
 exclude = ["template"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 
 [workspace.dependencies]

@@ -18,6 +18,7 @@
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/abi.rs"]
 mod abi;
 mod atmosphere;
+mod sparkle_mask;
 mod chatcmd;
 mod dump;
 mod game;
@@ -35,6 +36,22 @@ mod reshred_ground;
 mod reshred_input;
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/unity.rs"]
 mod unity;
+// Stable names for obfuscated game members (sdk/docs/SYMBOLS.md), shared with the SDK by path.
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/gamebuild.rs"]
+mod gamebuild;
+#[allow(dead_code)]
+#[path = "host_shim.rs"]
+mod host;
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/inspect.rs"]
+mod inspect;
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/shape.rs"]
+mod shape;
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/symbols.rs"]
+mod symbols;
 
 use serde_json::{json, Value};
 use std::ffi::c_void;
@@ -213,6 +230,8 @@ pub unsafe extern "C" fn jh_core_unload() {
 }
 
 unsafe fn unload() {
+    #[cfg(not(feature = "reshred-only"))]
+    let _ = pump::run(|| sparkle_mask::teardown());
     #[cfg(not(any(feature = "atmosphere-only", feature = "reshred-only")))]
     {
         modmenu::stop();

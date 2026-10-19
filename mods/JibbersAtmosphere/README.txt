@@ -19,6 +19,12 @@ version.dll is the shared loader for Jibbers mods. Other Jibbers mods that
 use it (they ship as DLLs in JibbersMods) can share the same version.dll, so
 only one copy is needed in the game folder.
 The release loader provides Options > Mods with independent plugin settings.
+Valley clouds follow the rider's camera height, including on elevated imported
+maps. "Cloud distance below" sets the gap to the cloud tops (180 metres by
+default); a smaller value brings the cloud layer closer. In the settings file
+this is "cloudBankDistance". "cloudBankThickness" controls the layer's depth.
+Snow glitter stays enabled. A character silhouette mask prevents its sun glints
+from being added to clothing, including upward-facing shoulders and sleeves.
 
 Do not install this together with the developer core (jibbers_hotload_core.dll).
 Both use version.dll, and the developer core already includes the atmosphere.

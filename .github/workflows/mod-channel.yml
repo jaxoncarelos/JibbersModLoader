@@ -1,0 +1,128 @@
+name: Build and publish public mods
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the tested signed stable channel
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mod-channel-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check public source allowlist
+        run: python tools/verify_public_sources.py
+      - name: Test and build loader, FPV, Atmosphere and Rewind
+        shell: pwsh
+        run: ./tools/package_channel.ps1 -Sequence (100 + ${{ github.run_number }})
+      - name: Prepare backwards-compatible SDK loader upgrade
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./tools/package_loader_bridge.ps1
+          Compress-Archive -Path dist/loader-bridge-unsigned/* -DestinationPath dist/JibbersLoaderBridge-Unsigned.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-mod-channel
+          path: |
+            dist/JibbersChannel-Unsigned.zip
+            dist/JibbersLoaderBridge-Unsigned.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: build
+    runs-on: windows-2022
+    environment: mod-channel-stable
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-mod-channel
+          path: dist
+      - name: Sign and verify the exact tested build
+        shell: pwsh
+        env:
+          JIBBERS_SIGNING_KEY: ${{ secrets.JIBBERS_SIGNING_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:JIBBERS_SIGNING_KEY) { throw 'Set JIBBERS_SIGNING_KEY in the protected mod-channel-stable environment.' }
+          Expand-Archive -LiteralPath dist/JibbersChannel-Unsigned.zip -DestinationPath out/channel
+          Expand-Archive -LiteralPath dist/JibbersLoaderBridge-Unsigned.zip -DestinationPath out/bridge
+          $previousArgs = @()
+          gh release view mod-channel-stable *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release download mod-channel-stable --pattern catalog.json --pattern catalog.json.sig --dir out/previous
+            if ($LASTEXITCODE -ne 0) { throw 'Could not verify the previous published catalog.' }
+            $previousArgs = @('--previous', 'out/previous/catalog.json')
+          }
+          $keyPath = Join-Path $env:RUNNER_TEMP 'jibbers-signing.key'
+          try {
+            [IO.File]::WriteAllText($keyPath, $env:JIBBERS_SIGNING_KEY.Trim(), [Text.UTF8Encoding]::new($false))
+            & out/channel/bin/jibbers-publish.exe --spec out/channel/spec.json --root out/channel/payload --out dist/channel --key $keyPath @previousArgs
+            if ($LASTEXITCODE -ne 0) { throw 'Signing or verification failed.' }
+            $channelLoader = 'out/channel/payload/JibbersMods/system/jibbers_loader.dll'
+            if ((Get-FileHash $channelLoader).Hash -ne (Get-FileHash out/bridge/loader/jibbers_loader.dll).Hash) { throw 'SDK bridge and public channel loader binaries differ.' }
+            & out/bridge/bin/sdk-publish.exe release --version 0.1.2 --runtime out/bridge/runtime.dll --bundle out/bridge/bundle --compat out/bridge/compat.json --out dist/sdk-bridge --key $keyPath --base-url 'https://github.com/jaxoncarelos/JibbersModLoader/releases/latest/download' --loader-bootstrap out/bridge/loader/version.dll --loader-implementation out/bridge/loader/jibbers_loader.dll --loader-helper out/bridge/loader/jibbers-migrate.exe --loader-version 0.2.1 --notes 'Automatically migrate the old loader to the new phone UI and public mod manager after a normal game exit.'
+            if ($LASTEXITCODE -ne 0) { throw 'SDK loader bridge signing failed.' }
+            & out/bridge/bin/sdk-publish.exe verify --dir dist/sdk-bridge
+            if ($LASTEXITCODE -ne 0) { throw 'SDK loader bridge verification failed.' }
+          } finally { Remove-Item -LiteralPath $keyPath -ErrorAction SilentlyContinue }
+          & out/channel/bin/jibbers-publish.exe verify dist/channel
+          if ($LASTEXITCODE -ne 0) { throw 'Signed artifact verification failed.' }
+          Copy-Item dist/channel/catalog.json,dist/channel/catalog.json.sig -Destination out/channel/JibbersModManager
+          Compress-Archive -Path out/channel/JibbersModManager -DestinationPath dist/JibbersModManager.zip
+          ./tools/verify_channel.ps1 -ChannelDir dist/channel -BootstrapZip dist/JibbersModManager.zip -Publisher out/channel/bin/jibbers-publish.exe
+          ./tools/verify_loader_bridge.ps1 -UnsignedDir out/bridge -SignedDir dist/sdk-bridge
+      - name: Publish immutable release and update stable download channel
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'manager-build-${{ github.run_number }}'
+          gh release create $tag dist/JibbersModManager.zip --target '${{ github.sha }}' --title "Mod manager build ${{ github.run_number }}" --generate-notes --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create the versioned release.' }
+          # The stable catalog is a separate tag so SDK releases/latest never change this URL.
+          gh release view mod-channel-stable *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create mod-channel-stable --target '${{ github.sha }}' --title 'Public mod update channel' --notes 'Signed catalog and content-addressed public mod assets. Source: this repository, GPL-3.0-only. Install JibbersModManager.zip once; manage mods from Options > Mods afterwards.' --latest=false
+            if ($LASTEXITCODE -ne 0) { throw 'Could not create the stable channel.' }
+          }
+          # Payloads upload before the catalog. Content-addressed filenames remain available to
+          # older signed catalogs; do not delete old assets from the stable channel.
+          foreach ($asset in Get-ChildItem dist/channel -Filter '*.bin') {
+            gh release upload mod-channel-stable $asset.FullName --clobber
+            if ($LASTEXITCODE -ne 0) { throw 'Asset upload failed; catalog was not published.' }
+          }
+          gh release upload mod-channel-stable dist/JibbersModManager.zip --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Bootstrap upload failed.' }
+          gh release upload mod-channel-stable dist/channel/catalog.json.sig dist/channel/catalog.json --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Catalog upload failed.' }
+          # This remains latest so existing SDK installations fetch the bridge through the URL
+          # already compiled into their updaters. Ordinary mod-channel releases are never latest.
+          $sdkAssets = @(Get-ChildItem dist/sdk-bridge -File | ForEach-Object { $_.FullName })
+          gh release view v0.1.2 *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create v0.1.2 $sdkAssets --target '${{ github.sha }}' --title 'SDK 0.1.2: automatic phone UI and loader upgrade' --notes-file docs/LOADER-MIGRATION.md --latest
+            if ($LASTEXITCODE -ne 0) { throw 'SDK bridge release was not published.' }
+          }

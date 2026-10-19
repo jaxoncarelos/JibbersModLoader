@@ -7,6 +7,10 @@
 //! - plugins: every `*.dll` in `JibbersMods\` that exports the core ABI (the atmosphere, Reshred).
 //!   They are loaded once, when the loader attaches. A plugin that fails to start is skipped.
 //!
+//! A third kind is registered, not loaded: a plugin DLL that hosts other plugins (the .NET bridge,
+//! one entry per C# mod) calls the `jh_register_plugin` export from its `jh_core_init`. Each
+//! registered plugin is listed, called and shown in the Mods tab like a DLL plugin.
+//!
 //! A request goes to the developer core first, then the plugins in file-name order (see `handle`).
 
 use crate::abi::{self, CoreFree, CoreHandle, CoreInit, Host};
@@ -14,7 +18,8 @@ use crate::{game_dir, hooks, log, pump};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::RwLock;
+use std::ffi::c_void;
+use std::sync::{Mutex, RwLock};
 use windows_sys::Win32::Foundation::{FreeLibrary, HMODULE};
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 
@@ -68,6 +73,20 @@ pub fn host() -> &'static Host {
     &HOST
 }
 
+/// Request handler of a registered plugin: `ctx` is the value given at registration.
+pub type CtxHandle = unsafe extern "C" fn(ctx: *mut c_void, req: *const u8, len: usize, out: *mut *mut u8, out_len: *mut usize);
+pub type CtxFree = unsafe extern "C" fn(ctx: *mut c_void, p: *mut u8, len: usize);
+pub type CtxUnload = unsafe extern "C" fn(ctx: *mut c_void);
+
+/// How the loader talks to a core.
+#[derive(Clone, Copy)]
+enum Calls {
+    /// A DLL with the core exports.
+    Dll { handle: CoreHandle, free: CoreFree, unload: Option<abi::CoreUnload> },
+    /// A plugin registered through `jh_register_plugin`.
+    Registered { ctx: usize, handle: CtxHandle, free: CtxFree, unload: Option<CtxUnload> },
+}
+
 struct Core {
     /// File name, for the log.
     name: String,
@@ -75,12 +94,11 @@ struct Core {
     id: u32,
     /// True for `jibbers_hotload_core.dll`, the core `reload-core` swaps.
     developer: bool,
+    /// Null for a registered plugin (its host DLL owns the code).
     module: HMODULE,
-    handle: CoreHandle,
-    free: CoreFree,
-    /// Optional `jh_core_unload`: lets the core take down what it put into the game (UI objects
-    /// whose callbacks point into its code) before the DLL is freed.
-    unload: Option<abi::CoreUnload>,
+    /// The optional unload (`jh_core_unload`) lets the core take down what it put into the game
+    /// (UI objects whose callbacks point into its code) before the DLL is freed.
+    calls: Calls,
     copy: PathBuf,
 }
 unsafe impl Send for Core {}
@@ -130,17 +148,49 @@ unsafe fn load_from(src: &Path, developer: bool) -> Result<Core, LoadError> {
         return Err(e);
     }
     let unload = sym(b"jh_core_unload\0").map(|f| std::mem::transmute::<_, abi::CoreUnload>(f));
-    Ok(Core { name, id, developer, module, handle: std::mem::transmute(handle), free: std::mem::transmute(free), unload, copy })
+    Ok(Core { name, id, developer, module, calls: Calls::Dll { handle: std::mem::transmute(handle), free: std::mem::transmute(free), unload }, copy })
+}
+
+/// Plugins registered while the cores are write-locked (from a host plugin's `jh_core_init`);
+/// moved into `CORES` right after that plugin has loaded.
+static PENDING: Mutex<Vec<Core>> = Mutex::new(Vec::new());
+
+/// Registers a plugin hosted by another plugin (one C# mod of the .NET bridge). Call it from your
+/// `jh_core_init`; `name` (UTF-8) is shown as the plugin's file. Returns its owner id, or 0 if
+/// `name` is empty or not UTF-8. The host DLL must stay loaded while the plugin is registered:
+/// the loader calls `unload(ctx)` before it frees the host.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn jh_register_plugin(name: *const u8, name_len: usize, ctx: *mut c_void, handle: CtxHandle, free: CtxFree, unload: Option<CtxUnload>) -> u32 {
+    if name.is_null() || name_len == 0 {
+        return 0;
+    }
+    let Ok(name) = std::str::from_utf8(std::slice::from_raw_parts(name, name_len)) else { return 0 };
+    let id = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    let core = Core { name: format!("{name}.dll"), id, developer: false, module: std::ptr::null_mut(), calls: Calls::Registered { ctx: ctx as usize, handle, free, unload }, copy: PathBuf::new() };
+    PENDING.lock().unwrap().push(core);
+    id
+}
+
+/// Moves registered plugins into the core list.
+fn take_pending(cores: &mut Vec<Core>) {
+    for c in PENDING.lock().unwrap().drain(..) {
+        log::info(format!("plugin {} registered", c.name));
+        cores.push(c);
+    }
 }
 
 /// Drops a core's hook callbacks and unloads it.
 fn unload(core: Core) {
-    if let Some(f) = core.unload {
-        unsafe { f() };
+    match core.calls {
+        Calls::Dll { unload: Some(f), .. } => unsafe { f() },
+        Calls::Registered { ctx, unload: Some(f), .. } => unsafe { f(ctx as *mut c_void) },
+        _ => {}
     }
     hooks::clear_callbacks(core.id);
-    unsafe { FreeLibrary(core.module) };
-    let _ = std::fs::remove_file(&core.copy);
+    if !core.module.is_null() {
+        unsafe { FreeLibrary(core.module) };
+        let _ = std::fs::remove_file(&core.copy);
+    }
 }
 
 /// Swaps the developer core for the file in the game folder. The old core is unloaded first, so a
@@ -181,6 +231,7 @@ fn load_plugins(cores: &mut Vec<Core>, only: Option<&str>) {
             }
             Err(e) => log::info(format!("plugin {}: {}; skipped", f.display(), e.msg)),
         }
+        take_pending(cores);
     }
 }
 
@@ -260,9 +311,18 @@ pub fn handle(req: &[u8]) -> Result<Vec<u8>, String> {
 unsafe fn call(core: &Core, req: &[u8]) -> Vec<u8> {
     let mut out: *mut u8 = std::ptr::null_mut();
     let mut len = 0usize;
-    (core.handle)(req.as_ptr(), req.len(), &mut out, &mut len);
+    match core.calls {
+        Calls::Dll { handle, .. } => handle(req.as_ptr(), req.len(), &mut out, &mut len),
+        Calls::Registered { ctx, handle, .. } => handle(ctx as *mut c_void, req.as_ptr(), req.len(), &mut out, &mut len),
+    }
+    if out.is_null() {
+        return br#"{"ok":false,"error":"plugin returned no reply"}"#.to_vec();
+    }
     let v = std::slice::from_raw_parts(out, len).to_vec();
-    (core.free)(out, len);
+    match core.calls {
+        Calls::Dll { free, .. } => free(out, len),
+        Calls::Registered { ctx, free, .. } => free(ctx as *mut c_void, out, len),
+    }
     v
 }
 
@@ -285,7 +345,7 @@ unsafe extern "C" fn list_plugins(out: *mut *mut u8, out_len: *mut usize) {
         .iter()
         .map(|c| {
             let file = Path::new(&c.name).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-            serde_json::json!({"id": c.id, "file": file, "developer": c.developer})
+            serde_json::json!({"id": c.id, "file": file, "developer": c.developer, "registered": matches!(c.calls, Calls::Registered { .. })})
         })
         .collect();
     give(Value::Array(list).to_string().into_bytes(), out, out_len);

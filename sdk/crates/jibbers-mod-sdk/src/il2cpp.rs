@@ -66,7 +66,10 @@ api! {
     class_is_valuetype: fn(*const Class) -> bool;
     class_is_assignable_from: fn(*const Class, *const Class) -> bool;
     class_get_nested_types: fn(*const Class, *mut *mut c_void) -> *mut Class;
+    class_get_interfaces: fn(*mut Class, *mut *mut c_void) -> *mut Class;
+    class_get_declaring_type: fn(*const Class) -> *mut Class;
     class_from_type: fn(*const Type) -> *mut Class;
+    class_from_system_type: fn(*mut Object) -> *mut Class;
     class_get_element_class: fn(*mut Class) -> *mut Class;
     class_value_size: fn(*mut Class, *mut u32) -> i32;
     runtime_class_init: fn(*mut Class);

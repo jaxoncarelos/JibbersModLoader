@@ -39,7 +39,7 @@ struct Field {
     kind: Kind,
 }
 
-const FIELDS: [Field; 13] = [
+const FIELDS: [Field; 14] = [
     Field { key: "enabled", label: "Atmosphere", section: "General", tooltip: "Turns the whole effect on or off.", kind: Kind::Toggle },
     Field { key: "preset", label: "Preset", section: "General", tooltip: "A named set of fog, snow and sky values.", kind: Kind::Choice },
     Field { key: "hotkeys", label: "Hotkeys", section: "General", tooltip: "Keyboard shortcuts, while the game has focus.", kind: Kind::Toggle },
@@ -50,7 +50,8 @@ const FIELDS: [Field; 13] = [
     Field { key: "snow", label: "Snowfall", section: "Snow", tooltip: "Fraction of the snowflakes shown.", kind: Kind::Slider { min: 0.0, max: 1.0, step: 0.05 } },
     Field { key: "snowSize", label: "Flake size", section: "Snow", tooltip: "Radius of a snowflake (m).", kind: Kind::Slider { min: 0.01, max: 0.08, step: 0.005 } },
     Field { key: "speedStreaks", label: "Speed streaks", section: "Snow", tooltip: "How much falling snow streaks with your speed.", kind: Kind::Slider { min: 0.0, max: 2.0, step: 0.1 } },
-    Field { key: "cloudBank", label: "Valley clouds", section: "Sky", tooltip: "Low cloud sea in the valleys below the map.", kind: Kind::Slider { min: 0.0, max: 2.0, step: 0.1 } },
+    Field { key: "cloudBank", label: "Valley clouds", section: "Sky", tooltip: "Cloud sea below the rider, following your elevation.", kind: Kind::Slider { min: 0.0, max: 2.0, step: 0.1 } },
+    Field { key: "cloudBankDistance", label: "Cloud distance below", section: "Sky", tooltip: "Metres from your camera down to the cloud tops.", kind: Kind::Slider { min: 60.0, max: 1000.0, step: 10.0 } },
     Field { key: "sunShafts", label: "Sun shafts", section: "Sky", tooltip: "Light shafts around the sun.", kind: Kind::Slider { min: 0.0, max: 2.0, step: 0.1 } },
     Field { key: "grading", label: "Colour grading", section: "Colour", tooltip: "Filmic tonemapping, white balance and bloom.", kind: Kind::Toggle },
 ];
@@ -233,7 +234,7 @@ mod tests {
         let keys: Vec<&str> = settings.iter().map(|e| e["key"].as_str().unwrap()).collect();
         assert_eq!(
             keys,
-            ["enabled", "preset", "hotkeys", "toggleKey", "presetKey", "fog", "fogStart", "snow", "snowSize", "speedStreaks", "cloudBank", "sunShafts", "grading"]
+            ["enabled", "preset", "hotkeys", "toggleKey", "presetKey", "fog", "fogStart", "snow", "snowSize", "speedStreaks", "cloudBank", "cloudBankDistance", "sunShafts", "grading"]
         );
         let mut sections: Vec<&str> = settings.iter().map(|e| e["section"].as_str().unwrap()).collect();
         sections.dedup();

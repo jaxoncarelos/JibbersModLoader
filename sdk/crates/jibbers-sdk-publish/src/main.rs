@@ -143,6 +143,24 @@ fn release(o: &HashMap<String, String>) -> R<()> {
         }
         inputs.push((format!("sdk/{rel}"), read(&p)?));
     }
+    // Old runtimes accept these sdk/ paths already. The new runtime authenticates the nested
+    // install plan and starts a helper to replace the locked version.dll after the game exits.
+    let loader_args = ["loader-bootstrap", "loader-implementation", "loader-helper"];
+    if loader_args.iter().any(|name| o.contains_key(*name)) {
+        use jibbers_sdk::loader_migration::{Plan, Payload, BOOTSTRAP, IMPLEMENTATION, HELPER};
+        let mut payloads = vec![];
+        for (arg, name) in loader_args.into_iter().zip([BOOTSTRAP, IMPLEMENTATION, HELPER]) {
+            let data = read(Path::new(need(o, arg)?))?;
+            if !data.starts_with(b"MZ") { return Err(format!("{arg} is not a Windows executable")); }
+            payloads.push(Payload { name: name.to_string(), size: data.len() as u64, sha256: manifest::sha256_hex(&data) });
+            inputs.push((format!("sdk/loader/{name}"), data));
+        }
+        let plan = Plan { schema: 1, version: o.get("loader-version").cloned().unwrap_or_else(|| "0.2.0".into()), files: payloads };
+        let plan = serde_json::to_vec_pretty(&plan).map_err(|e| e.to_string())?;
+        let signature = hex(&signing.sign(&plan).to_bytes());
+        inputs.push(("sdk/loader/install.json".into(), plan));
+        inputs.push(("sdk/loader/install.json.sig".into(), signature.into_bytes()));
+    }
     inputs.push(("sdk/compat.json".into(), serde_json::to_vec_pretty(&compat.to_json()).map_err(|e| e.to_string())?));
 
     if out.exists() && std::fs::read_dir(&out).map_err(|e| e.to_string())?.next().is_some() {
