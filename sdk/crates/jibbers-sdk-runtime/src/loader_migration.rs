@@ -68,7 +68,8 @@ mod tests {
     struct Fixture { root: PathBuf, keys: Vec<[u8; 32]> }
     impl Fixture {
         fn new() -> Self {
-            let root = std::env::temp_dir().join(format!("jibbers-migration-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+            static ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            let root = std::env::temp_dir().join(format!("jibbers-migration-{}-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(), ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
             let staged = root.join(format!("JibbersMods/{DIRECTORY}")); std::fs::create_dir_all(&staged).unwrap();
             let key = SigningKey::from_bytes(&[87;32]);
             let mut files = vec![];
