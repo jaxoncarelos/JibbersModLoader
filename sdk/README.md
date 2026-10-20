@@ -1,50 +1,55 @@
 # Jibbers Mod SDK
 
-Write mods for Jibbers Playtest in Rust. A mod is a Windows x64 DLL that the mod loader (`version.dll`)
-loads from `<game>\JibbersMods\`. The SDK gives it the Options > Mods tab, saved settings, hooks into game
-methods, main-thread execution and raw IL2CPP/Unity access. Unofficial; not affiliated with the game's developer.
+Write mods for Jibbers Playtest in **C#**. A mod is a .NET class library; the mod loader starts .NET
+inside the game and runs it, with its own section in **Options > Mods**, saved settings, the game's
+events, typed access to every game class, hooks and detours, input, and raw IL2CPP/Unity access.
+Unofficial; not affiliated with the game's developer.
+
+**Docs and searchable API reference:** the [`docs/`](../docs/index.html) site (published with GitHub
+Pages): guides, plus every SDK type and member, every game class and event, with arguments and
+descriptions.
 
 If you use an AI agent, point it at [AGENTS.md](AGENTS.md) first.
 
 ## Set up (once)
 
-1. Install Rust (rustup, stable, `x86_64-pc-windows-msvc`) and the Visual Studio C++ build tools.
-2. Close the game, then run `install.ps1` in this folder (PowerShell). It copies `bin\version.dll` (the loader)
-   and `bin\jibbers_sdk.dll` (the SDK runtime) into the game folder, keeping any existing `version.dll` as
-   `version.dll.bak`. Use `-GameDir` if the game is not in the default Steam folder.
-3. Start the game once and check `jibbers_hotload.log` beside `Jibbers.exe`. You should see a line starting
-   with `game build validated`. If it says `not validated; mods disabled`, read [docs/GAME-BUILDS.md](docs/GAME-BUILDS.md).
+1. Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+2. Close the game and extract `JibbersCSharp.zip` into the game folder (the one with `Jibbers.exe`):
+   it adds `version.dll` (the loader), `JibbersMods\jibbers_dotnet.dll`, `JibbersMods\dotnet\` (the C#
+   SDK and a bundled .NET runtime, so players need no install) and `JibbersMods\cs\` (your mods).
+3. Start the game once and check `jibbers_hotload.log` beside `Jibbers.exe` for `dotnet: .NET 8... running`.
 
 ## Make a mod
 
 ```powershell
-Copy-Item -Recurse template my-mod        # keep it next to crates\ (it depends on ..\crates\jibbers-mod-sdk)
-cd my-mod
-# edit Cargo.toml (names), src\lib.rs (INFO.id, settings, hooks)
-cargo build --release
-Copy-Item target\release\my_mod.dll "<game>\JibbersMods\"
+Copy-Item -Recurse dotnet\template\MyMod MyCoolMod   # rename the .csproj and the class too
+cd MyCoolMod
+dotnet build -c Release                              # copies the DLL to <game>\JibbersMods\cs\
 ```
 
-Restart the game to load a new DLL (plugins load once per launch). Your settings appear under Options > Mods and
-are saved in `JibbersMods\<id>.settings.json`. Problems and your own `log::info` lines go to `jibbers_hotload.log`.
+Restart the game to load it. See [Getting started](../docs/guides/getting-started.md).
 
 ## What is here
 
 | Path | What |
 | --- | --- |
-| `template/` | Starter mod: settings, a per-frame hook, a custom command |
-| `crates/jibbers-mod-sdk/` | The SDK your mod links against |
-| `crates/jibbers-sdk-runtime/` | The runtime plugin (`jibbers_sdk.dll`) with the auto-updater |
-| `crates/jibbers-sdk-publish/` | Maintainer tool for signed releases (not needed by modders) |
+| `dotnet/Jibbers.Sdk/` | **The C# SDK** mods reference (`Jibbers.Sdk.dll`), including the generated game bindings in `Generated/` |
+| `dotnet/template/MyMod/` | Starter mod: settings, an event, a pre-hook, a hotkey, a game setting, a command |
+| `dotnet/examples/` | `SlowMo` (detour of the physics step), `Inspector` (developer probes) |
+| `dotnet/Jibbers.Sdk.Generator/` | `jibbers-gen`: regenerates the game bindings and the docs data from a game dump |
+| `dotnet/Jibbers.Sdk.Tests/` | Tests (`dotnet run`): symbol matcher, settings, Mods-tab protocol, the real dump |
+| `crates/jibbers-mod-sdk/symbols.json` | The symbol catalogue: stable names for the game's obfuscated classes |
+| `crates/jibbers-dotnet-bridge/` | Native bridge that starts .NET in the game (`jibbers_dotnet.dll`) |
+| `crates/jibbers-mod-sdk/`, `crates/jibbers-sdk-*` | The native layer: the plugin ABI shared with the loader, the runtime/updater, maintainer tools. The original mods are written against it; new mods should use C#. |
 | `compat/compat.json` | Game builds the mods are validated for |
-| `docs/SDK.md` | The guide: lifecycle, settings, hooks, threading, IL2CPP |
-| `docs/RUNTIME.md` | Commands of the SDK runtime and how to call them |
-| `docs/GAME-BUILDS.md` | Game-build guard, `JIBBERS_HOTLOAD_FORCE`, auto-updates, publishing |
-| `bin/` | `version.dll` (loader) and `jibbers_sdk.dll` (runtime) |
+| `docs/` | Native-layer guides: `GAME-BUILDS.md` (build guard, publishing), `SYMBOLS.md`, `RUNTIME.md` |
 
-## Updates
+## Building the SDK
 
-`jibbers_sdk.dll` checks a signed release at game start (after about 15 s, in the background) and installs newer
-runtime features, docs, the template and the list of validated game builds under `JibbersMods\`, so you do not
-need to download the SDK again. It never replaces `version.dll`. Turn it off in Options > Mods (Mod SDK) or with
-`JIBBERS_SDK_NO_UPDATE=1`. Do not edit files under `JibbersMods\sdk\`; they are overwritten.
+```powershell
+tools\package_dotnet.ps1 -BundleRuntime    # tests, builds, dist\JibbersCSharp.zip + dist\JibbersCSharpSDK.zip
+```
+
+After a game update: dump the game (Inspector's `inspector.dump`), then
+`dotnet run --project dotnet\Jibbers.Sdk.Generator -c Release -- resolve --dump <dump>`; fix any
+symbol that fails, regenerate (`bindings`, `docs`), and validate the build (`docs/GAME-BUILDS.md`).

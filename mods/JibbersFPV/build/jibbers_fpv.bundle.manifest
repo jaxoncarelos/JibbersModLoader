@@ -1,0 +1,27 @@
+ManifestFileVersion: 0
+UnityVersion: 6000.3.8f1
+CRC: 3973790896
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 4f100ec67d4cdcfcb070d091dfa0d79a
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 743107f2bb6078bebe12978cc27e828e
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: c15ebc96487b8c01f7d3cbec230028c1
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 82
+  Script: {instanceID: 0}
+- Class: 83
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/Gen/JibbersFPVAudio.prefab
+Dependencies: []

@@ -1,0 +1,655 @@
+{
+  "symbols": [
+    {
+      "id": "env.manager",
+      "summary": "Scene-wide environment controller: runs every frame in a map, owns the post-processing (Beautify) volume and receives the map-load event.",
+      "tags": ["shape", "per-frame"],
+      "notes": "Update is the per-frame hook Atmosphere, Reshred and FastLoad share (3 plugins: the per-method limit is reached). The map-load handler may live on terrain.painter instead on some builds.",
+      "match": {"name": "EnvironmentManager"},
+      "members": {
+        "update": {"method": {"name": "Update", "argc": 0}},
+        "beautify": {"field": {"type": "Beautify.Universal.Beautify", "static": false, "nth": 0, "inherited": true}},
+        "ambient_saturation": {"field": {"name": "ambientSaturation"}}
+      }
+    },
+    {
+      "id": "env.map_load_handler",
+      "summary": "The EnvironmentManager instance method that receives a MapLoadEvent when a map has loaded (obfuscated name).",
+      "tags": ["shape", "hookable"],
+      "notes": "Atmosphere hooks it to learn which map is loaded (maphook.rs).",
+      "match": {"name": "EnvironmentManager", "methods": [{"params": ["@map.load_event"], "static": false}]},
+      "members": {
+        "on_map_load": {"method": {"params": ["@map.load_event"], "static": false}}
+      }
+    },
+    {
+      "id": "terrain.painter",
+      "summary": "Terrain painting component; the fallback owner of the map-load handler.",
+      "tags": ["shape"],
+      "match": {"name": "TerrainPainter"},
+      "members": {
+        "on_map_load": {"method": {"params": ["@map.load_event"], "static": false}}
+      }
+    },
+    {
+      "id": "map.load_event",
+      "summary": "struct MapLoadEvent { MapData map; Terrain[] terrains }, raised when a map has finished loading.",
+      "tags": ["shape", "event"],
+      "match": {"name": "MapLoadEvent", "valuetype": true},
+      "members": {
+        "map": {"field": {"name": "map"}},
+        "terrains": {"field": {"type": "UnityEngine.Terrain[]"}}
+      }
+    },
+    {
+      "id": "map.importer",
+      "summary": "MapRuntimeImporter: builds the loaded map (terrains, object roots) at runtime.",
+      "tags": ["order"],
+      "notes": "import is the second of the class's two obfuscated void() instance methods (`bjc` on the 2026-10-18 build; `bix` is the other). CollisionStream and FastLoad hook it to see a map import start. terrains was `uzv` on an older build and `nlk` on 2026-10-18.",
+      "match": {"name": "MapRuntimeImporter"},
+      "members": {
+        "instance": {"field": {"type": "MapRuntimeImporter", "static": true}},
+        "terrains": {"field": {"type": "UnityEngine.Terrain[]"}},
+        "import": {"method": {"obfuscated": true, "params": [], "return": "System.Void", "static": false, "nth": 1}},
+        "build_terrains": {"method": {"params": ["@map.data"], "return": "UnityEngine.Terrain[]"}},
+        "snow_surface": {"field": {"name": "snowSurface"}},
+        "terrain_material": {"field": {"name": "terrainMaterial"}}
+      }
+    },
+    {
+      "id": "map.data",
+      "summary": "Jibbers.MapTools.MapData: the loaded map's description (id, name).",
+      "tags": ["shape"],
+      "match": {"image": "fun.jibbers.map-tools.dll", "namespace": "Jibbers.MapTools", "name": "MapData"},
+      "members": {
+        "id": {"field": {"name": "id"}},
+        "name": {"field": {"name": "name"}}
+      }
+    },
+    {
+      "id": "map.spawn_point",
+      "summary": "Jibbers.MapTools.SpawnPointData: a spawn point of the map.",
+      "tags": ["shape"],
+      "match": {"image": "fun.jibbers.map-tools.dll", "namespace": "Jibbers.MapTools", "name": "SpawnPointData"},
+      "members": {
+        "position": {"field": {"name": "position", "type": "UnityEngine.Vector3"}}
+      }
+    },
+    {
+      "id": "player.ragdoll",
+      "summary": "RagdollController: the rider's physics body and state (one per rider, remote riders included).",
+      "tags": ["shape"],
+      "notes": "Reshred saves its obfuscated int/bool fields; that set is chosen at runtime, not here.",
+      "match": {"name": "RagdollController"},
+      "members": {}
+    },
+    {
+      "id": "player.ragdoll_spawner",
+      "summary": "RagdollSpawner: spawns and respawns the rider at the map's spawn points; holds the live RagdollController and the follow camera.",
+      "tags": ["order"],
+      "notes": "Not a base of PlayerSpawner (it derives from MonoBehaviour). selected_spawn is the first of three obfuscated SpawnPointData() getters (`dlz`; `dmd` and `dmu` are the others): it returns the custom spawn when one is set, else the chosen map spawn.",
+      "match": {"name": "RagdollSpawner"},
+      "members": {
+        "rider": {"field": {"type": "@player.ragdoll", "static": false}},
+        "camera": {"field": {"type": "@camera.follow", "static": false}},
+        "spawn_points": {"field": {"type": "@map.spawn_point[]", "static": false}},
+        "custom_spawn": {"field": {"type": "@map.spawn_point", "static": false}},
+        "can_change_spawn": {"field": {"name": "canChangeSpawn"}},
+        "selected_spawn": {"method": {"obfuscated": true, "params": [], "return": "@map.spawn_point", "static": false, "nth": 0}},
+        "on_map_load": {"method": {"params": ["@map.load_event"], "static": false}}
+      }
+    },
+    {
+      "id": "player.spawner",
+      "summary": "PlayerSpawner: owns the ski and snowboard rider prefabs and the spawn UI texts.",
+      "tags": ["shape"],
+      "match": {"name": "PlayerSpawner"},
+      "members": {
+        "ski_prefab": {"field": {"name": "skiPrefab"}},
+        "snowboard_prefab": {"field": {"name": "snowboardPrefab"}},
+        "locked": {"field": {"name": "locked"}}
+      }
+    },
+    {
+      "id": "replay.clip",
+      "summary": "The replay clip class (obfuscated): an indexed list of recorded frames that can Add and Serialize.",
+      "tags": ["shape"],
+      "notes": "Reshred saves its int and double fields when it rewinds.",
+      "match": {"obfuscated": true, "methods": [{"name": "get_Item", "argc": 1}, {"name": "Add", "argc": 1}, {"name": "Serialize", "argc": 1}]},
+      "members": {}
+    },
+    {
+      "id": "replay.recorder",
+      "summary": "Recorder: the replay recorder singleton.",
+      "tags": ["shape"],
+      "match": {"name": "Recorder"},
+      "members": {
+        "instance": {"field": {"type": "Recorder", "static": true}},
+        "ragdoll": {"field": {"type": "@player.ragdoll", "static": false, "nth": 0, "inherited": true}},
+        "clip": {"field": {"type": "@replay.clip", "static": false, "nth": 0, "inherited": true}}
+      }
+    },
+    {
+      "id": "camera.cam_state",
+      "summary": "CamState: the camera mode enum (Follow, orbit, photo, ...).",
+      "tags": ["shape"],
+      "match": {"name": "CamState", "valuetype": true},
+      "members": {
+        "follow": {"field": {"name": "Follow", "static": true}}
+      }
+    },
+    {
+      "id": "camera.follow",
+      "summary": "FollowCam: the gameplay camera that follows the rider.",
+      "tags": ["shape", "per-frame"],
+      "notes": "Filmer hooks late_update.",
+      "match": {"name": "FollowCam"},
+      "members": {
+        "late_update": {"method": {"name": "LateUpdate", "argc": 0}},
+        "mode": {"field": {"type": "@camera.cam_state", "static": false}},
+        "target": {"field": {"name": "target", "type": "UnityEngine.Transform"}},
+        "lock_input": {"field": {"name": "lockInput", "type": "System.Boolean"}},
+        "photo_mode": {"field": {"name": "photoMode", "type": "System.Boolean"}},
+        "ground_layer": {"field": {"name": "groundLayer", "type": "UnityEngine.LayerMask"}}
+      }
+    },
+    {
+      "id": "ski.segment",
+      "summary": "SegmentSki: one ski's segmented mesh.",
+      "tags": ["shape"],
+      "match": {"name": "SegmentSki"},
+      "members": {
+        "mesh_transform": {"field": {"name": "meshTransform"}},
+        "segment_container": {"field": {"name": "segmentContainer"}}
+      }
+    },
+    {
+      "id": "ui.tab_menu",
+      "summary": "TabMenu: the Options window's tab bar and pages.",
+      "tags": ["shape", "ui"],
+      "match": {"name": "TabMenu"},
+      "members": {
+        "buttons": {"field": {"type": "Button[]", "static": false, "inherited": true}},
+        "pages": {"field": {"type": "System.ValueTuple<UnityEngine.RectTransform,NavigatableMenu>[]", "static": false, "inherited": true}},
+        "current": {"field": {"type": "System.Int32", "static": false, "nth": 0, "inherited": true}},
+        "switch_to": {"method": {"params": ["System.Int32", "System.Boolean", "System.Boolean"], "return": "System.Void", "inherited": true}}
+      }
+    },
+    {
+      "id": "ui.behaviour",
+      "summary": "UIBehaviour: base of every menu widget (buttons, rows, lists): focus, interactable state, owning menu.",
+      "tags": ["order", "ui"],
+      "notes": "set_interactable is the second obfuscated (bool) -> void method (`kda`; `kcl` is the first). Widgets compare `interactable` to decide whether the open tab is clickable.",
+      "match": {"name": "UIBehaviour"},
+      "members": {
+        "interactable": {"field": {"type": "System.Boolean", "backing": true}},
+        "rect": {"field": {"type": "UnityEngine.RectTransform", "backing": true}},
+        "menu": {"field": {"type": "@ui.navigatable_menu", "backing": true}},
+        "tooltip": {"field": {"name": "tooltip"}},
+        "set_interactable": {"method": {"obfuscated": true, "params": ["System.Boolean"], "return": "System.Void", "nth": 1}}
+      }
+    },
+    {
+      "id": "ui.navigatable_menu",
+      "summary": "NavigatableMenu: a keyboard/controller-navigable grid of widgets (an Options page).",
+      "tags": ["order", "ui"],
+      "notes": "Its obfuscated void() methods are, in order, `gov` (shared virtual), `gyh` (collect), `gyi`, `gwp` (layout; HorizontalList and VerticalList override it). add_button is the second (UIBehaviour) -> void method (`gyu`; `gyt` is the first).",
+      "match": {"name": "NavigatableMenu", "parent": "@ui.behaviour"},
+      "members": {
+        "rows": {"field": {"type": "System.Collections.Generic.List<System.Collections.Generic.List<UIBehaviour>>"}},
+        "content": {"field": {"name": "contentRect"}},
+        "collect": {"method": {"obfuscated": true, "params": [], "return": "System.Void", "static": false, "nth": 1}},
+        "layout": {"method": {"obfuscated": true, "params": [], "return": "System.Void", "static": false, "nth": 3}},
+        "add_button": {"method": {"params": ["@ui.behaviour"], "return": "System.Void", "nth": 1}}
+      }
+    },
+    {
+      "id": "ui.button",
+      "summary": "Button: the game's own menu button widget.",
+      "tags": ["order", "ui"],
+      "notes": "on_click is the first of three Action<Button> fields (the others are hover callbacks). create is the static factory: (parent, label, on click) -> Button.",
+      "match": {"name": "Button", "parent": "@ui.behaviour"},
+      "members": {
+        "on_click": {"field": {"type": "System.Action<Button>", "nth": 0}},
+        "label": {"field": {"type": "TMPro.TMP_Text"}},
+        "pressed_color": {"field": {"type": "UnityEngine.Color"}},
+        "create": {"method": {"params": ["UnityEngine.Transform", "System.String", "System.Action<Button>"], "return": "Button", "static": true}}
+      }
+    },
+    {
+      "id": "ui.toggle_button",
+      "summary": "ToggleButton: an on/off option row.",
+      "tags": ["order", "ui"],
+      "notes": "refresh is the second obfuscated void() method (`hcj`; `gov` is the shared virtual).",
+      "match": {"name": "ToggleButton", "parent": "@ui.button"},
+      "members": {
+        "is_on": {"field": {"name": "isOn"}},
+        "global_name": {"field": {"name": "globalName"}},
+        "save": {"field": {"name": "save"}},
+        "on_change": {"field": {"type": "System.Action<System.Boolean>"}},
+        "refresh": {"method": {"obfuscated": true, "params": [], "return": "System.Void", "nth": 1}}
+      }
+    },
+    {
+      "id": "ui.arrow_selection",
+      "summary": "ArrowSelection: a left/right choice row.",
+      "tags": ["shape", "ui"],
+      "match": {"name": "ArrowSelection"},
+      "members": {
+        "is_float": {"field": {"name": "globalIsFloat"}},
+        "global_name": {"field": {"name": "globalName"}},
+        "save": {"field": {"name": "save"}},
+        "on_change": {"field": {"type": "System.Action<System.Int32>"}},
+        "options": {"field": {"type": "System.String[]"}},
+        "set_options": {"method": {"params": ["System.String[]", "System.Int32", "System.Boolean"], "return": "System.Void"}},
+        "select": {"method": {"params": ["System.Int32", "System.Boolean"], "return": "System.Void"}}
+      }
+    },
+    {
+      "id": "ui.labeled_slider",
+      "summary": "LabeledSlider: a slider option row with a value label.",
+      "tags": ["order", "ui"],
+      "notes": "set_value is the second (float, bool) -> void method (`gxd`; `gxc` is the first). It takes a float, so it can be called but not hooked.",
+      "match": {"name": "LabeledSlider"},
+      "members": {
+        "global_name": {"field": {"name": "globalName"}},
+        "save": {"field": {"name": "save"}},
+        "slider": {"field": {"type": "UnityEngine.UI.Slider", "backing": true}},
+        "on_change": {"field": {"type": "System.Action<System.Single>"}},
+        "set_value": {"method": {"params": ["System.Single", "System.Boolean"], "return": "System.Void", "nth": 1}}
+      }
+    },
+    {
+      "id": "ui.form_menu",
+      "summary": "FormMenu: builds option pages from code (accordion sections, sliders, toggles, choices).",
+      "tags": ["shape", "ui"],
+      "match": {"name": "FormMenu"},
+      "members": {
+        "create": {"method": {"params": ["UnityEngine.RectTransform", "System.String"]}},
+        "accordion": {"method": {"name": "Accordion", "params": ["System.String", "System.Action", "System.Boolean"]}},
+        "slider": {"method": {"name": "Slider", "params": ["System.String", "System.Single", "System.Single", "System.Func<System.Single>", "System.Action<System.Single>", "System.Single", "System.Int32"]}},
+        "toggle": {"method": {"params": ["System.String", "System.Func<System.Boolean>", "System.Action<System.Boolean>", "System.Boolean"]}},
+        "choice": {"method": {"params": ["System.String", "System.String[]", "System.Func<System.Int32>", "System.Action<System.Int32>", "System.Int32"]}},
+        "rows": {"field": {"type": "System.Collections.Generic.List<@ui.form_row>", "nth": 0}},
+        "set_open": {"method": {"params": ["@ui.form_section", "System.Boolean"], "return": "System.Void"}}
+      }
+    },
+    {
+      "id": "ui.form_row",
+      "summary": "One row of a FormMenu (obfuscated): its menu, section, label and layout state.",
+      "tags": ["shape", "ui"],
+      "notes": "`qj` on 2026-10-18. The only obfuscated System.Object subclass with a FormMenu backing field.",
+      "match": {"obfuscated": true, "parent": "System.Object", "fields": [{"type": "FormMenu", "backing": true}]},
+      "members": {
+        "menu": {"field": {"type": "FormMenu", "backing": true}},
+        "section": {"field": {"type": "@ui.form_section", "backing": true}},
+        "rect": {"field": {"type": "UnityEngine.RectTransform", "backing": true}}
+      }
+    },
+    {
+      "id": "ui.form_section",
+      "summary": "A collapsible FormMenu section (obfuscated): a header button and the rows it contains.",
+      "tags": ["shape", "ui"],
+      "notes": "`rg` on 2026-10-18. Its sibling `rh` (a plain group of rows) has the row list but no header button.",
+      "match": {"obfuscated": true, "parent": "@ui.form_row", "fields": [{"type": "System.Collections.Generic.List<@ui.form_row>"}, {"type": "Button", "backing": true}]},
+      "members": {
+        "header": {"field": {"type": "Button", "backing": true}},
+        "open": {"field": {"type": "System.Boolean", "backing": true}},
+        "rows": {"field": {"type": "System.Collections.Generic.List<@ui.form_row>"}}
+      }
+    },
+    {
+      "id": "ui.main_menu",
+      "summary": "MainMenu: the title screen window; owns the Options window.",
+      "tags": ["shape", "ui"],
+      "match": {"name": "MainMenu"},
+      "members": {
+        "options": {"field": {"type": "OptionsMenu", "static": false}}
+      }
+    },
+    {
+      "id": "physics.scene",
+      "summary": "Mujoco.MjScene: the MuJoCo physics scene (not obfuscated; listed so every mod uses one naming scheme).",
+      "tags": ["shape", "physics"],
+      "match": {"image": "Mujoco.Runtime.dll", "namespace": "Mujoco", "name": "MjScene"},
+      "members": {
+        "instance": {"field": {"name": "_instance", "static": true}},
+        "is_paused": {"field": {"name": "IsPaused"}},
+        "fixed_update": {"method": {"name": "FixedUpdate", "argc": 0}},
+        "late_update": {"method": {"name": "LateUpdate", "argc": 0}},
+        "collect_components": {"method": {"name": "CollectComponents", "argc": 0}},
+        "recreate_scene": {"method": {"name": "RecreateScene", "argc": 0}},
+        "step_scene": {"method": {"name": "StepScene", "argc": 0}},
+        "model": {"field": {"name": "Model", "static": false}},
+        "data": {"field": {"name": "Data", "static": false}},
+        "compile_scene": {"method": {"name": "CompileScene", "argc": 2}},
+        "generate_scene_mjcf": {"method": {"name": "GenerateSceneMjcf", "argc": 1}},
+        "scene_recreation_requested": {"field": {"name": "SceneRecreationAtLateUpdateRequested"}}
+      }
+    },
+    {
+      "id": "events.bus",
+      "summary": "The game's local event bus: listeners per event type, as (owner, Action<T>) pairs. Use the SDK's events module rather than this directly.",
+      "tags": ["shape", "events"],
+      "notes": "Obfuscated class (`baa` on 2026-10-18). NetBus has a field of the same type but keeps its name: it is the network bus and is not covered.",
+      "match": {"obfuscated": true, "fields": [{"type": "System.Collections.Generic.Dictionary<System.Type,System.Collections.Generic.List<System.ValueTuple<System.Object,System.Delegate>>>", "static": true}]},
+      "members": {
+        "handlers": {"field": {"type": "System.Collections.Generic.Dictionary<System.Type,System.Collections.Generic.List<System.ValueTuple<System.Object,System.Delegate>>>", "static": true}}
+      }
+    },
+    {
+      "id": "game.vars",
+      "summary": "The game's global data registry: named settings (bool, float, int and string tables with change listeners), plus maps, outfits, characters and poses. Use the SDK's vars module for the settings.",
+      "tags": ["shape", "settings"],
+      "notes": "Obfuscated static class (`ia` on 2026-10-18).",
+      "match": {"obfuscated": true, "fields": [{"type": "System.Collections.Generic.Dictionary<System.String,System.Boolean>", "static": true}, {"type": "System.Collections.Generic.Dictionary<System.String,System.Single>", "static": true}, {"type": "System.Collections.Generic.Dictionary<System.String,System.Collections.Generic.List<System.ValueTuple<System.Object,System.Action<System.Boolean>>>>", "static": true}]},
+      "members": {
+        "bools": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.Boolean>", "static": true}},
+        "bool_listeners": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.Collections.Generic.List<System.ValueTuple<System.Object,System.Action<System.Boolean>>>>", "static": true}},
+        "floats": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.Single>", "static": true}},
+        "float_listeners": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.Collections.Generic.List<System.ValueTuple<System.Object,System.Action<System.Single>>>>", "static": true}},
+        "ints": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.Int32>", "static": true}},
+        "int_listeners": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.Collections.Generic.List<System.ValueTuple<System.Object,System.Action<System.Int32>>>>", "static": true}},
+        "strings": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.String>", "static": true}},
+        "string_listeners": {"field": {"type": "System.Collections.Generic.Dictionary<System.String,System.Collections.Generic.List<System.ValueTuple<System.Object,System.Action<System.String>>>>", "static": true}}
+      }
+    },
+    {
+      "id": "event.player_spawn",
+      "summary": "The local rider spawned; ragdoll is its RagdollController.",
+      "tags": ["event"],
+      "match": {"name": "PlayerSpawnEvent", "valuetype": true},
+      "members": {
+        "ragdoll": {"field": {"name": "ragdoll", "type": "@player.ragdoll"}}
+      }
+    },
+    {
+      "id": "event.pause",
+      "summary": "The game paused (pause menu opened).",
+      "tags": ["event"],
+      "match": {"name": "PauseEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.unpause",
+      "summary": "The game resumed.",
+      "tags": ["event"],
+      "match": {"name": "UnpauseEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.reset",
+      "summary": "The rider is being reset to the spawn point.",
+      "tags": ["event"],
+      "match": {"name": "ResetEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.ragdoll_reset_finished",
+      "summary": "A rider reset finished.",
+      "tags": ["event"],
+      "match": {"name": "RagdollResetFinishedEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.respawn",
+      "summary": "The rider respawned.",
+      "tags": ["event"],
+      "match": {"name": "RespawnEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.enter_replay",
+      "summary": "Replay playback started.",
+      "tags": ["event"],
+      "match": {"name": "EnterReplayEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.exit_replay",
+      "summary": "Replay playback ended.",
+      "tags": ["event"],
+      "match": {"name": "ExitReplayEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.load_replay_clip",
+      "summary": "A replay clip was loaded; clip is the clip object.",
+      "tags": ["event"],
+      "match": {"name": "LoadReplayClipEvent", "valuetype": true},
+      "members": {
+        "clip": {"field": {"name": "clip", "type": "@replay.clip"}}
+      }
+    },
+    {
+      "id": "event.outfit_change",
+      "summary": "The rider changed outfit.",
+      "tags": ["event"],
+      "match": {"name": "OutfitChangeEvent", "valuetype": true},
+      "members": {
+        "outfit": {"field": {"name": "outfit"}}
+      }
+    },
+    {
+      "id": "event.gear_changed",
+      "summary": "The rider changed gear.",
+      "tags": ["event"],
+      "match": {"name": "GearChangedEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.character_change",
+      "summary": "The rider changed character.",
+      "tags": ["event"],
+      "match": {"name": "CharacterChangeEvent", "valuetype": true},
+      "members": {
+        "character": {"field": {"name": "character"}}
+      }
+    },
+    {
+      "id": "event.change_scene",
+      "summary": "The game is changing scene.",
+      "tags": ["event"],
+      "match": {"name": "ChangeSceneEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.body_shape_changed",
+      "summary": "The body shape of the rider changed.",
+      "tags": ["event"],
+      "match": {"name": "BodyShapeChangedEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.mj_scene_rebuild",
+      "summary": "The MuJoCo physics scene is about to be rebuilt.",
+      "tags": ["event"],
+      "match": {"name": "MjSceneRebuildEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.mj_scene_rebuilt",
+      "summary": "The MuJoCo physics scene was rebuilt.",
+      "tags": ["event"],
+      "match": {"name": "MjSceneRebuiltEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.reset_environment",
+      "summary": "The environment (time of day, weather) was reset.",
+      "tags": ["event"],
+      "match": {"name": "ResetEnvironmentEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.session_marker_set",
+      "summary": "The player set a session marker (custom spawn) at spawnPoint.",
+      "tags": ["event"],
+      "match": {"name": "SessionMarkerSetEvent", "valuetype": true},
+      "members": {
+        "spawn_point": {"field": {"name": "spawnPoint", "type": "@map.spawn_point"}}
+      }
+    },
+    {
+      "id": "event.spawn_changed",
+      "summary": "The selected spawn point changed.",
+      "tags": ["event"],
+      "match": {"name": "SpawnChangedEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.enter_orbit_cam",
+      "summary": "The orbit camera was entered.",
+      "tags": ["event"],
+      "match": {"name": "EnterOrbitCamEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.exit_orbit_cam",
+      "summary": "The orbit camera was left.",
+      "tags": ["event"],
+      "match": {"name": "ExitOrbitCamEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.placed_objects_changed",
+      "summary": "Objects placed with the object placer changed.",
+      "tags": ["event"],
+      "match": {"name": "PlacedObjectsChangedEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.enter_object_placer",
+      "summary": "The object placer was opened.",
+      "tags": ["event"],
+      "match": {"name": "EnterObjectPlacerEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.exit_object_placer",
+      "summary": "The object placer was closed.",
+      "tags": ["event"],
+      "match": {"name": "ExitObjectPlacerEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.toggle_clothes",
+      "summary": "Cloth simulation was switched on or off.",
+      "tags": ["event"],
+      "match": {"name": "ToggleClothesEvent", "valuetype": true},
+      "members": {
+        "enabled": {"field": {"name": "enabled"}}
+      }
+    },
+    {
+      "id": "event.toggle_replay_input_visualizer",
+      "summary": "The replay input visualizer was toggled.",
+      "tags": ["event"],
+      "match": {"name": "ToggleReplayInputVisualizerEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.ambient_color_changed",
+      "summary": "The ambient light colour and intensity changed.",
+      "tags": ["event"],
+      "match": {"name": "AmbientColorChangedEvent", "valuetype": true},
+      "members": {
+        "color": {"field": {"name": "color"}},
+        "intensity": {"field": {"name": "intensity"}}
+      }
+    },
+    {
+      "id": "event.time_changed",
+      "summary": "The time of day changed.",
+      "tags": ["event"],
+      "match": {"name": "TimeChangedEvent", "valuetype": true},
+      "members": {
+        "time": {"field": {"name": "time"}}
+      }
+    },
+    {
+      "id": "event.hide_mouse_cursor",
+      "summary": "The mouse cursor was hidden.",
+      "tags": ["event"],
+      "match": {"name": "HideMouseCursorEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.show_mouse_cursor",
+      "summary": "The mouse cursor was shown.",
+      "tags": ["event"],
+      "match": {"name": "ShowMouseCursorEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.trick_performed",
+      "summary": "The rider performed (or extended) a trick: name, details, sequenceId, isUpdate.",
+      "tags": ["event"],
+      "match": {"name": "TrickPerformedEvent", "valuetype": true},
+      "members": {
+        "name": {"field": {"name": "name"}},
+        "details": {"field": {"name": "details"}},
+        "trick": {"field": {"name": "trick"}},
+        "sequence_id": {"field": {"name": "sequenceId"}},
+        "is_update": {"field": {"name": "isUpdate"}}
+      }
+    },
+    {
+      "id": "event.wakeup_debug",
+      "summary": "Debug input: Wakeup.",
+      "tags": ["event", "debug"],
+      "match": {"name": "WakeupDebugEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.knockout_debug",
+      "summary": "Debug input: Knockout.",
+      "tags": ["event", "debug"],
+      "match": {"name": "KnockoutDebugEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.detach_ski_debug",
+      "summary": "Debug input: DetachSki.",
+      "tags": ["event", "debug"],
+      "match": {"name": "DetachSkiDebugEvent", "valuetype": true},
+      "members": {
+        "is_left": {"field": {"name": "isLeft"}}
+      }
+    },
+    {
+      "id": "event.drop_held_object_debug",
+      "summary": "Debug input: DropHeldObject.",
+      "tags": ["event", "debug"],
+      "match": {"name": "DropHeldObjectDebugEvent", "valuetype": true},
+      "members": {
+        "is_left": {"field": {"name": "isLeft"}}
+      }
+    },
+    {
+      "id": "event.colored_ragdoll_parts_debug",
+      "summary": "Debug input: ColoredRagdollParts.",
+      "tags": ["event", "debug"],
+      "match": {"name": "ColoredRagdollPartsDebugEvent", "valuetype": true},
+      "members": {
+        "type": {"field": {"name": "type"}}
+      }
+    },
+    {
+      "id": "event.start_debugger",
+      "summary": "StartDebuggerEvent.",
+      "tags": ["event"],
+      "match": {"name": "StartDebuggerEvent", "valuetype": true},
+      "members": {}
+    },
+    {
+      "id": "event.slow_mo_debug",
+      "summary": "Debug input: SlowMo.",
+      "tags": ["event", "debug"],
+      "match": {"name": "SlowMoDebugEvent", "valuetype": true},
+      "members": {
+        "time_scale": {"field": {"name": "timeScale"}}
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+<Project>
+  <!-- C# ports of the mods. Each project is a normal Jibbers C# mod (see sdk/dotnet/template). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <JibbersGame Condition="'$(JibbersGame)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Jibbers Playtest</JibbersGame>
+    <JibbersSdk Condition="'$(JibbersSdk)' == ''">$(MSBuildThisFileDirectory)..\..\sdk\dotnet\Jibbers.Sdk\bin\Release\net8.0\Jibbers.Sdk.dll</JibbersSdk>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Jibbers.Sdk">
+      <HintPath>$(JibbersSdk)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="InstallToGame" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(JibbersGame)\Jibbers.exe') And '$(JibbersNoInstall)' != 'true'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(JibbersGame)\JibbersMods\cs" />
+  </Target>
+</Project>

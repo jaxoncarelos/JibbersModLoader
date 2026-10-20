@@ -4,3 +4,17 @@
 # Packaging output and staging.
 /dist
 /out
+/mods/*/target
+**/bin/
+**/obj/
+*.user
+
+# Local-only mods: never include these sources in public GitHub release archives.
+/mods/JibbersCollisionStream/
+/mods/JibbersFastLoad/
+/mods/JibbersFilmer/
+/mods/JibbersSkiSmooth/
+/mods/cs/CollisionStream/
+/mods/cs/FastLoad/
+/mods/cs/Filmer/
+/mods/cs/SkiSmooth/

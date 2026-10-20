@@ -1,6 +1,7 @@
 [package]
 name = "jibbers-hotload"
-version = "0.1.1"
+version = "0.2.1"
+license = "GPL-3.0-only"
 edition = "2021"
 description = "In-game hotload mod for Jibbers: a version.dll proxy that loads the hotload core into the game"
 
@@ -15,6 +16,7 @@ crate-type = ["cdylib"]
 release = ["dep:serde"]
 
 [dependencies]
+jibbers-distribution = { path = "../jibbers-distribution" }
 retour = "0.3"
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = "1"

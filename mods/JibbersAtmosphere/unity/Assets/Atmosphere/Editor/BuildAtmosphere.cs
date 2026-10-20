@@ -6,11 +6,139 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEditor.SceneManagement;
 
 public static class BuildAtmosphere
 {
     const string Gen = "Assets/Gen";
     const int Flakes = 14000;
+
+    // Standalone editor render test; never starts or connects to the game.
+    public static void TestAndBuild()
+    {
+        TestCharacterMask(false);
+        TestCharacterMask(true);
+        Build();
+    }
+
+    static void TestCharacterMask(bool skinned)
+    {
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        var cam = new GameObject("TestCamera").AddComponent<Camera>();
+        cam.transform.position = new Vector3(0, 4, -5);
+        cam.transform.LookAt(new Vector3(0, 0.6f, 0));
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = Color.black;
+        cam.nearClipPlane = 0.1f; cam.farClipPlane = 100;
+        cam.depthTextureMode = DepthTextureMode.Depth;
+        cam.allowHDR = false; cam.allowMSAA = false;
+        cam.targetTexture = new RenderTexture(512, 512, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture.Create();
+        var light = new GameObject("Sun").AddComponent<Light>();
+        light.type = LightType.Directional; light.transform.rotation = Quaternion.Euler(65, 0, 0);
+        RenderSettings.ambientLight = Color.gray;
+        var plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        body.transform.position = new Vector3(0, 0.6f, 0);
+        body.transform.localScale = new Vector3(1.5f, 1.2f, 1.5f);
+        Renderer bodyRenderer = body.GetComponent<Renderer>();
+        if (skinned)
+        {
+            var mesh = Object.Instantiate(body.GetComponent<MeshFilter>().sharedMesh);
+            var weights = new BoneWeight[mesh.vertexCount];
+            for (int vertex = 0; vertex < weights.Length; vertex++)
+                weights[vertex] = new BoneWeight { boneIndex0 = 0, weight0 = 1 };
+            mesh.boneWeights = weights; mesh.bindposes = new[] { Matrix4x4.identity };
+            Object.DestroyImmediate(bodyRenderer);
+            Object.DestroyImmediate(body.GetComponent<MeshFilter>());
+            var skin = body.AddComponent<SkinnedMeshRenderer>();
+            var bone = new GameObject("Animated clothing bone").transform;
+            bone.SetParent(body.transform, false);
+            bone.localRotation = Quaternion.Euler(0, 0, 12);
+            skin.sharedMesh = mesh; skin.bones = new[] { bone }; skin.rootBone = bone;
+            skin.updateWhenOffscreen = true; skin.localBounds = new Bounds(Vector3.zero, Vector3.one * 4);
+            bodyRenderer = skin;
+        }
+        var snow = new Material(Shader.Find("Standard")); snow.color = Color.gray;
+        var clothes = new Material(Shader.Find("Standard")); clothes.color = new Color(0.025f, 0.025f, 0.025f);
+        plane.GetComponent<Renderer>().sharedMaterial = snow; bodyRenderer.sharedMaterial = clothes;
+        var shell = FogShell();
+        var glitter = new Material(Shader.Find("Hidden/JibbersAtmosphere/Sparkle"));
+        var mask = new Material(Shader.Find("Hidden/JibbersAtmosphere/CharacterMask"));
+        if (ShaderUtil.ShaderHasError(glitter.shader) || ShaderUtil.ShaderHasError(mask.shader))
+            throw new System.Exception("character mask/glitter shader compilation failed");
+        var shellObject = new GameObject("Effects");
+        var shellRenderer = Child(shellObject, "Glitter", shell, glitter).GetComponent<Renderer>();
+        Shader.SetGlobalVector("_JA_SunDir", new Vector4(0, 1, 0, 0));
+        Shader.SetGlobalVector("_JA_SunColor", new Vector4(1, 1, 1, 10));
+        Shader.SetGlobalVector("_JA_Sparkle", new Vector4(1, 1, 40, 0.015f));
+        Shader.SetGlobalFloat("_JA_CharBoxCount", 0);
+        Color[] Render()
+        {
+            cam.Render();
+            var previous = RenderTexture.active; RenderTexture.active = cam.targetTexture;
+            var image = new Texture2D(512, 512, TextureFormat.RGBA32, false, true);
+            image.ReadPixels(new Rect(0, 0, 512, 512), 0, 0); image.Apply();
+            var pixels = image.GetPixels(); Object.DestroyImmediate(image);
+            RenderTexture.active = previous; return pixels;
+        }
+        shellRenderer.enabled = false;
+        cam.Render(); cam.Render(); // settle freshly created skinned vertex buffers
+        var baseline = Render();
+        shellRenderer.enabled = true;
+        var unmasked = Render();
+        var commands = new CommandBuffer { name = "Glitter character exclusion render test" };
+        commands.DrawMesh(shell, Matrix4x4.identity, mask, 0, 1);
+        commands.DrawRenderer(bodyRenderer, mask, 0, 0);
+        cam.AddCommandBuffer(CameraEvent.BeforeForwardAlpha, commands);
+        var masked = Render();
+        cam.RemoveCommandBuffer(CameraEvent.BeforeForwardAlpha, commands); commands.Release();
+        // The camera-independent layer alone: the box the core sends from the renderer bounds.
+        var b = bodyRenderer.bounds;
+        Shader.SetGlobalVector("_JA_CharBox0C", b.center);
+        Shader.SetGlobalVector("_JA_CharBox0E", b.extents + Vector3.one * 0.15f);
+        Shader.SetGlobalFloat("_JA_CharBoxCount", 1);
+        var boxed = Render();
+        Shader.SetGlobalFloat("_JA_CharBoxCount", 0);
+        shellRenderer.enabled = false;
+        // Keep ground as a black depth occluder: tilted/skinned vertices below
+        // the ground are not visible clothing and must not suppress snow glitter.
+        var groundId = new Material(Shader.Find("Unlit/Color")); groundId.color = Color.black;
+        plane.GetComponent<Renderer>().sharedMaterial = groundId;
+        var id = new Material(Shader.Find("Unlit/Color")); id.color = Color.white;
+        bodyRenderer.sharedMaterial = id;
+        var bodyPixels = Render();
+        int bodyGlints = 0, leaked = 0, groundGlints = 0, retained = 0, boxLeaked = 0, boxRetained = 0;
+        float Difference(Color a, Color b) => Mathf.Max(Mathf.Abs(a.r-b.r), Mathf.Abs(a.g-b.g), Mathf.Abs(a.b-b.b));
+        for (int y = 2; y < 510; y++) for (int x = 2; x < 510; x++)
+        {
+            int pixel = y * 512 + x;
+            bool inside = true, outside = true;
+            for (int dy = -2; dy <= 2; dy++) for (int dx = -2; dx <= 2; dx++)
+            {
+                bool rider = bodyPixels[pixel + dy * 512 + dx].r > 0.8f;
+                inside &= rider; outside &= !rider;
+            }
+            bool glint = Difference(unmasked[pixel], baseline[pixel]) > 0.01f;
+            if (inside && glint) bodyGlints++;
+            if (inside && Difference(masked[pixel], baseline[pixel]) > 0.005f) leaked++;
+            if (inside && Difference(boxed[pixel], baseline[pixel]) > 0.005f) boxLeaked++;
+            if (outside && glint)
+            {
+                groundGlints++;
+                if (Difference(masked[pixel], unmasked[pixel]) < 0.005f) retained++;
+                if (Difference(boxed[pixel], unmasked[pixel]) < 0.005f) boxRetained++;
+            }
+        }
+        Debug.Log($"CHARACTER_MASK_RENDER_TEST skinned={skinned}: body glints before={bodyGlints}, after={leaked}, after boxes only={boxLeaked}; snow glints={groundGlints}, preserved={retained}, preserved with boxes={boxRetained}");
+        if (bodyGlints < 5 || groundGlints < 20)
+            throw new System.Exception("Render test produced no glints to check");
+        // Boxes also cover the snow right around the feet, so they may drop a few ground glints.
+        if (boxLeaked != 0 || boxRetained < groundGlints * 0.8f)
+            throw new System.Exception("Character boxes failed to exclude clothing while retaining snow glitter");
+        cam.targetTexture.Release();
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+    }
 
     [MenuItem("Jibbers/Build Atmosphere Bundle")]
     public static void Build()
@@ -35,6 +163,8 @@ public static class BuildAtmosphere
         AssetDatabase.CreateAsset(sparkleMat, Gen + "/JA_Sparkle.mat");
         var snowMat = new Material(Shader.Find("Hidden/JibbersAtmosphere/Snow")) { name = "JA_Snow" };
         AssetDatabase.CreateAsset(snowMat, Gen + "/JA_Snow.mat");
+        var characterMaskMat = new Material(Shader.Find("Hidden/JibbersAtmosphere/CharacterMask")) { name = "JA_CharacterMask" };
+        AssetDatabase.CreateAsset(characterMaskMat, Gen + "/JA_CharacterMask.mat");
 
         var surfaceMat = SnowSurfaceMaterial();
         AssetDatabase.CreateAsset(surfaceMat, Gen + "/JA_SnowSurface.mat");
@@ -44,6 +174,7 @@ public static class BuildAtmosphere
         Child(root, "Shade", shell, shadeMat);
         Child(root, "Fog", shell, fogMat);
         Child(root, "Snow", snow, snowMat);
+        Child(root, "CharacterMask", shell, characterMaskMat).GetComponent<MeshRenderer>().enabled = false;
         // Never drawn: keeps the replacement terrain snow textures loaded for the core.
         Child(root, "SnowSurface", shell, surfaceMat).GetComponent<MeshRenderer>().enabled = false;
         PrefabUtility.SaveAsPrefabAsset(root, Gen + "/JibbersAtmosphere.prefab");

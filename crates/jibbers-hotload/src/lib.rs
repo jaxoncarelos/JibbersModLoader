@@ -43,6 +43,23 @@ mod release_menu;
 #[cfg(feature = "release")]
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/unity.rs"]
 mod unity;
+// The Mods tab reaches the game's menus through the SDK's symbols (shared by path).
+#[cfg(feature = "release")]
+#[allow(dead_code)]
+#[path = "../../jibbers-hotload-core/src/host_shim.rs"]
+mod host;
+#[cfg(feature = "release")]
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/inspect.rs"]
+mod inspect;
+#[cfg(feature = "release")]
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/shape.rs"]
+mod shape;
+#[cfg(feature = "release")]
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/symbols.rs"]
+mod symbols;
 #[cfg(feature = "release")]
 use release_menu::probe;
 #[cfg(not(feature = "release"))]

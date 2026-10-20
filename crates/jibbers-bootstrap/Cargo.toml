@@ -1,0 +1,20 @@
+[package]
+name = "jibbers-bootstrap"
+version = "0.2.0"
+license = "GPL-3.0-only"
+edition = "2021"
+
+[lib]
+name = "jibbers_bootstrap"
+crate-type = ["cdylib"]
+
+[dependencies]
+jibbers-distribution = { path = "../jibbers-distribution" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading"] }
+
+[[bin]]
+name = "jibbers-migrate"
+path = "src/migrate.rs"
+test = false

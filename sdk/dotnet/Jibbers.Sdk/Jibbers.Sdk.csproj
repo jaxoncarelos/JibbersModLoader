@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Jibbers.Sdk</RootNamespace>
+    <AssemblyName>Jibbers.Sdk</AssemblyName>
+    <Version>0.2.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <!-- Hosted by the native bridge through hostfxr: needs its own runtimeconfig.json. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <RollForward>LatestMajor</RollForward>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Generated bindings document every member they emit; the rest of the warnings stay on. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <Description>The Jibbers mod SDK: write Jibbers mods in C#.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The symbol catalogue is shared with the native SDK. -->
+    <!-- The repo's catalogue; the modder kit ships it as symbols.json at its root. -->
+    <EmbeddedResource Condition="Exists('..\..\crates\jibbers-mod-sdk\symbols.json')" Include="..\..\crates\jibbers-mod-sdk\symbols.json" LogicalName="Jibbers.Sdk.symbols.json" />
+    <EmbeddedResource Condition="!Exists('..\..\crates\jibbers-mod-sdk\symbols.json')" Include="..\symbols.json" LogicalName="Jibbers.Sdk.symbols.json" />
+  </ItemGroup>
+
+</Project>

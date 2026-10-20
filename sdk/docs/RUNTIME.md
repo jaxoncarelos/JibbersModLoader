@@ -18,6 +18,8 @@ Never call from `Plugin::init` or `Plugin::unload`. Without the runtime, `runtim
 | `sdk.log` | `msg`, optional `from` | writes a line to `jibbers_hotload.log` |
 | `sdk.update.status` | | `update` state and `running` |
 | `sdk.update.check` | | starts an update check now: `started`, `update` |
+| `sdk.symbols.report` | | every game symbol's status on this build: `game_build`, `resolved`, `failed`, `symbols` (see SYMBOLS.md) |
+| `sdk.symbols.dump` | optional `path`, `images` | writes the game's class metadata for `sdk-symbols` (default `jibbers_symbols_dump.json` beside `Jibbers.exe`): `path`, `classes` |
 
 `sdk.build` reports what the running game is. When the loader has switched the mods off, only the runtime is loaded,
 so this is how a tool can show the reason.

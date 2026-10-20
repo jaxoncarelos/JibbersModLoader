@@ -9,20 +9,32 @@
 //! - [`host`]: run code on Unity's main thread ([`host::pump`]), hook game methods
 //!   ([`host::pre_hook_method`]), talk to other plugins, including the SDK runtime ([`runtime`]).
 //! - [`il2cpp`] / [`unity`]: raw IL2CPP lookups and thin Unity helpers. All unsafe, main thread only.
+//! - [`symbols`] / [`shape`]: stable names for the game's obfuscated classes and members, found
+//!   by shape (field types, signatures) so they survive game updates. See `docs/SYMBOLS.md`.
+//! - [`events`]: subscribe to the game's own events (spawn, map load, tricks, replay, pause...).
+//! - [`vars`]: the game's named settings store: read, watch and write options.
+//! - [`delegates`]: game delegates backed by native functions, and generic-type reflection.
+//! - [`inspect`]: JSON descriptions of live objects, for logs and probes.
 //! - [`log`]: append to `jibbers_hotload.log` beside the game executable.
 //! - [`gamebuild`]: fingerprint of the running game and the list of builds the mods are validated for.
 //!
 //! See `docs/SDK.md` in the SDK folder for the full guide.
 
 pub mod abi;
+pub mod delegates;
+pub mod events;
 pub mod gamebuild;
 pub mod host;
 pub mod il2cpp;
+pub mod inspect;
 pub mod log;
 pub mod plugin;
 pub mod runtime;
 pub mod settings;
+pub mod shape;
+pub mod symbols;
 pub mod unity;
+pub mod vars;
 
 pub use serde_json::{self, json, Value};
 pub use settings::Setting;

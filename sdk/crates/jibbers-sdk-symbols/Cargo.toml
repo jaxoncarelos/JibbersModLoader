@@ -1,0 +1,14 @@
+[package]
+name = "jibbers-sdk-symbols"
+version.workspace = true
+edition.workspace = true
+description = "Offline tool for the symbol catalogue: resolve it against a game dump, compare builds, search a dump and generate the symbol reference"
+
+[[bin]]
+name = "sdk-symbols"
+path = "src/main.rs"
+
+[dependencies]
+jibbers-mod-sdk = { path = "../jibbers-mod-sdk" }
+serde.workspace = true
+serde_json.workspace = true

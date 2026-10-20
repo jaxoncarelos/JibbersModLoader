@@ -1,0 +1,16 @@
+[package]
+name = "jibbers-distribution"
+version = "0.2.0"
+license = "GPL-3.0-only"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+windows-sys = { version = "0.61", features = ["Win32_Networking_WinHttp"] }
+
+[[bin]]
+name = "jibbers-publish"
+path = "src/publish.rs"

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>jibbers-gen</AssemblyName>
+    <Description>Generates the SDK's game bindings and the docs index from a game dump and the symbol catalogue.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jibbers.Sdk\Jibbers.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

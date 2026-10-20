@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A Jibbers mod in C#. Build:   dotnet build -c Release
+    Install: copy bin\Release\net8.0\SlowMo.dll to <game>\JibbersMods\cs\  (or set JibbersGame below and it is copied for you)
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <!-- Where Jibbers.exe is. Leave empty to only build. -->
+    <JibbersGame Condition="'$(JibbersGame)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Jibbers Playtest</JibbersGame>
+    <!-- The SDK: the copy installed in the game, or the one in this repo. -->
+    <JibbersSdk Condition="'$(JibbersSdk)' == '' And Exists('$(JibbersGame)\JibbersMods\dotnet\Jibbers.Sdk.dll')">$(JibbersGame)\JibbersMods\dotnet\Jibbers.Sdk.dll</JibbersSdk>
+    <JibbersSdk Condition="'$(JibbersSdk)' == ''">$(MSBuildThisFileDirectory)..\..\Jibbers.Sdk\bin\Release\net8.0\Jibbers.Sdk.dll</JibbersSdk>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Private=false: the game already has the SDK; don't ship a second copy with your mod. -->
+    <Reference Include="Jibbers.Sdk">
+      <HintPath>$(JibbersSdk)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="InstallToGame" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(JibbersGame)\Jibbers.exe') And '$(JibbersNoInstall)' != 'true'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(JibbersGame)\JibbersMods\cs" />
+    <Message Importance="high" Text="Installed $(TargetFileName) to $(JibbersGame)\JibbersMods\cs (restart the game)" />
+  </Target>
+
+</Project>
