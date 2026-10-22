@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 & $Publisher verify $ChannelDir
 if ($LASTEXITCODE -ne 0) { throw 'Signed catalog verification failed.' }
 $catalog = Get-Content -LiteralPath (Join-Path $ChannelDir 'catalog.json') -Raw | ConvertFrom-Json
-$publicIds = @('loader','jibbers_atmosphere','jibbers_reshred','jibbers_fpv')
+$publicIds = @('loader','jibbers_dotnet','jibbers_atmosphere','jibbers_reshred','jibbers_fpv')
 if (@($catalog.packages).Count -ne $publicIds.Count -or @($catalog.packages | Where-Object { $_.id -notin $publicIds }).Count -gt 0) { throw 'Only the loader, FPV, Atmosphere and Rewind may enter the public channel.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $BootstrapZip).Path)

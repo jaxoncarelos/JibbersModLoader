@@ -1,70 +1,71 @@
-# Build a reviewable, unsigned release. Signing/publishing is a separate step in Actions.
+# Build an unsigned managed update, using paths understood by installed bootstraps.
 [CmdletBinding()]
-param([UInt64]$Sequence = 1, [switch]$SkipTests)
+param([UInt64]$Sequence = 1, [string]$Version = '0.3.0', [switch]$SkipTests)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
-    function Invoke-ChannelCargo([string[]]$Arguments, [string]$Dir = $root) {
-        Push-Location $Dir
-        try { & cargo @Arguments; if ($LASTEXITCODE -ne 0) { throw "cargo failed ($LASTEXITCODE)" } }
-        finally { Pop-Location }
-    }
     if (-not $SkipTests) {
-        Invoke-ChannelCargo -Arguments @('test', '--workspace', '--features', 'jibbers-hotload/release')
-        foreach ($mod in @('JibbersFPV')) {
-            Invoke-ChannelCargo -Arguments @('test', '--lib') -Dir (Join-Path $root "mods/$mod")
-        }
+        & cargo test -p jibbers-distribution
+        if ($LASTEXITCODE -ne 0) { throw 'Distribution migration tests failed' }
     }
-    Invoke-ChannelCargo -Arguments @('build','--release','-p','jibbers-hotload','--features','release','-p','jibbers-bootstrap','-p','jibbers-distribution')
+    $buildArguments = @{BundleRuntime=$true}
+    if ($SkipTests) { $buildArguments.SkipTests = $true }
+    & ./tools/package_dotnet.ps1 @buildArguments
+    if ($LASTEXITCODE -ne 0) { throw 'Managed package build failed' }
+    & cargo build --release -p jibbers-distribution
+    if ($LASTEXITCODE -ne 0) { throw 'Channel publisher build failed' }
+    & cargo build --release -p jibbers-hotload --example verify_managed_runtime
+    if ($LASTEXITCODE -ne 0) { throw 'Runtime migration probe build failed' }
     $stage = Join-Path $root ('out/channel-' + [guid]::NewGuid().ToString('N'))
     $payload = Join-Path $stage 'payload'
     $installer = Join-Path $stage 'JibbersModManager'
-    New-Item -ItemType Directory -Path "$payload/JibbersMods/system", "$installer/JibbersMods/system", "$stage/bin" -Force | Out-Null
-    Copy-Item -LiteralPath 'target/release/version.dll' -Destination "$payload/JibbersMods/system/jibbers_loader.dll"
-    Copy-Item -LiteralPath 'target/release/version.dll' -Destination "$installer/JibbersMods/system/jibbers_loader.dll"
-    Copy-Item -LiteralPath 'target/release/jibbers_bootstrap.dll' -Destination "$installer/version.dll"
-    Copy-Item -LiteralPath 'target/release/jibbers-publish.exe' -Destination "$stage/bin/jibbers-publish.exe"
-    Copy-Item -LiteralPath 'tools/install_manager.ps1' -Destination "$installer/install.ps1"
-    Copy-Item -LiteralPath 'LICENSE' -Destination "$installer/LICENSE"
-    Copy-Item -LiteralPath 'docs/DISTRIBUTION.md' -Destination "$installer/README.md"
+    New-Item -ItemType Directory -Path "$payload/JibbersMods/system", "$payload/JibbersMods/packages/jibbers_dotnet", "$installer/JibbersMods/system", "$stage/bin" -Force | Out-Null
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    function Extract-Entry($Archive, [string]$Name, [string]$Destination) {
+        $entry = $Archive.Entries | Where-Object { $_.FullName.Replace('\','/') -eq $Name } | Select-Object -First 1
+        if (-not $entry) { throw "Missing package entry $Name" }
+        New-Item -ItemType Directory -Path (Split-Path -Parent $Destination) -Force | Out-Null
+        [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $Destination, $true)
+    }
+    $player = [IO.Compression.ZipFile]::OpenRead((Join-Path $root 'dist/JibbersCSharp.zip'))
+    try {
+        Extract-Entry $player 'version.dll' "$installer/version.dll"
+        Extract-Entry $player 'JibbersMods/system/jibbers_loader.dll' "$payload/JibbersMods/system/jibbers_loader.dll"
+        Extract-Entry $player 'JibbersMods/jibbers_dotnet.dll' "$payload/JibbersMods/packages/jibbers_dotnet/jibbers_dotnet.dll"
+    } finally { $player.Dispose() }
+    Copy-Item "$payload/JibbersMods/system/jibbers_loader.dll" "$installer/JibbersMods/system/jibbers_loader.dll"
+    & python tools/package_managed_runtime.py --player dist/JibbersCSharp.zip --out "$payload/JibbersMods/packages/jibbers_dotnet/runtime.zip"
+    if ($LASTEXITCODE -ne 0) { throw 'Managed runtime archive failed' }
+    Copy-Item 'target/release/jibbers-publish.exe' "$stage/bin/jibbers-publish.exe"
+    Copy-Item 'target/release/examples/verify_managed_runtime.exe' "$stage/bin/verify_managed_runtime.exe"
+    Copy-Item 'tools/install_manager.ps1' "$installer/install.ps1"
+    Copy-Item 'LICENSE' "$installer/LICENSE"
+    Copy-Item 'docs/DISTRIBUTION.md' "$installer/README.md"
+    Copy-Item 'mods/JibbersAtmosphere/unity/Assets/Atmosphere/Snow/LICENSE.txt' "$installer/SNOW-TEXTURES-LICENSE.txt"
+    & python tools/third_party_notices.py --out "$installer/THIRD-PARTY-NOTICES.txt" Cargo.toml sdk/crates/jibbers-dotnet-bridge/Cargo.toml
+    if ($LASTEXITCODE -ne 0) { throw 'License collection failed' }
     $packages = [Collections.Generic.List[object]]::new()
-    $packages.Add([ordered]@{ id='loader'; name='Jibbers Mod Loader'; description='The shared Mods menu, game integration and mod manager.'; version='0.2.1'; files=@('JibbersMods/system/jibbers_loader.dll') })
-    foreach ($entry in @(
-        @{ feature='atmosphere-only'; id='jibbers_atmosphere'; name='Atmosphere'; description='Weather, snow, fog and colour grading.'; version='0.1.2' },
-        @{ feature='reshred-only'; id='jibbers_reshred'; name='Rewind'; description='Record, scrub and resume your run.'; version='0.1.2' }
-    )) {
-        Invoke-ChannelCargo -Arguments @('build','--release','-p','jibbers-hotload-core','--features',$entry.feature)
-        Copy-Item -LiteralPath 'target/release/jibbers_hotload_core.dll' -Destination "$payload/JibbersMods/$($entry.id).dll"
-        $files = @("JibbersMods/$($entry.id).dll")
-        if ($entry.id -eq 'jibbers_atmosphere') {
-            Copy-Item -LiteralPath 'mods/JibbersAtmosphere/build/jibbers_atmosphere.bundle' -Destination "$payload/jibbers_atmosphere.bundle"
-            $files += 'jibbers_atmosphere.bundle'
+    $packages.Add([ordered]@{id='loader'; name='Jibbers Mod Loader'; description='Phone menu, startup updates and C# mod loading.'; version=$Version; dependencies=@('jibbers_dotnet'); files=@('JibbersMods/system/jibbers_loader.dll')})
+    $packages.Add([ordered]@{id='jibbers_dotnet'; name='C# Runtime'; description='Required shared C# SDK and bundled .NET runtime.'; version=$Version; files=@('JibbersMods/packages/jibbers_dotnet/jibbers_dotnet.dll','JibbersMods/packages/jibbers_dotnet/runtime.zip')})
+    $mods = [IO.Compression.ZipFile]::OpenRead((Join-Path $root 'dist/JibbersCSharpMods.zip'))
+    try {
+        foreach ($entry in @(
+            @{folder='Atmosphere'; id='jibbers_atmosphere'; name='Atmosphere'; description='C# weather, snowfall, fog and colour grading.'; asset='jibbers_atmosphere.bundle'},
+            @{folder='Reshred'; id='jibbers_reshred'; name='Rewind'; description='C# physics history, hold to rewind and resume.'; asset=$null},
+            @{folder='FPV'; id='jibbers_fpv'; name='FPV Drone'; description='C# drone flight, camera, controls, HUD and audio.'; asset='JibbersMods/jibbers_fpv.bundle'}
+        )) {
+            # Historical paths let the installed bootstrap replace native DLLs atomically.
+            # The new loader routes these CLR assemblies to the C# host.
+            $dll = "JibbersMods/$($entry.id).dll"
+            Extract-Entry $mods "JibbersMods/cs/$($entry.folder)/$($entry.folder).dll" "$payload/$dll"
+            $files = @($dll)
+            if ($entry.asset) { Extract-Entry $mods $entry.asset "$payload/$($entry.asset)"; $files += $entry.asset }
+            $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$Version; dependencies=@('jibbers_dotnet'); files=$files})
         }
-        $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$entry.version; files=$files})
-    }
-    foreach ($entry in @(
-        @{folder='JibbersFPV'; id='jibbers_fpv'; name='FPV Drone'; description='Fly and film with a controllable FPV drone.'; version='0.1.0'}
-    )) {
-        Invoke-ChannelCargo -Arguments @('build','--release') -Dir (Join-Path $root "mods/$($entry.folder)")
-        Copy-Item -LiteralPath "mods/$($entry.folder)/target/release/$($entry.id).dll" -Destination "$payload/JibbersMods/$($entry.id).dll"
-        $files = @("JibbersMods/$($entry.id).dll")
-        if ($entry.id -eq 'jibbers_fpv') {
-            Copy-Item -LiteralPath 'mods/JibbersFPV/build/jibbers_fpv.bundle' -Destination "$payload/JibbersMods/jibbers_fpv.bundle"
-            $files += 'JibbersMods/jibbers_fpv.bundle'
-        }
-        $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$entry.version; files=$files})
-    }
+    } finally { $mods.Dispose() }
     $spec = [ordered]@{sequence=$Sequence; baseUrl='https://github.com/jaxoncarelos/JibbersModLoader/releases/download/mod-channel-stable'; packages=@($packages.ToArray())}
     [IO.File]::WriteAllText("$stage/spec.json", ($spec | ConvertTo-Json -Depth 12), [Text.UTF8Encoding]::new($false))
-    # Preserve third-party asset licensing alongside source and release artifacts.
-    Copy-Item -LiteralPath 'mods/JibbersAtmosphere/unity/Assets/Atmosphere/Snow/LICENSE.txt' -Destination "$installer/SNOW-TEXTURES-LICENSE.txt"
-    & python tools/third_party_notices.py --out "$installer/THIRD-PARTY-NOTICES.txt" Cargo.toml mods/JibbersFPV/Cargo.toml
-    if ($LASTEXITCODE -ne 0) { throw 'Dependency license collection failed.' }
-    # Actions transports the exact built payload to a separately permissioned publishing job.
-    $dist = Join-Path $root 'dist'
-    New-Item -ItemType Directory -Path $dist -Force | Out-Null
-    Compress-Archive -Path "$stage/*" -DestinationPath "$dist/JibbersChannel-Unsigned.zip" -Force
-    Write-Host "Unsigned build ready: $dist/JibbersChannel-Unsigned.zip"
-    Write-Host "Staging retained: $stage"
+    Compress-Archive -Path "$stage/*" -DestinationPath 'dist/JibbersChannel-Unsigned.zip' -Force
+    Write-Host "Unsigned C# channel ready: $stage"
 } finally { Pop-Location }

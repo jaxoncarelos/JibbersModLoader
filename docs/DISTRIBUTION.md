@@ -11,6 +11,11 @@ Install **JibbersModManager.zip** from Releases once. Close the game, extract th
 `install.ps1` from the extracted JibbersModManager folder. Use `-GameDir 'your game folder'` if necessary.
 The installer saves the previous loader and enrolls existing catalog mods without changing settings.
 Subsequent loader and selected-mod updates download automatically at game startup.
+The channel now contains C# FPV, Atmosphere and Rewind. Existing native subscriptions migrate
+in place; saved settings are retained. The shared C# SDK and bundled .NET runtime update as
+required dependencies. No separate .NET installation is needed. The runtime cache is checked
+against signed file hashes on every launch and can recover offline after a failed later update.
+
 
 Open **Options > Mods > Install and update mods**, in either the main menu or the phone.
 Enable a mod to install it, or disable it to uninstall it on the next launch. Dependencies install with it.

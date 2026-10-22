@@ -24,17 +24,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
       - name: Check public source allowlist
         run: python tools/verify_public_sources.py
       - name: Test and build loader, FPV, Atmosphere and Rewind
         shell: pwsh
-        run: ./tools/package_channel.ps1 -Sequence (100 + ${{ github.run_number }})
+        run: ./tools/package_channel.ps1 -Sequence (1000 + ${{ github.run_number }}) -Version '0.3.${{ github.run_number }}'
       - name: Prepare backwards-compatible SDK loader upgrade
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           ./tools/package_loader_bridge.ps1
+          Expand-Archive -LiteralPath dist/JibbersChannel-Unsigned.zip -DestinationPath out/channel-loader
+          Copy-Item out/channel-loader/payload/JibbersMods/system/jibbers_loader.dll dist/loader-bridge-unsigned/loader/jibbers_loader.dll -Force
           Compress-Archive -Path dist/loader-bridge-unsigned/* -DestinationPath dist/JibbersLoaderBridge-Unsigned.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -42,6 +47,10 @@ jobs:
           path: |
             dist/JibbersChannel-Unsigned.zip
             dist/JibbersLoaderBridge-Unsigned.zip
+            dist/JibbersCSharp.zip
+            dist/JibbersCSharpMods.zip
+            dist/JibbersCSharpSDK.zip
+            dist/JibbersCSharp-SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -54,6 +63,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
       - uses: actions/download-artifact@v4
         with:
           name: unsigned-mod-channel
@@ -92,6 +104,7 @@ jobs:
           Copy-Item dist/channel/catalog.json,dist/channel/catalog.json.sig -Destination out/channel/JibbersModManager
           Compress-Archive -Path out/channel/JibbersModManager -DestinationPath dist/JibbersModManager.zip
           ./tools/verify_channel.ps1 -ChannelDir dist/channel -BootstrapZip dist/JibbersModManager.zip -Publisher out/channel/bin/jibbers-publish.exe
+          ./tools/verify_managed_channel.ps1 -ChannelDir dist/channel -Publisher out/channel/bin/jibbers-publish.exe -RuntimeProbe out/channel/bin/verify_managed_runtime.exe
           ./tools/verify_loader_bridge.ps1 -UnsignedDir out/bridge -SignedDir dist/sdk-bridge
       - name: Publish immutable release and update stable download channel
         shell: pwsh
@@ -100,7 +113,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = 'manager-build-${{ github.run_number }}'
-          gh release create $tag dist/JibbersModManager.zip --target '${{ github.sha }}' --title "Mod manager build ${{ github.run_number }}" --generate-notes --latest=false
+          gh release create $tag dist/JibbersModManager.zip dist/JibbersCSharp.zip dist/JibbersCSharpMods.zip dist/JibbersCSharpSDK.zip dist/JibbersCSharp-SHA256SUMS.txt --target '${{ github.sha }}' --title "C# mod system build ${{ github.run_number }}" --generate-notes --latest=false
           if ($LASTEXITCODE -ne 0) { throw 'Could not create the versioned release.' }
           # The stable catalog is a separate tag so SDK releases/latest never change this URL.
           gh release view mod-channel-stable *> $null
@@ -116,8 +129,13 @@ jobs:
           }
           gh release upload mod-channel-stable dist/JibbersModManager.zip --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Bootstrap upload failed.' }
+          gh release upload mod-channel-stable dist/JibbersCSharp.zip dist/JibbersCSharpMods.zip dist/JibbersCSharpSDK.zip dist/JibbersCSharp-SHA256SUMS.txt --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'C# package upload failed.' }
           gh release upload mod-channel-stable dist/channel/catalog.json.sig dist/channel/catalog.json --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Catalog upload failed.' }
+          [IO.File]::WriteAllText('dist/channel-notes.md', "C# FPV, Atmosphere and Rewind with automatic loader, SDK and bundled .NET updates.`n`nSource: https://github.com/jaxoncarelos/JibbersModLoader/tree/${{ github.sha }}`n`nImmutable build: https://github.com/jaxoncarelos/JibbersModLoader/releases/tag/$tag`n`nExisting updater installations receive selected mods on their next launch. New users install JibbersModManager.zip once. Original source: GPL-3.0-only.")
+          gh release edit mod-channel-stable --notes-file dist/channel-notes.md
+          if ($LASTEXITCODE -ne 0) { throw 'Channel source notes update failed.' }
           # This remains latest so existing SDK installations fetch the bridge through the URL
           # already compiled into their updaters. Ordinary mod-channel releases are never latest.
           $sdkAssets = @(Get-ChildItem dist/sdk-bridge -File | ForEach-Object { $_.FullName })

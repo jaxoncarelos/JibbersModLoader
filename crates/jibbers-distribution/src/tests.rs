@@ -76,6 +76,40 @@ fn startup_installs_loader_and_selected_mod_then_updates_both() {
 }
 
 #[test]
+fn native_subscription_migrates_to_managed_with_required_runtime_and_keeps_settings() {
+    let root = Sandbox::new(); let mut net = Net::default();
+    let loader = package(&mut net, "loader", "0.2.1", b"old loader");
+    let native = package(&mut net, "jibbers_fpv", "0.1.0", b"old native FPV");
+    let mut catalog = Catalog { schema: 1, sequence: 200, packages: vec![loader, native] };
+    let wanted = vec!["jibbers_fpv".into()];
+    install::apply(&root.0, &catalog, &wanted, true, &net).unwrap();
+    root.write("JibbersMods/fpv.settings.json", b"saved settings");
+    root.write("JibbersMods/local.dll", b"local mod");
+    catalog.sequence = 1001;
+    catalog.packages[0] = package(&mut net, "loader", "0.3.0", b"managed-aware loader");
+    catalog.packages[1] = package(&mut net, "jibbers_fpv", "0.3.0", b"C# FPV assembly");
+    let mut runtime = package(&mut net, "jibbers_dotnet", "0.3.0", b"bridge");
+    runtime.files[0].path = "JibbersMods/packages/jibbers_dotnet/jibbers_dotnet.dll".into();
+    let url = "https://cdn.example/runtime.zip".to_string();
+    net.0.insert(url.clone(), b"runtime archive".to_vec());
+    runtime.files.push(File { path: "JibbersMods/packages/jibbers_dotnet/runtime.zip".into(), url: url.clone(), size: 15, sha256: catalog::hash(b"runtime archive") });
+    catalog.packages[0].dependencies.push(runtime.id.clone());
+    catalog.packages[1].dependencies.push(runtime.id.clone());
+    catalog.packages.push(runtime);
+    // A failed shared-runtime download must leave both the native mod and loader in place.
+    let bytes = net.0.remove(&url).unwrap();
+    assert!(install::apply(&root.0, &catalog, &wanted, true, &net).is_err());
+    assert_eq!(root.bytes("JibbersMods/jibbers_fpv.dll"), b"old native FPV");
+    assert_eq!(root.bytes(crate::LOADER_PATH), b"old loader");
+    net.0.insert(url, bytes);
+    let installed = install::apply(&root.0, &catalog, &wanted, true, &net).unwrap();
+    assert_eq!(root.bytes("JibbersMods/jibbers_fpv.dll"), b"C# FPV assembly");
+    assert_eq!(installed.packages.len(), 3);
+    assert_eq!(root.bytes("JibbersMods/fpv.settings.json"), b"saved settings");
+    assert_eq!(root.bytes("JibbersMods/local.dll"), b"local mod");
+}
+
+#[test]
 fn bad_download_never_changes_any_installed_file() {
     let root = Sandbox::new(); let (mut cat, mut net) = setup();
     install::apply(&root.0, &cat, &["example".into()], true, &net).unwrap();

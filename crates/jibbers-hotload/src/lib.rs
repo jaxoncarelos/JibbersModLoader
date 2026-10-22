@@ -24,6 +24,7 @@
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/abi.rs"]
 mod abi;
 mod core;
+mod managed_runtime;
 mod compat;
 #[allow(dead_code)]
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/gamebuild.rs"]

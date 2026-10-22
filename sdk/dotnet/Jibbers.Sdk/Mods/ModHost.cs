@@ -181,7 +181,8 @@ internal static unsafe class ModHost
         ModsDir = modsDir;
         var dir = Path.Combine(modsDir, "cs");
         Directory.CreateDirectory(dir);
-        foreach (var file in ModFiles(dir))
+        // Channel packages win over old manual copies; Register rejects duplicate mod IDs.
+        foreach (var file in PublicModPackages.Files(modsDir).Concat(ModFiles(dir)))
         {
             try
             {

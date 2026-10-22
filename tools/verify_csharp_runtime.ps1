@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$RuntimeDir, [Parameter(Mandatory)][string]$ModsDir)
+param([Parameter(Mandatory)][string]$RuntimeDir, [Parameter(Mandatory)][string]$ModsDir, [switch]$Channel)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $runtimePackage = (Resolve-Path -LiteralPath $RuntimeDir).Path
@@ -28,7 +28,10 @@ if (!core.StartsWith(bundle + Path.DirectorySeparatorChar, StringComparison.Ordi
 var sdk = AssemblyLoadContext.Default.LoadFromAssemblyPath(sdkPath);
 var modBase = sdk.GetType("Jibbers.Sdk.JibbersMod", throwOnError: true)!;
 var ids = new HashSet<string>();
-foreach (var file in Directory.GetFiles(mods, "*.dll", SearchOption.AllDirectories))
+var files = Directory.GetFiles(mods, "*.dll", SearchOption.AllDirectories).AsEnumerable();
+if (args.Length > 3 && args[3] == "channel")
+    files = files.Where(file => new[] { "jibbers_atmosphere.dll", "jibbers_fpv.dll", "jibbers_reshred.dll" }.Contains(Path.GetFileName(file)));
+foreach (var file in files)
 {
     var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(file);
     foreach (var type in assembly.GetTypes().Where(t => !t.IsAbstract && modBase.IsAssignableFrom(t)))
@@ -54,9 +57,19 @@ if ($LASTEXITCODE -ne 0) { throw 'Runtime probe build failed' }
 $previousRoot = $env:DOTNET_ROOT_X64
 $previousMulti = $env:DOTNET_MULTILEVEL_LOOKUP
 try {
-    $env:DOTNET_ROOT_X64 = Join-Path $runtimePackage 'JibbersMods/dotnet/runtime'
+    $sdkFolder = Join-Path $runtimePackage 'JibbersMods/dotnet'
+    $managedMods = Join-Path $modPackage 'JibbersMods/cs'
+    if ($Channel) {
+        $package = Join-Path $runtimePackage 'JibbersMods/packages/jibbers_dotnet'
+        $identity = [IO.File]::ReadAllText((Join-Path $package 'active.txt'))
+        if ($identity -notmatch '^[a-f0-9]{64}$') { throw 'Invalid prepared runtime identity' }
+        $sdkFolder = Join-Path $package "cache/$identity/dotnet"
+        $managedMods = Join-Path $modPackage 'JibbersMods'
+    }
+    $env:DOTNET_ROOT_X64 = Join-Path $sdkFolder 'runtime'
     $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-    & (Join-Path $stage 'bin/Release/net8.0/RuntimeProbe.exe') $env:DOTNET_ROOT_X64 (Join-Path $runtimePackage 'JibbersMods/dotnet/Jibbers.Sdk.dll') (Join-Path $modPackage 'JibbersMods/cs')
+    $mode = if ($Channel) { 'channel' } else { 'manual' }
+    & (Join-Path $stage 'bin/Release/net8.0/RuntimeProbe.exe') $env:DOTNET_ROOT_X64 (Join-Path $sdkFolder 'Jibbers.Sdk.dll') $managedMods $mode
     if ($LASTEXITCODE -ne 0) { throw 'Bundled runtime/SDK/mod loading smoke test failed' }
 } finally {
     $env:DOTNET_ROOT_X64 = $previousRoot

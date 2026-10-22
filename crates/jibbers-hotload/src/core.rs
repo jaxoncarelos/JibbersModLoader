@@ -222,8 +222,20 @@ fn load_plugins(cores: &mut Vec<Core>, only: Option<&str>) {
         .filter(|p| p.is_file() && p.extension().is_some_and(|x| x.eq_ignore_ascii_case("dll")))
         .filter(|p| only.is_none_or(|stem| p.file_stem().is_some_and(|s| s.eq_ignore_ascii_case(stem))))
         .collect();
+    if only.is_none() {
+        match crate::managed_runtime::prepare(&game_dir()) {
+            Ok(Some(bridge)) => {
+                // The signed channel bridge takes precedence over a manually installed copy.
+                files.retain(|file| !file.file_stem().is_some_and(|name| name.eq_ignore_ascii_case("jibbers_dotnet")));
+                files.push(bridge);
+            }
+            Ok(None) => {},
+            Err(error) => log::info(format!("C# runtime was not prepared: {error}")),
+        }
+    }
     files.sort();
     for f in files {
+        if std::fs::read(&f).is_ok_and(|bytes| crate::managed_runtime::is_managed(&bytes)) { continue; }
         match unsafe { load_from(&f, false) } {
             Ok(c) => {
                 log::info(format!("plugin {} loaded", c.name));

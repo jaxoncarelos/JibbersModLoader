@@ -6,15 +6,14 @@ Extract this mod ZIP into a separate folder, then run its installer:
   powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 For a different game location, add -GameDir "D:\Games\Jibbers Playtest".
-The installer backs up matching native/old managed DLLs, installs the C# ports,
-and retires their native update subscriptions. Settings and local-only mods stay.
-Do not simply merge this ZIP into a game with the Rust mods still installed:
-that would run both implementations and make their hooks/camera controls conflict.
+The installer backs up matching native/old managed DLLs, installs the C# mods,
+keeps their public update subscriptions, and adopts the copied bundles for future updates.
+Settings, unrelated local mods and your automatic-update preference stay unchanged.
+Use the installer rather than merging duplicate native and managed mod copies.
 
-These C# builds are for local acceptance testing. The public automatic-update catalog
-still serves the tested Rust gameplay mods. Do not select the same native mods in
-the install menu while testing their C# equivalents. Loader updates continue.
-Gameplay acceptance in the running game is still required before publishing C# mods.
+The public automatic-update catalog distributes these C# mods and their shared runtime.
+With automatic updates enabled, updates apply at game startup. Existing manager installations
+receive selected C# mods automatically; there is no need to install these ZIPs again.
 
 FPV: F9 or L3+R3 take off/land; F10 or LB mode; middle mouse or RB lock
 (hold to release); Home or Y return. All keys and flight settings are in Mods.

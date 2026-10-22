@@ -29,9 +29,9 @@ foreach ($file in @('version.dll','JibbersMods/cs/Filmer.dll','jibbers_atmospher
     if ([IO.File]::ReadAllText((Join-Path $success $file)) -ne "original $file") { throw 'Settings/local mods/loader changed' }
 }
 $config = Get-Content "$success/JibbersMods/system/distribution/preferences.json" -Raw | ConvertFrom-Json
-if ($config.autoUpdate -or @($config.wanted).Count -ne 1 -or $config.wanted[0] -ne 'local_mod' -or $config.catalogUrl -ne 'https://example.com/catalog.json') { throw 'Unrelated update preferences changed' }
+if ($config.autoUpdate -or @($config.wanted).Count -ne 4 -or 'local_mod' -notin $config.wanted -or 'jibbers_fpv' -notin $config.wanted -or $config.catalogUrl -ne 'https://example.com/catalog.json') { throw 'Update selections or unrelated preferences changed' }
 $record = Get-Content "$success/JibbersMods/system/distribution/installed.json" -Raw | ConvertFrom-Json
-if ($record.sequence -ne 100 -or $record.packages.loader.version -ne '0.2.1' -or $record.packages.local_mod.version -ne '1.0.0' -or $record.packages.jibbers_atmosphere) { throw 'Native bundle ownership or unrelated package records were not preserved correctly' }
+if ($record.sequence -ne 100 -or $record.packages.loader.version -ne '0.2.1' -or $record.packages.local_mod.version -ne '1.0.0' -or $record.packages.jibbers_atmosphere.version -ne '0.0.0' -or @($record.packages.jibbers_atmosphere.files).Count -ne 1) { throw 'C# bundle adoption or unrelated package records were not preserved correctly' }
 if (@(Get-ChildItem "$success/JibbersMods/system" -Directory -Filter 'before-csharp-*').Count -ne 1) { throw 'Backup missing' }
 
 $rollback = Fixture 'rollback'

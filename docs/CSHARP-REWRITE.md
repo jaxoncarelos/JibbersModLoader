@@ -34,16 +34,20 @@ The three packages are:
   the three public mod sources. Local-only mods and Rust SDK source are excluded.
 
 Player/mod packages contain compiled code and license notices. The SDK package intentionally
-contains C# source. Local-only ports still build in the repository and participate in tests, but
-are excluded from both public mod binaries and the public source kit.
+contains C# source. Only these three gameplay mod projects remain in the repository.
 
 ## Distribution and acceptance
 
-The public catalog still contains the previously tested native gameplay DLLs. Building these ZIPs
-does not publish a release or migrate other players. Loader updates remain enabled by the stable
-bootstrap. The C# mods installer retires the three native mod subscriptions; selecting the native
-versions in the public menu would install them again. Publishing managed gameplay packages and
-the bundled runtime through the catalog is a separate release migration after live acceptance.
+The public catalog distributes C# FPV, Atmosphere and Rewind, plus a shared SDK and bundled .NET
+runtime. Existing selected package IDs and DLL ownership paths are retained. On startup, the
+bootstrap installs the signed update atomically; the new loader recognizes the managed assemblies
+and loads them through the C# host. Existing updater installations do not need another download.
+Unselected mods remain unselected. A newly installed manager starts with the install menu.
+
+The runtime archive uses a package path accepted by existing bootstraps. Its contents are expanded
+into a cache named by the archive hash. A signed per-file manifest verifies and repairs that cache;
+a signed catalog receipt allows the previous installed runtime to work after a later update fails.
+Native gameplay DLLs are replaced in place, and manual C# duplicates are skipped by mod ID.
 
 For local acceptance, install the runtime package while the game is closed, then run the mods
 installer from an extracted folder. In-game checks still required: one section per C# mod; toggles

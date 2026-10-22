@@ -26,14 +26,12 @@ foreach ($relative in $payloads) {
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $relative) -PathType Leaf)) { throw "Package is incomplete: $relative" }
     $null = Game-Path $relative
 }
-# Parse state before changing files. Retire native ownership of the shared bundles, so the native
-# updater cannot remove C# assets on the following launch. Keep loader and local packages/settings.
+# Keep the stable package IDs selected so subsequent launches update these C# mods.
 $config = if (Test-Path -LiteralPath $preferences) { Get-Content -LiteralPath $preferences -Raw | ConvertFrom-Json } else {
     [pscustomobject]@{autoUpdate=$true; wanted=@(); catalogUrl='https://github.com/jaxoncarelos/JibbersModLoader/releases/download/mod-channel-stable/catalog.json'}
 }
-$config.wanted = @($config.wanted | Where-Object { $_ -notin $publicIds })
-$record = if (Test-Path -LiteralPath $installed) { Get-Content -LiteralPath $installed -Raw | ConvertFrom-Json } else { $null }
-if ($record) { foreach ($id in $publicIds) { $record.packages.PSObject.Properties.Remove($id) } }
+$config.wanted = @(($config.wanted + $publicIds) | Select-Object -Unique)
+$record = if (Test-Path -LiteralPath $installed) { Get-Content -LiteralPath $installed -Raw | ConvertFrom-Json } else { [pscustomobject]@{sequence=0;packages=[pscustomobject]@{}} }
 
 $backup = Game-Path ('JibbersMods/system/before-csharp-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $backup -Force | Out-Null
@@ -60,6 +58,16 @@ try {
         $target = Game-Path $relative
         if (Test-Path -LiteralPath $target -PathType Leaf) { $target = Save-Before $relative; Remove-Item -LiteralPath $target }
     }
+    # Adopt only the bundles this installer explicitly copied. The next catalog update can
+    # replace them safely without treating them as unrelated, unmanaged local files.
+    $bundlePaths = @{jibbers_atmosphere=@('jibbers_atmosphere.bundle');jibbers_reshred=@();jibbers_fpv=@('JibbersMods/jibbers_fpv.bundle')}
+    foreach ($id in $publicIds) {
+        $owned = @($bundlePaths[$id] | ForEach-Object {
+            $path = Game-Path $_
+            [pscustomobject]@{path=$_;url=$config.catalogUrl;size=(Get-Item -LiteralPath $path).Length;sha256=(Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant()}
+        })
+        $record.packages | Add-Member -MemberType NoteProperty -Name $id -Value ([pscustomobject]@{version='0.0.0';files=$owned}) -Force
+    }
     $target = Save-Before 'JibbersMods/system/distribution/preferences.json'
     New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
     [IO.File]::WriteAllText($target, ($config | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
@@ -84,5 +92,5 @@ try {
     throw
 }
 Write-Host 'Installed C# Atmosphere, Rewind and FPV. Previous native copies and manager selections were backed up.'
-Write-Host 'Use the C# Mods sections. The stable public catalog still distributes native mod builds; selecting them again would reinstall a native copy.'
+Write-Host 'The three C# mods remain enrolled in the public update channel; changes apply on the next launch.'
 Write-Host "Backup: $backup"
