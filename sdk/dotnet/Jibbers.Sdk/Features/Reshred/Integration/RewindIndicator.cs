@@ -54,6 +54,12 @@ internal sealed unsafe class RewindIndicator(Action<string> log) : IRewindIndica
             var textComponent = Unity.GetComponent(labelTransform, Il2Cpp.RequireClass("Unity.TextMeshPro.dll", "TMPro.TMP_Text"));
             var white = new Color(1, 1, 1, 1);
             Unity.Call(textComponent, "set_color", (nint)(&white));
+            // Respawn can be cloned while its text component is hidden or disabled.
+            // Activating the GameObject alone does not restore either text property.
+            var opacity = 1f;
+            Unity.Call(textComponent, "set_alpha", (nint)(&opacity));
+            var textEnabled = true;
+            Unity.Call(textComponent, "set_enabled", (nint)(&textEnabled));
             var fontSize = 30f;
             Unity.Call(textComponent, "set_fontSize", (nint)(&fontSize));
             var center = 514; // TextAlignmentOptions.Center
