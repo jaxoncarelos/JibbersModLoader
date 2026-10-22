@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 
 namespace Jibbers.Sdk.Features.Atmosphere;
 
-internal static class AtmoConfig
+internal static class AtmosphereConfiguration
 {
     /// <summary>Every setting with its default (the Rust Settings::default()).</summary>
     public static JsonObject Defaults() => (JsonObject)JsonNode.Parse("""
@@ -48,120 +48,107 @@ internal static class AtmoConfig
     public static List<string> PresetOrder(JsonObject presets)
     {
         var names = BuiltInPresets.Where(presets.ContainsKey).ToList();
-        names.AddRange(presets.Select(p => p.Key).Where(k => !BuiltInPresets.Contains(k)).Order(StringComparer.Ordinal));
+        names.AddRange(presets.Select(entry => entry.Key).Where(key => !BuiltInPresets.Contains(key)).Order(StringComparer.Ordinal));
         return names;
     }
 
     /// <summary>The settings from a file's text: defaults, with the file's known keys on top (an old or partial file still loads).</summary>
     public static JsonObject Load(string? text)
     {
-        var s = Defaults();
+        var settings = Defaults();
         if (text is null)
         {
-            return s;
+            return settings;
         }
         if (JsonNode.Parse(text) is JsonObject file)
         {
-            foreach (var (k, v) in file)
+            foreach (var (key, value) in file)
             {
-                if (s.ContainsKey(k) && v is not null)
+                if (settings.ContainsKey(key) && value is not null)
                 {
-                    s[k] = v.DeepClone();
+                    settings[key] = value.DeepClone();
                 }
             }
         }
-        return s;
+        return settings;
     }
 
-    /// <summary>Writes the fields of <paramref name="req"/> into <paramref name="cur"/>. Maps merge key by key (null removes); unknown keys are ignored.</summary>
-    public static void Merge(JsonObject cur, JsonObject req)
+    /// <summary>Writes the fields of <paramref name="changes"/> into <paramref name="current"/>. Maps merge key by key (null removes); unknown keys are ignored.</summary>
+    public static void Merge(JsonObject current, JsonObject changes)
     {
-        foreach (var (k, v) in req)
+        foreach (var (key, value) in changes)
         {
-            if (!cur.ContainsKey(k))
+            if (!current.ContainsKey(key))
             {
                 continue;
             }
-            if (cur[k] is JsonObject c && v is JsonObject n)
+            if (current[key] is JsonObject currentObject && value is JsonObject patchObject)
             {
-                foreach (var (nk, nv) in n)
+                foreach (var (propertyName, propertyValue) in patchObject)
                 {
-                    if (nv is null)
+                    if (propertyValue is null)
                     {
-                        c.Remove(nk);
+                        currentObject.Remove(propertyName);
                     }
                     else
                     {
-                        c[nk] = nv.DeepClone();
+                        currentObject[propertyName] = propertyValue.DeepClone();
                     }
                 }
             }
             else
             {
-                cur[k] = v?.DeepClone();
+                current[key] = value?.DeepClone();
             }
         }
     }
 
     /// <summary>The settings with a preset applied: defaults, keeping the user's presets and the master switch, then the preset's fields.</summary>
-    public static JsonObject WithPreset(JsonObject cur, string name)
+    public static JsonObject WithPreset(JsonObject current, string name)
     {
-        if ((cur["presets"] as JsonObject)?[name] is not JsonObject partial)
+        if ((current["presets"] as JsonObject)?[name] is not JsonObject partial)
         {
             throw new ArgumentException($"no preset named \"{name}\"");
         }
         var next = Defaults();
-        next["enabled"] = cur["enabled"]?.DeepClone();
-        next["presets"] = cur["presets"]?.DeepClone();
+        next["enabled"] = current["enabled"]?.DeepClone();
+        next["presets"] = current["presets"]?.DeepClone();
         next["preset"] = name;
         Merge(next, partial);
         return next;
     }
 
     /// <summary>The preset after the current one (the first if the current name is unknown).</summary>
-    public static string NextPreset(JsonObject cur)
+    public static string NextPreset(JsonObject current)
     {
-        var order = PresetOrder(cur["presets"] as JsonObject ?? new JsonObject());
+        var order = PresetOrder(current["presets"] as JsonObject ?? new JsonObject());
         if (order.Count == 0)
         {
             throw new ArgumentException("no presets defined");
         }
-        var i = order.IndexOf(cur["preset"]?.GetValue<string>() ?? "");
-        return order[i < 0 ? 0 : (i + 1) % order.Count];
+        var index = order.IndexOf(current["preset"]?.GetValue<string>() ?? "");
+        return order[index < 0 ? 0 : (index + 1) % order.Count];
     }
 
     /// <summary>hazeDensity and fogDensity at fog thickness 1 (the Snowstorm preset's scale).</summary>
     public const float FogHazeFull = 0.012f, FogDensityFull = 0.008f;
 
     /// <summary>The fog slider value to the fields it sets: both densities scale, the sky is fully hazed from 0.15 up.</summary>
-    public static JsonObject FogFields(float v) => new()
+    public static JsonObject FogFields(float value) => new()
     {
-        ["hazeDensity"] = v * FogHazeFull,
-        ["fogDensity"] = v * FogDensityFull,
-        ["skyHaze"] = v > 0.15f ? 1f : v * 5,
+        ["hazeDensity"] = value * FogHazeFull,
+        ["fogDensity"] = value * FogDensityFull,
+        ["skyHaze"] = value > 0.15f ? 1f : value * 5,
     };
 
     /// <summary>The fog slider value read back from the settings.</summary>
-    public static float FogValue(JsonObject s) => Math.Clamp(F(s, "hazeDensity") / FogHazeFull, 0, 1);
+    public static float FogValue(JsonObject settings) => Math.Clamp(GetFloat(settings, "hazeDensity") / FogHazeFull, 0, 1);
 
-    public static float F(JsonObject s, string k) => s[k] is JsonValue v ? (float)double.Parse(v.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture) : 0;
+    public static float GetFloat(JsonObject settings, string key) => settings[key] is JsonValue value ? (float)double.Parse(value.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture) : 0;
 
-    public static float[] A(JsonObject s, string k) => (s[k] as JsonArray)?.Select(x => x is null ? 0f : (float)double.Parse(x.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture)).ToArray() ?? Array.Empty<float>();
+    public static float[] GetArray(JsonObject settings, string key) => (settings[key] as JsonArray)?.Select(component => component is null ? 0f : (float)double.Parse(component.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture)).ToArray() ?? Array.Empty<float>();
 
-    public static bool B(JsonObject s, string k) => s[k] is JsonValue v && v.TryGetValue(out bool b) && b;
+    public static bool GetBool(JsonObject settings, string key) => settings[key] is JsonValue value && value.TryGetValue(out bool booleanValue) && booleanValue;
 
-    /// <summary>
-    /// Cloud bank (top - thickness, top): it follows the rider's camera rather than the map's lowest
-    /// terrain, which can be thousands of metres below the riding surface. Falls back to the terrain
-    /// anchor while no camera is available.
-    /// </summary>
-    public static (float Base, float Top) CloudBankBounds(JsonObject s, float? cameraHeight, float floor, float terrainTop)
-    {
-        var top = cameraHeight is { } y && float.IsFinite(y)
-            ? y - MathF.Max(F(s, "cloudBankDistance"), 0)
-            : floor + F(s, "cloudBankTop") * MathF.Max(terrainTop - floor, 50);
-        return (top - MathF.Max(F(s, "cloudBankThickness"), 1), top);
-    }
-
-    public static string Serialize(JsonObject s) => s.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    public static string Serialize(JsonObject settings) => settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 }
