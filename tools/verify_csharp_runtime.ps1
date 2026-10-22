@@ -34,8 +34,10 @@ if (!ComparablePath(core).StartsWith(ComparablePath(bundle) + Path.DirectorySepa
 var sdk = AssemblyLoadContext.Default.LoadFromAssemblyPath(sdkPath);
 var modBase = sdk.GetType("Jibbers.Sdk.JibbersMod", throwOnError: true)!;
 var ids = new HashSet<string>();
-var files = Directory.GetFiles(mods, "*.dll", SearchOption.AllDirectories).AsEnumerable();
-if (args.Length > 3 && args[3] == "channel")
+var channel = args.Length > 3 && args[3] == "channel";
+// Channel packages live directly in JibbersMods. Historical backups are not active mods.
+var files = Directory.GetFiles(mods, "*.dll", channel ? SearchOption.TopDirectoryOnly : SearchOption.AllDirectories).AsEnumerable();
+if (channel)
     files = files.Where(file => new[] { "jibbers_atmosphere.dll", "jibbers_fpv.dll", "jibbers_reshred.dll" }.Contains(Path.GetFileName(file)));
 foreach (var file in files)
 {
