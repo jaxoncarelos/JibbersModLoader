@@ -94,6 +94,49 @@ static class AtmosphereTests
     {
         var mod = new Atmosphere.AtmosphereMod();
         var keys = mod.Settings.Select(x => x.Key).ToArray();
-        Assert.True(keys.SequenceEqual(new[] { "preset", "hotkeys", "toggleKey", "presetKey", "fog", "fogStart", "snow", "snowSize", "speedStreaks", "cloudBank", "cloudBankDistance", "sunShafts", "grading" }), string.Join(",", keys));
+        Assert.True(keys.SequenceEqual(new[] { "preset", "hotkeys", "cycleKey", "fog", "fogStart", "snow", "snowSize", "speedStreaks", "cloudBank", "cloudBankDistance", "sunShafts", "grading" }), string.Join(",", keys));
+        Assert.True(!mod.EnabledToggle);
+    }
+
+    [Test]
+    static void OneShortcutCyclesOffClearFoggySnowstorm()
+    {
+        var settings = AtmosphereModes.Select(AtmosphereConfiguration.Defaults(), "Off");
+        foreach (var expected in new[] { "Clear", "Foggy", "Snowstorm", "Off", "Clear" })
+        {
+            settings = AtmosphereModes.Select(settings, AtmosphereModes.Next(settings));
+            Assert.Equal(expected, AtmosphereModes.Current(settings));
+            Assert.Equal(expected != "Off", AtmosphereConfiguration.GetBool(settings, "enabled"));
+        }
+    }
+
+    [Test]
+    static void OldSettingsMigrateWithoutReusingReservedKeys()
+    {
+        var settings = AtmosphereConfiguration.Load("""{"enabled":true,"preset":"Foggy day","toggleKey":114,"presetKey":115,"hotkeys":false}""");
+        Assert.Equal("Foggy", AtmosphereModes.Current(settings));
+        Assert.Equal(121f, AtmosphereConfiguration.GetFloat(settings, "cycleKey"));
+        Assert.True(!settings.ContainsKey("toggleKey"));
+        Assert.True(!settings.ContainsKey("presetKey"));
+        Assert.True(!AtmosphereConfiguration.GetBool(settings, "hotkeys"));
+    }
+
+    [Test]
+    static void MenuModeSelectionEnablesPresetAndOffDisablesIt()
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        try
+        {
+            var store = new AtmosphereConfigurationStore(() => path, _ => { });
+            foreach (var mode in new[] { "Off", "Clear", "Foggy", "Snowstorm" })
+            {
+                Assert.True(store.ApplyMenuSetting("preset", JsonValue.Create(mode)!).SynchronizeMenu);
+                Assert.Equal(mode != "Off", store.Capture().Enabled);
+                string? shownMode = null;
+                store.SynchronizeMenu((key, value) => { if (key == "preset") shownMode = value.GetValue<string>(); });
+                Assert.Equal(mode, shownMode);
+            }
+        }
+        finally { File.Delete(path); }
     }
 }

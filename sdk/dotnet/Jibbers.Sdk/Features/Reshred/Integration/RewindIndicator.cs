@@ -1,124 +1,93 @@
-using System.Runtime.InteropServices;
-using Jibbers.Sdk.Game.Physics;
-using Jibbers.Sdk.Game.Replay;
 using Jibbers.Sdk.Interop;
-using Jibbers.Sdk.Symbols;
 
 namespace Jibbers.Sdk.Features.Rewind;
 
-/// <summary>Owns the rewind label and its Unity object lifetime. Rendering failure never blocks rewind.</summary>
-internal sealed unsafe class RewindIndicator(Action<string> log) : IRewindIndicator
+/// <summary>A screen-space overlay owned by Rewind, independent of the game's fading respawn UI.</summary>
+internal sealed class RewindIndicator(Action<string> log) : IRewindIndicator
 {
-    GameRef? labelReference;
-    bool reportedMissingLabel;
-    nint FindOrCreateLabel()
+    OwnedGameObject? overlay;
+    GameRef? label;
+    bool reportedFailure;
+
+    void EnsureCreated()
     {
-        if (labelReference?.Target is { } existingTransform && !Unity.IsNull(existingTransform))
-        {
-            return existingTransform;
-        }
+        if (overlay is not null && !Unity.IsNull(overlay.Target) && label is not null && !Unity.IsNull(label.Target))
+            return;
+        Dispose();
+        var font = Unity.FindObjects(Unity.Class("TMPro.TMP_Text"))
+            .Where(text => !Unity.IsNull(text))
+            .Select(text => Unity.Call(text, "get_font"))
+            .FirstOrDefault(candidate => !Unity.IsNull(candidate));
+        if (font == 0)
+            throw new InvalidOperationException("No loaded HUD font is available yet.");
 
-        labelReference?.Dispose();
-        labelReference = null;
-        var uiRoot = Unity.Find("UI");
-        var canvas = Unity.Call(Unity.Transform(uiRoot), "Find", Il2Cpp.String("MainCanvas"));
-        var template = canvas == 0 ? 0 : Unity.Call(canvas, "Find", Il2Cpp.String("Respawn"));
-        if (Unity.IsNull(template))
-        {
-            throw new InvalidOperationException("UI/MainCanvas/Respawn not found");
-        }
-
-        var labelTransform = Unity.Transform(Unity.CallStatic(Il2Cpp.RequireClass(Unity.Core, "UnityEngine.Object"), "Instantiate", Unity.Call(template, "get_gameObject"), canvas));
+        overlay = OwnedGameObject.Create("JibbersRewind.Hud");
         try
         {
-            Unity.Call(Unity.Call(labelTransform, "get_gameObject"), "set_name", Il2Cpp.String("Reshred_Label"));
-            // Its ReactiveText would keep rewriting the text to the respawn state.
-            var reactiveTextClass = Il2Cpp.Class("Assembly-CSharp.dll", "", "ReactiveText");
-            if (!reactiveTextClass.IsNull && Unity.GetComponent(labelTransform, reactiveTextClass)is var reactive && reactive != 0)
-            {
-                Unity.CallStatic(Il2Cpp.RequireClass(Unity.Core, "UnityEngine.Object"), "DestroyImmediate", reactive);
-            }
+            var canvas = overlay.AddComponent("UnityEngine.Canvas");
+            UnityProperties.Set(canvas, "set_renderMode", 0); // ScreenSpaceOverlay
+            UnityProperties.Set(canvas, "set_sortingOrder", 950);
+            var scaler = overlay.AddComponent("UnityEngine.UI.CanvasScaler");
+            UnityProperties.Set(scaler, "set_uiScaleMode", 1);
+            UnityProperties.Set(scaler, "set_referenceResolution", new Vector2(1920, 1080));
+            UnityProperties.Set(scaler, "set_matchWidthOrHeight", 0.5f);
 
-            // The template is parked above the screen until the game moves it in: give the clone its own place.
-            var anchor = new Vector2(0.5f, 0.18f);
-            Unity.Call(labelTransform, "set_anchorMin", (nint)(&anchor));
-            Unity.Call(labelTransform, "set_anchorMax", (nint)(&anchor));
-            var pivot = new Vector2(0.5f, 0.5f);
-            Unity.Call(labelTransform, "set_pivot", (nint)(&pivot));
-            var position = new Vector3(0, 0, 0);
-            Unity.Call(labelTransform, "set_anchoredPosition3D", (nint)(&position));
-            var dimensions = new Vector2(720, 72);
-            Unity.Call(labelTransform, "set_sizeDelta", (nint)(&dimensions));
-            var scale = new Vector3(1, 1, 1);
-            Unity.Call(labelTransform, "set_localScale", (nint)(&scale));
-            var textComponent = Unity.GetComponent(labelTransform, Il2Cpp.RequireClass("Unity.TextMeshPro.dll", "TMPro.TMP_Text"));
-            var white = new Color(1, 1, 1, 1);
-            Unity.Call(textComponent, "set_color", (nint)(&white));
-            // Respawn can be cloned while its text component is hidden or disabled.
-            // Activating the GameObject alone does not restore either text property.
-            var opacity = 1f;
-            Unity.Call(textComponent, "set_alpha", (nint)(&opacity));
-            var textEnabled = true;
-            Unity.Call(textComponent, "set_enabled", (nint)(&textEnabled));
-            var fontSize = 30f;
-            Unity.Call(textComponent, "set_fontSize", (nint)(&fontSize));
-            var center = 514; // TextAlignmentOptions.Center
-            Unity.Call(textComponent, "set_alignment", (nint)(&center));
-            var raycastEnabled = false;
-            Unity.Call(textComponent, "set_raycastTarget", (nint)(&raycastEnabled));
-            Unity.Call(labelTransform, "SetAsLastSibling");
+            using var textObject = OwnedGameObject.Create("Rewind progress");
+            var textComponent = textObject.AddComponent("TMPro.TextMeshProUGUI");
+            textObject.AttachTo(overlay.Transform);
+            label = new GameRef(textComponent);
+            Unity.Call(textComponent, "set_font", font);
+            UnityProperties.Set(textComponent, "set_fontSize", 30f);
+            UnityProperties.Set(textComponent, "set_color", new Color(1, 1, 1, 1));
+            UnityProperties.Set(textComponent, "set_raycastTarget", false);
+            UnityProperties.Set(textComponent, "set_alignment", 514); // Center
+            var rectTransform = Unity.Call(textComponent, "get_rectTransform");
+            UnityProperties.Set(rectTransform, "set_anchorMin", new Vector2(0.5f, 0.18f));
+            UnityProperties.Set(rectTransform, "set_anchorMax", new Vector2(0.5f, 0.18f));
+            UnityProperties.Set(rectTransform, "set_pivot", new Vector2(0.5f, 0.5f));
+            UnityProperties.Set(rectTransform, "set_anchoredPosition", new Vector2(0, 0));
+            UnityProperties.Set(rectTransform, "set_sizeDelta", new Vector2(1400, 100));
+            UnityProperties.Set(rectTransform, "set_localScale", new Vector3(1, 1, 1));
+            log("indicator overlay created; independent screen-space canvas, font assigned");
         }
         catch
         {
-            Unity.Destroy(Unity.Call(labelTransform, "get_gameObject"));
+            Dispose();
             throw;
         }
-
-        labelReference = new GameRef(labelTransform);
-        return labelTransform;
     }
 
     public void Show(string text)
     {
         try
         {
-            var labelTransform = FindOrCreateLabel();
-            var textComponent = Unity.GetComponent(labelTransform, Il2Cpp.RequireClass("Unity.TextMeshPro.dll", "TMPro.TMP_Text"));
-            Unity.Call(textComponent, "set_text", Il2Cpp.String(text));
-            var visible = true;
-            Unity.Call(Unity.Call(labelTransform, "get_gameObject"), "SetActive", (nint)(&visible));
+            EnsureCreated();
+            Unity.Call(label!.Target, "set_text", Il2Cpp.String(text));
+            UnityProperties.Set(overlay!.Target, "SetActive", true);
+            reportedFailure = false;
         }
         catch (Exception exception)
         {
-            // The rewind itself does not depend on the label: say it once.
-            if (!reportedMissingLabel)
+            if (!reportedFailure)
             {
-                reportedMissingLabel = true;
-                log("no indicator: " + exception.Message);
+                reportedFailure = true;
+                log("indicator unavailable: " + exception.Message);
             }
         }
     }
 
     public void Hide()
     {
-        if (labelReference?.Target is { } labelTransform && !Unity.IsNull(labelTransform))
-        {
-            var visible = false;
-            Unity.Call(Unity.Call(labelTransform, "get_gameObject"), "SetActive", (nint)(&visible));
-        }
+        if (overlay is not null && !Unity.IsNull(overlay.Target))
+            UnityProperties.Set(overlay.Target, "SetActive", false);
     }
 
     public void Dispose()
     {
-        try
-        {
-            if (labelReference?.Target is { } transform && !Unity.IsNull(transform))
-                Unity.Destroy(Unity.Call(transform, "get_gameObject"));
-        }
-        finally
-        {
-            labelReference?.Dispose();
-            labelReference = null;
-        }
+        var ownedOverlay = overlay;
+        var ownedLabel = label;
+        overlay = null;
+        label = null;
+        Cleanup.Run(() => ownedOverlay?.Dispose(), () => ownedLabel?.Dispose());
     }
 }

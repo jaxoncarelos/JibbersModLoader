@@ -15,7 +15,8 @@ The public automatic-update catalog distributes these C# mods and their shared r
 With automatic updates enabled, updates apply at game startup. Existing manager installations
 receive selected C# mods automatically; there is no need to install these ZIPs again.
 
-FPV: F9 or L3+R3 take off/land; F10 or LB mode; middle mouse or RB lock
+Atmosphere: F10 cycles Off, Clear, Foggy, Snowstorm (also selectable in Options > Mods).
+FPV: F9 or L3+R3 take off/land; F11 or LB mode; middle mouse or RB lock
 (hold to release); Home or Y return. All keys and flight settings are in Mods.
 
 Log: jibbers_hotload.log beside Jibbers.exe.

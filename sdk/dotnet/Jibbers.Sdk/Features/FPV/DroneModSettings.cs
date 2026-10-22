@@ -34,7 +34,7 @@ internal static class DroneModSettings
         Setting.Slider("mouse_sens", "Mouse sensitivity", 0.03, 0.005, 0.3, 0.005).InSection("Input"),
         Setting.Slider("deadzone", "Stick deadzone", 0.08, 0, 0.3, 0.01).InSection("Input"),
         Setting.KeyBinding("toggle_key", "Take off / land", (int)Key.F9).InSection("Hotkeys"),
-        Setting.KeyBinding("mode_key", "Cycle flight mode", (int)Key.F10).InSection("Hotkeys"),
+        Setting.KeyBinding("mode_key", "Cycle flight mode", (int)Key.F11).InSection("Hotkeys"),
         Setting.KeyBinding("lock_key", "Lock target (hold: release)", (int)Key.MouseMiddle).InSection("Hotkeys"),
         Setting.KeyBinding("recall_key", "Return to rider", (int)Key.Home).InSection("Hotkeys"),
         Setting.KeyBinding("tilt_up_key", "Tilt camera up", (int)Key.PageUp).InSection("Hotkeys"),

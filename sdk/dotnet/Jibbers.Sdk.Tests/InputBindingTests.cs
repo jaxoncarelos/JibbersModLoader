@@ -69,7 +69,7 @@ static class InputBindingTests
     }
 
     [Test]
-    static void AtmospherePresetsCanBeSelectedWhileEffectsAreOff()
+    static void AtmosphereCycleSelectsAnActiveModeFromOff()
     {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         try
@@ -83,7 +83,7 @@ static class InputBindingTests
             using var handle = new Input.Handle { B = binding }.AllowWhenDisabled();
             binding.Dispatch();
             Assert.True(originalPreset != configuration.Capture().Values["preset"]?.ToJsonString());
-            Assert.True(!configuration.Capture().Enabled);
+            Assert.True(configuration.Capture().Enabled);
             Assert.True(!mod.Enabled);
         }
         finally { File.Delete(path); }

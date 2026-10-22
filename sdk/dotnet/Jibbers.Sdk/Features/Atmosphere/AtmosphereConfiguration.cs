@@ -31,7 +31,7 @@ internal static class AtmosphereConfiguration
       "grading": true,
       "beautify": { "tonemap": 1, "tonemapExposurePre": 1.1, "contrast": 1.1, "saturate": 0.15, "colorTemp": 8000.0, "colorTempBlend": 0.6, "bloomIntensity": 0.12, "bloomThreshold": 0.9 },
       "environment": { "ambientSaturation": 0.55 },
-      "hotkeys": true, "toggleKey": 114, "presetKey": 115,
+      "hotkeys": true, "cycleKey": 121,
       "preset": "Foggy day",
       "presets": {
         "Foggy day": {},
@@ -40,7 +40,7 @@ internal static class AtmosphereConfiguration
       }
     }
     """)!;
-    /// <summary>Built-in presets in the order F4 cycles them; other presets follow alphabetically.</summary>
+    /// <summary>Legacy preset ordering for configuration files; mode cycling is defined by AtmosphereModes.</summary>
     public static readonly string[] BuiltInPresets =
     {
         "Foggy day",

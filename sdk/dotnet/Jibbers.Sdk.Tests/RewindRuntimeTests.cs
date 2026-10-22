@@ -69,15 +69,18 @@ static class RewindRuntimeTests
 
     sealed class Indicator : IRewindIndicator
     {
+        public string? Message;
         public bool Fail, Disposed;
         public void Show(string message)
         {
+            Message = message;
             if (Fail)
                 throw new InvalidOperationException("label");
         }
 
         public void Hide()
         {
+            Message = null;
             if (Fail)
                 throw new InvalidOperationException("label");
         }
@@ -123,6 +126,28 @@ static class RewindRuntimeTests
         history.IsRewinding = true;
         history.Advance(scene, 1, 1);
         Assert.Equal(2, scene.Restored);
+    }
+
+    [Test]
+    static void HeldInputSendsProgressToIndicatorAndReleaseHidesIt()
+    {
+        var loop = new Loop();
+        var controls = new Controls();
+        var indicator = new Indicator();
+        using var runtime = new RewindRuntime(loop, controls, indicator, () => Options, _ => { });
+        runtime.Start();
+        controls.Held = true;
+        loop.Frame(0.1f);
+        Assert.True(indicator.Message?.Contains("waiting") == true);
+        var scene = new Scene();
+        for (var frame = 0; frame < 20; frame++) loop.Physics(scene);
+        loop.Frame(0.1f);
+        Assert.True(indicator.Message?.Contains("Hold to rewind") == true);
+        loop.Frame(0.1f);
+        Assert.True(indicator.Message?.Contains("Rewinding") == true);
+        controls.Held = false;
+        loop.Frame(0.1f);
+        Assert.True(indicator.Message is null);
     }
 
     [Test]

@@ -39,7 +39,7 @@ internal sealed record PilotSettings
     public int[] Keys { get; init; } =
     {
         (int)Key.F9,
-        (int)Key.F10,
+        (int)Key.F11,
         (int)Key.MouseMiddle,
         (int)Key.Home,
         (int)Key.PageUp,

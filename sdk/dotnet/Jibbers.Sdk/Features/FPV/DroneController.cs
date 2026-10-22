@@ -15,6 +15,9 @@ public sealed class DroneController : ModFeature
     DroneRuntime? runtime;
     public override void OnLoad()
     {
+        // F10 now belongs to Atmosphere. Migrate the former flight-mode binding.
+        if (GetKey("mode_key") == (int)Key.F10)
+            SetSetting("mode_key", JsonValue.Create((int)Key.F11)!);
         var game = new UnityDroneGameLoop(Log);
         runtime = new DroneRuntime(game, game, () => DroneModSettings.Read(this), Log);
         runtime.Start();

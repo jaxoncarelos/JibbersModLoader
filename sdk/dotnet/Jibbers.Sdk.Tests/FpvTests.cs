@@ -5,6 +5,14 @@ using static Jibbers.Sdk.Features.Fpv.DroneMath;
 
 static class FpvTests
 {
+    [Test]
+    static void FlightModeShortcutDoesNotOccupyAtmosphereKey()
+    {
+        var bindings = new PilotSettings().Keys;
+        Assert.Equal((int)Jibbers.Sdk.Key.F9, bindings[(int)PilotBinding.Toggle]);
+        Assert.Equal((int)Jibbers.Sdk.Key.F11, bindings[(int)PilotBinding.CycleMode]);
+        Assert.True(!bindings.Contains((int)Jibbers.Sdk.Key.F10));
+    }
     static bool Near(DroneVector a, DroneVector b) => (a - b).Length < 1e-4f;
 
     [Test]

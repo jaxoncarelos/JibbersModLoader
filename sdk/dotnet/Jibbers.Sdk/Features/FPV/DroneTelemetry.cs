@@ -19,7 +19,7 @@ internal static class DroneTelemetryFormatter
         if (name is not null)
             top.Add("<color=#7fe0ff>LOCK  " + name + "</color>");
         if (telemetry.FlightTime < 8)
-            top.Add(telemetry.UsingGamepad ? "L3+R3 land   LB mode   RB lock (hold: release)   Y return" : "F9 land   F10 mode   Middle mouse lock   Home return");
+            top.Add(telemetry.UsingGamepad ? "L3+R3 land   LB mode   RB lock (hold: release)   Y return" : "F9 land   F11 mode   Middle mouse lock   Home return");
         var altitude = telemetry.Altitude?.ToString("F1", CultureInfo.InvariantCulture) ?? "---";
         return new[]
         {

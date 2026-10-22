@@ -9,6 +9,7 @@ public sealed class AtmosphereEffects : ModFeature
     public override string Name => "Atmosphere";
     public override string Author => "Jaxon";
     public override string Description => "Fog, snowfall, valley clouds and colour grading.";
+    public override bool EnabledToggle => false;
 
     readonly AtmosphereConfigurationStore configuration;
     AtmosphereRuntime? runtime;
@@ -20,16 +21,11 @@ public sealed class AtmosphereEffects : ModFeature
     {
         runtime = new AtmosphereRuntime(configuration, AtmosphereGameServices.Create(Log), () => Enabled, Log);
         runtime.Start();
-        Input.OnSetting(Owner, "toggleKey", () =>
-        {
-            if (GetBool("hotkeys"))
-                ApplyChange(configuration.ApplyCommand(new JsonObject { ["toggle"] = true }));
-        }).AllowWhenDisabled();
-        Input.OnSetting(Owner, "presetKey", () =>
+        Input.OnSetting(Owner, "cycleKey", () =>
         {
             if (GetBool("hotkeys"))
                 ApplyChange(configuration.ApplyCommand(new JsonObject { ["nextPreset"] = true }));
-        }).AllowWhenDisabled();
+        });
         MainThread.Later(() => configuration.SynchronizeMenu(SetSetting));
     }
 

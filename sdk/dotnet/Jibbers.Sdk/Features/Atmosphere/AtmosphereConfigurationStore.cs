@@ -47,18 +47,11 @@ internal sealed class AtmosphereConfigurationStore(Func<string> settingsPath, Ac
         get
         {
             LoadConfiguration();
-            var presets = AtmosphereConfiguration.PresetOrder(configuration["presets"] as JsonObject ?? new JsonObject());
-            if (presets.Count == 0)
-            {
-                presets.Add("Foggy day");
-            }
-
             return new[]
             {
-                Setting.Choice("preset", "Preset", presets, presets.Contains(configuration["preset"]?.GetValue<string>() ?? "") ? configuration["preset"]!.GetValue<string>() : presets[0]).WithTooltip("A named set of fog, snow and sky values."),
+                Setting.Choice("preset", "Atmosphere", AtmosphereModes.Choices(configuration), AtmosphereModes.Current(configuration)).WithTooltip("Off, Clear, Foggy or Snowstorm. F10 cycles through the same modes."),
                 Setting.Toggle("hotkeys", "Hotkeys", true).WithTooltip("Keyboard shortcuts, while the game has focus."),
-                Setting.KeyBinding("toggleKey", "Toggle key", (int)Key.F3).WithTooltip("Key that turns the atmosphere on or off."),
-                Setting.KeyBinding("presetKey", "Preset key", (int)Key.F4).WithTooltip("Key that goes to the next preset."),
+                Setting.KeyBinding("cycleKey", "Cycle atmosphere", (int)Key.F10).WithTooltip("Cycle Off, Clear, Foggy and Snowstorm."),
                 Setting.Slider("fog", "Fog thickness", 0.33, 0, 1, 0.05).InSection("Fog").WithTooltip("How thick the haze is, near and far."),
                 Setting.Slider("fogStart", "Fog start", 5, 0, 60, 1).InSection("Fog").WithTooltip("Distance (m) before any fog, so nearby ground stays crisp."),
                 Setting.Slider("snow", "Snowfall", 0.7, 0, 1, 0.05).InSection("Snow").WithTooltip("Fraction of the snowflakes shown."),
@@ -78,12 +71,11 @@ internal sealed class AtmosphereConfigurationStore(Func<string> settingsPath, Ac
         synchronizingMenu.Value = true;
         try
         {
-            setSetting("enabled", AtmosphereConfiguration.GetBool(snapshot, "enabled"));
-            if (snapshot["preset"] is JsonValue presetValue)
+            if (snapshot["preset"] is JsonValue)
             {
                 try
                 {
-                    setSetting("preset", presetValue.DeepClone());
+                    setSetting("preset", JsonValue.Create(AtmosphereModes.Current(snapshot))!);
                 }
                 catch (ArgumentException)
                 {
@@ -104,8 +96,7 @@ internal sealed class AtmosphereConfigurationStore(Func<string> settingsPath, Ac
 
             foreach (var settingKey in new[]
             {
-                "toggleKey",
-                "presetKey"
+                "cycleKey"
             }
 
             )
@@ -149,7 +140,7 @@ internal sealed class AtmosphereConfigurationStore(Func<string> settingsPath, Ac
         lock (synchronization)
         {
             if (key == "preset")
-                configuration = AtmosphereConfiguration.WithPreset(configuration, value.GetValue<string>());
+                configuration = AtmosphereModes.Select(configuration, value.GetValue<string>());
             else if (key == "fog")
                 AtmosphereConfiguration.Merge(configuration, AtmosphereConfiguration.FogFields((float)value.GetValue<double>()));
             else
@@ -167,10 +158,10 @@ internal sealed class AtmosphereConfigurationStore(Func<string> settingsPath, Ac
         {
             var changes = (JsonObject)request.DeepClone();
             changes.Remove("cmd");
-            var preset = changes["nextPreset"]?.GetValue<bool>() == true ? AtmosphereConfiguration.NextPreset(configuration) : changes["preset"]?.GetValue<string>();
+            var preset = changes["nextPreset"]?.GetValue<bool>() == true ? AtmosphereModes.Next(configuration) : changes["preset"]?.GetValue<string>();
             changes.Remove("preset");
             if (preset is not null)
-                configuration = AtmosphereConfiguration.WithPreset(configuration, preset);
+                configuration = AtmosphereModes.Select(configuration, preset);
             AtmosphereConfiguration.Merge(configuration, changes);
             if (changes["toggle"]?.GetValue<bool>() == true)
                 configuration["enabled"] = !AtmosphereConfiguration.GetBool(configuration, "enabled");
