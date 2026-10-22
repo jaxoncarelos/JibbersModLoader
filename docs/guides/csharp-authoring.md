@@ -25,6 +25,45 @@ Bindings normally pause when the mod is disabled. For a shortcut that turns the 
 use `Input.OnPressed(() => ToggleKey, Toggle).AllowWhenDisabled()`. The same option works with
 `Input.OnSetting`; it still respects focus, text fields and unloading.
 
+## Creating a HUD
+
+Register your HUD in `OnLoad`. Registration and layout declarations need no Unity calls;
+`Show`, `Hide`, and text changes dispatch to the main thread automatically.
+
+```csharp
+using Jibbers.Sdk.UI;
+
+HudPanel hud = null!;
+HudLabel progress = null!;
+
+public override void OnLoad()
+{
+    hud = Hud.Register("Rewind");
+    progress = hud.AddText("Progress", new HudTextOptions
+    {
+        Anchor = HudAnchor.BottomCenter,
+        Offset = new(0, 194),
+        Size = new(1400, 100),
+        FontSize = 30,
+    });
+}
+
+void ShowProgress(string message)
+{
+    progress.Text = message;
+    hud.Show();
+}
+
+void HideProgress() => hud.Hide();
+```
+
+Each registered HUD owns an independent screen overlay. Layout coordinates scale from
+1920×1080 by default; `HudOptions` changes resolution and draw order. `HudTextOptions`
+controls anchors, offsets, size, alignment, color, wrapping, and rich text. The SDK chooses a
+loaded game font, recreates UI after scene changes on the next update, and keeps HUD elements
+from intercepting mouse input. `hud.Dispose()` removes it early; mod unload also unregisters
+and releases every HUD automatically. Names must be unique within the owning mod.
+
 ## Public gameplay features
 
 The public FPV, Atmosphere and Rewind entry points live in `mods/cs`. Their reusable controllers

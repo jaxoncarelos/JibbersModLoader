@@ -130,7 +130,7 @@ public static unsafe class Hooks
                 }
                 try
                 {
-                    cb(self, arg);
+                    ModContext.Run(owner, () => cb(self, arg));
                 }
                 catch (Exception e)
                 {

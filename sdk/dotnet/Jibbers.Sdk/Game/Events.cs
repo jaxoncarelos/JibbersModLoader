@@ -102,7 +102,7 @@ public static unsafe class Events
             var data = Delegates.InRegister(s.Size) ? (nint)(&copy) : arg;
             MainThread.Enter(() =>
             {
-                s.Callback(new GameEvent(s.Id, data, s.Class));
+                ModContext.Run(s.Owner, () => s.Callback(new GameEvent(s.Id, data, s.Class)));
                 return 0;
             });
         }

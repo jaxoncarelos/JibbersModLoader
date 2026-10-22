@@ -108,7 +108,7 @@ public sealed class MethodHook : IDisposable
         try
         {
             if (Volatile.Read(ref failed) != 0 || !ModContext.Enabled(owner)) Original();
-            else callback(instance, Original);
+            else ModContext.Run(owner, () => callback(instance, Original));
         }
         catch (Exception error)
         {

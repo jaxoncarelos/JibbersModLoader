@@ -120,7 +120,7 @@ public static unsafe class Input
         internal void Dispatch()
         {
             if (!Removed && (RunWhenDisabled || ModContext.Enabled(Owner)))
-                Callback();
+                ModContext.Run(Owner, Callback);
         }
     }
 

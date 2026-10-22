@@ -14,6 +14,14 @@ internal static class ModContext
 
     public static string? CurrentId => current.Value;
 
+    public static void Run(string? owner, Action callback)
+    {
+        var previous = current.Value;
+        current.Value = owner;
+        try { callback(); }
+        finally { current.Value = previous; }
+    }
+
     public static T With<T>(JibbersMod mod, Func<T> f)
     {
         var was = current.Value;
@@ -317,6 +325,7 @@ internal static unsafe class ModHost
             {
                 Events.RemoveOwner(mod.Id);
                 GameVars.RemoveOwner(mod.Id);
+                UI.Hud.RemoveOwner(mod.Id);
             });
         }
         catch (Exception e)

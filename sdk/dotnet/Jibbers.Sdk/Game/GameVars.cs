@@ -140,7 +140,7 @@ public static unsafe class GameVars
         {
             MainThread.Enter(() =>
             {
-                call(w);
+                ModContext.Run(w.Owner, () => call(w));
                 return 0;
             });
         }
