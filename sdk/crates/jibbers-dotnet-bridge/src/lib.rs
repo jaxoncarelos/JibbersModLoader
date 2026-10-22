@@ -112,7 +112,7 @@ pub fn layout(mods_dir: &std::path::Path) -> Layout {
     let package = mods_dir.join("packages/jibbers_dotnet");
     let channel = std::fs::read_to_string(package.join("active.txt")).ok()
         .filter(|identity| identity.len() == 64 && identity.bytes().all(|byte| byte.is_ascii_hexdigit()))
-        .map(|identity| package.join("cache").join(identity).join("dotnet"))
+        .map(|identity| mods_dir.join("system/clr").join(&identity[..32]))
         .filter(|directory| directory.join("Jibbers.Sdk.dll").is_file());
     let dotnet = channel.unwrap_or_else(|| mods_dir.join("dotnet"));
     Layout {

@@ -23,7 +23,9 @@ pub fn prepare(root: &Path) -> Result<Option<PathBuf>, String> {
     let archive = read_limited(&archive_path, catalog::MAX_FILE)?;
     let bridge = read_limited(&safe_path(root, BRIDGE)?, catalog::MAX_FILE)?;
     let identity = hash(&archive);
-    let destination = format!("{PACKAGE}/cache/{identity}");
+    // Keep native-host paths short on Windows. Full hashes still authenticate every file;
+    // the directory uses a 128-bit prefix, never as a substitute for verification.
+    let destination = format!("JibbersMods/system/clr/{}", &identity[..32]);
     // A newer catalog may be cached even when its downloads failed. In that case the
     // previous installed runtime must still work, authenticated by its signed receipt.
     let receipt = authenticated_receipt(root, &format!("{STATE_DIR}/catalog.json"), &archive, &bridge)
@@ -73,7 +75,8 @@ fn unpack(root: &Path, destination: &str, bytes: &[u8]) -> Result<(), String> {
             return Err(format!("unsafe C# runtime entry: {name}"));
         }
         let expected = manifest.get(&name).ok_or("C# runtime entry is not in its manifest")?;
-        let target = safe_path(root, &format!("{destination}/{name}"))?;
+        let relative = name.strip_prefix("dotnet/").ok_or("invalid runtime root")?;
+        let target = safe_path(root, &format!("{destination}/{relative}"))?;
         total = total.checked_add(entry.size()).ok_or("C# runtime archive size overflow")?;
         if entry.size() > 128 * 1024 * 1024 || total > MAX_EXPANDED { return Err("C# runtime archive is too large".into()); }
         // The signed manifest authenticates the cache on every launch; repair only changed files.
@@ -129,9 +132,9 @@ mod tests {
         std::fs::write(root.join("player.settings.json"), b"keep").unwrap();
         let bytes = archive(&[("dotnet/Jibbers.Sdk.dll", b"sdk"), ("dotnet/Jibbers.Sdk.runtimeconfig.json", b"{}")]);
         unpack(&root, "cache", &bytes).unwrap();
-        std::fs::write(root.join("cache/dotnet/Jibbers.Sdk.dll"), b"changed").unwrap();
+        std::fs::write(root.join("cache/Jibbers.Sdk.dll"), b"changed").unwrap();
         unpack(&root, "cache", &bytes).unwrap();
-        assert_eq!(std::fs::read(root.join("cache/dotnet/Jibbers.Sdk.dll")).unwrap(), b"sdk");
+        assert_eq!(std::fs::read(root.join("cache/Jibbers.Sdk.dll")).unwrap(), b"sdk");
         assert_eq!(std::fs::read(root.join("player.settings.json")).unwrap(), b"keep");
         std::fs::remove_dir_all(root).unwrap();
     }

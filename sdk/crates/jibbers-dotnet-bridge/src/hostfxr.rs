@@ -32,7 +32,9 @@ fn wide(s: &str) -> Vec<u16> {
 }
 
 fn wide_path(p: &Path) -> Vec<u16> {
-    wide(&p.to_string_lossy())
+    // Canonical Windows paths include the extended prefix, allowing native hosting under
+    // long custom game paths as well as the short versioned runtime cache.
+    wide(&p.canonicalize().unwrap_or_else(|_| p.to_path_buf()).to_string_lossy())
 }
 
 unsafe extern "C" fn error_writer(msg: *const u16) {

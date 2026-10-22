@@ -39,7 +39,7 @@ foreach ($expected in @(
 )) { if ([IO.File]::ReadAllText((Join-Path $fixture $expected[0])) -ne $expected[1]) { throw "Migration modified $($expected[0])" } }
 $package = Join-Path $fixture 'JibbersMods/packages/jibbers_dotnet'
 $identity = [IO.File]::ReadAllText((Join-Path $package 'active.txt'))
-$sdk = Join-Path $package "cache/$identity/dotnet/Jibbers.Sdk.dll"
+$sdk = Join-Path $fixture ('JibbersMods/system/clr/' + $identity.Substring(0,32) + '/Jibbers.Sdk.dll')
 $sdkHash = (Get-FileHash $sdk).Hash
 [IO.File]::WriteAllText($sdk, 'damaged cache')
 # A failed later catalog fetch must still allow authenticated offline recovery.

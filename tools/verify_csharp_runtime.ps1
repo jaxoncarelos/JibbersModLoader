@@ -23,7 +23,13 @@ var bundle = Path.GetFullPath(args[0]);
 var sdkPath = Path.GetFullPath(args[1]);
 var mods = Path.GetFullPath(args[2]);
 var core = typeof(object).Assembly.Location;
-if (!core.StartsWith(bundle + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+static string ComparablePath(string path)
+{
+    if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) path = @"\\" + path[8..];
+    else if (path.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase)) path = path[4..];
+    return Path.GetFullPath(path);
+}
+if (!ComparablePath(core).StartsWith(ComparablePath(bundle) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
     throw new Exception("Probe used a machine runtime instead of the bundled runtime: " + core);
 var sdk = AssemblyLoadContext.Default.LoadFromAssemblyPath(sdkPath);
 var modBase = sdk.GetType("Jibbers.Sdk.JibbersMod", throwOnError: true)!;
@@ -63,7 +69,7 @@ try {
         $package = Join-Path $runtimePackage 'JibbersMods/packages/jibbers_dotnet'
         $identity = [IO.File]::ReadAllText((Join-Path $package 'active.txt'))
         if ($identity -notmatch '^[a-f0-9]{64}$') { throw 'Invalid prepared runtime identity' }
-        $sdkFolder = Join-Path $package "cache/$identity/dotnet"
+        $sdkFolder = Join-Path $runtimePackage ('JibbersMods/system/clr/' + $identity.Substring(0,32))
         $managedMods = Join-Path $modPackage 'JibbersMods'
     }
     $env:DOTNET_ROOT_X64 = Join-Path $sdkFolder 'runtime'

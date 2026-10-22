@@ -10,7 +10,7 @@ use std::path::PathBuf;
 fn hosts_the_catalog_runtime_layout() {
     let Some(root) = std::env::var_os("JIBBERS_TEST_CHANNEL_ROOT") else { return };
     let layout = jibbers_dotnet::layout(&PathBuf::from(root).join("JibbersMods"));
-    assert!(layout.sdk.to_string_lossy().contains("cache"));
+    assert!(layout.sdk.to_string_lossy().contains("clr"));
     let runtime = unsafe { Runtime::start(&layout.runtime_config, &layout.bundled_runtime) }.expect("start channel runtime");
     let entry = unsafe { runtime.unmanaged_entry(&layout.sdk, "Jibbers.Sdk.Bootstrap, Jibbers.Sdk", "Init") }.expect("channel SDK entry");
     let init: unsafe extern "system" fn(*const std::ffi::c_void) -> i32 = unsafe { std::mem::transmute(entry) };
