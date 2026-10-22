@@ -24,12 +24,12 @@ public sealed class AtmosphereEffects : ModFeature
         {
             if (GetBool("hotkeys"))
                 ApplyChange(configuration.ApplyCommand(new JsonObject { ["toggle"] = true }));
-        });
+        }).AllowWhenDisabled();
         Input.OnSetting(Owner, "presetKey", () =>
         {
             if (GetBool("hotkeys"))
                 ApplyChange(configuration.ApplyCommand(new JsonObject { ["nextPreset"] = true }));
-        });
+        }).AllowWhenDisabled();
         MainThread.Later(() => configuration.SynchronizeMenu(SetSetting));
     }
 

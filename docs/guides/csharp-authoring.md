@@ -21,6 +21,9 @@ Use `Jibbers.Sdk.Game.Camera.CameraSettings` for camera options and
 `Jibbers.Sdk.Game.Physics.Simulation.SlowWhile` for conditional slow motion. These APIs own their
 main-thread dispatch or hooks. Input callbacks run while the game is focused and the player is
 not typing. SDK callbacks belong to the mod and are removed on unload.
+Bindings normally pause when the mod is disabled. For a shortcut that turns the mod back on,
+use `Input.OnPressed(() => ToggleKey, Toggle).AllowWhenDisabled()`. The same option works with
+`Input.OnSetting`; it still respects focus, text fields and unloading.
 
 ## Public gameplay features
 

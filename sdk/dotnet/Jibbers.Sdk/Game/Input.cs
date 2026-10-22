@@ -26,7 +26,8 @@ public enum Key
 /// </summary>
 /// <remarks>
 /// Binding callbacks run on the main thread, only while the game window has focus, the player is not
-/// typing in a text field, and the mod is enabled. Polling runs on a background thread at ~120 Hz;
+/// typing in a text field, and the mod is enabled (unless the binding opts into
+/// <see cref="Handle.AllowWhenDisabled"/>). Polling runs on a background thread at ~120 Hz;
 /// call the Is* queries from anywhere.
 /// </remarks>
 public static unsafe class Input
@@ -114,6 +115,13 @@ public static unsafe class Input
         public required string? Owner;
         public bool WasDown;
         public bool Removed;
+        public volatile bool RunWhenDisabled;
+
+        internal void Dispatch()
+        {
+            if (!Removed && (RunWhenDisabled || ModContext.Enabled(Owner)))
+                Callback();
+        }
     }
 
     static readonly List<Binding> bindings = new();
@@ -123,6 +131,17 @@ public static unsafe class Input
     public sealed class Handle : IDisposable
     {
         internal Binding? B;
+
+        /// <summary>
+        /// Keeps this binding active while its mod is disabled, for example to turn it back on.
+        /// Focus, text-field and unload checks still apply.
+        /// </summary>
+        public Handle AllowWhenDisabled()
+        {
+            if (B is not null)
+                B.RunWhenDisabled = true;
+            return this;
+        }
 
         /// <summary>Removes the binding.</summary>
         public void Dispose()
@@ -226,13 +245,9 @@ public static unsafe class Input
                     }
                     foreach (var b in fire)
                     {
-                        if (b.Removed || !ModContext.Enabled(b.Owner))
-                        {
-                            continue;
-                        }
                         try
                         {
-                            b.Callback();
+                            b.Dispatch();
                         }
                         catch (Exception e)
                         {
