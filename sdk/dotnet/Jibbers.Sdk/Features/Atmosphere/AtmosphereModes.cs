@@ -29,6 +29,8 @@ internal static class AtmosphereModes
         }
         var selected = AtmosphereConfiguration.WithPreset(settings, mode == "Foggy" ? "Foggy day" : mode);
         selected["enabled"] = true;
+        foreach (var key in new[] { "hotkeys", "cycleKey" })
+            selected[key] = settings[key]?.DeepClone();
         return selected;
     }
 }

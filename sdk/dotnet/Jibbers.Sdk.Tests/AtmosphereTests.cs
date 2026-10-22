@@ -111,6 +111,17 @@ static class AtmosphereTests
     }
 
     [Test]
+    static void ChangingWeatherKeepsShortcutPreferences()
+    {
+        var settings = AtmosphereConfiguration.Defaults();
+        settings["hotkeys"] = false;
+        settings["cycleKey"] = 122;
+        var selected = AtmosphereModes.Select(settings, "Clear");
+        Assert.True(!AtmosphereConfiguration.GetBool(selected, "hotkeys"));
+        Assert.Equal(122f, AtmosphereConfiguration.GetFloat(selected, "cycleKey"));
+    }
+
+    [Test]
     static void OldSettingsMigrateWithoutReusingReservedKeys()
     {
         var settings = AtmosphereConfiguration.Load("""{"enabled":true,"preset":"Foggy day","toggleKey":114,"presetKey":115,"hotkeys":false}""");
