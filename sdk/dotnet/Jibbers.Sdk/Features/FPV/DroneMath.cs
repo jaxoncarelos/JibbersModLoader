@@ -2,9 +2,9 @@
 // (x, y, z, w). Positive X rotation pitches the nose down, positive Y yaws right and positive Z rolls
 // left, exactly as Quaternion.AngleAxis does in the game. Port of the Rust FPV's math.rs.
 
-namespace Fpv;
+namespace Jibbers.Sdk.Features.Fpv;
 
-public record struct V3(float X, float Y, float Z)
+internal record struct V3(float X, float Y, float Z)
 {
     public static readonly V3 Up = new(0, 1, 0);
     public static readonly V3 Forward = new(0, 0, 1);
@@ -38,9 +38,12 @@ public record struct V3(float X, float Y, float Z)
 
     /// <summary>Heading in radians about +Y, zero along +Z (<c>atan2(x, z)</c>).</summary>
     public readonly float Yaw => MathF.Atan2(X, Z);
+
+    // The record's printer would recurse through the V3-valued properties.
+    public override readonly string ToString() => $"({X:0.###}, {Y:0.###}, {Z:0.###})";
 }
 
-public record struct Quat(float X, float Y, float Z, float W)
+internal record struct Quat(float X, float Y, float Z, float W)
 {
     public static readonly Quat Identity = new(0, 0, 0, 1);
 
@@ -138,9 +141,11 @@ public record struct Quat(float X, float Y, float Z, float W)
         }
         return AxisAngle(axis, angle);
     }
+
+    public override readonly string ToString() => $"({X:0.###}, {Y:0.###}, {Z:0.###}, {W:0.###})";
 }
 
-public static class DroneMath
+internal static class DroneMath
 {
     /// <summary>Frame-rate independent smoothing factor for time constant <paramref name="tau"/>.</summary>
     public static float Blend(float dt, float tau) => 1 - MathF.Exp(-dt / MathF.Max(tau, 1e-3f));

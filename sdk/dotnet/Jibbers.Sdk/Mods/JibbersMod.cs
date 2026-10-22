@@ -33,7 +33,7 @@ public abstract class JibbersMod
     /// <summary>Adds an "enabled" toggle first (default true). While it is off the SDK skips your hooks and events.</summary>
     public virtual bool EnabledToggle => true;
     /// <summary>The mod's settings (an "enabled" toggle is added for you).</summary>
-    public virtual IEnumerable<Setting> Settings => Array.Empty<Setting>();
+    public virtual IEnumerable<Setting> Settings => PropertySettings.Schema(GetType());
 
     /// <summary>
     /// Runs once at game start, after settings are loaded: install hooks and detours, subscribe to
@@ -68,6 +68,7 @@ public abstract class JibbersMod
     public void SetSetting(string key, JsonNode value)
     {
         var stored = (Store ?? throw new InvalidOperationException("mod not loaded")).Set(key, value);
+        PropertySettings.Apply(this, key, stored);
         OnSettingChanged(key, stored);
     }
 

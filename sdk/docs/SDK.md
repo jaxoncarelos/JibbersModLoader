@@ -2,24 +2,12 @@
 
 API reference lives in the crate docs: `cargo doc --open -p jibbers-mod-sdk` in this folder.
 
-## A plugin
+## Native ABI maintenance
 
-```rust
-use jibbers_mod_sdk::plugin::{Info, Plugin};
-use jibbers_mod_sdk::{declare_plugin, host, json, log, Setting, Value};
-
-struct MyMod;
-impl Plugin for MyMod {
-    const INFO: Info = Info { id: "my_mod", name: "My Mod", version: env!("CARGO_PKG_VERSION"), author: "me", description: "..." };
-    fn settings() -> Vec<Setting> { vec![Setting::toggle("fancy", "Fancy", true)] }
-    fn init() { /* look up classes, install hooks */ }
-}
-declare_plugin!(MyMod);
-```
-
-`declare_plugin!` generates the DLL exports `jh_core_init`, `jh_core_handle`, `jh_core_free`, `jh_core_unload`.
-The crate type must be `cdylib` (see `template/Cargo.toml`).
-
+New mods use the [C# starter](../dotnet/template/MyMod/MyMod.cs) and
+[authoring guide](../../docs/guides/getting-started.md). The Rust crates maintain the loader-facing
+ABI and existing native plugins. Native libraries use `cdylib`; `declare_plugin!` provides the
+`jh_core_init`, `jh_core_handle`, `jh_core_free` and `jh_core_unload` exports.
 Lifecycle: the loader loads every `JibbersMods\*.dll` once, about 8 to 45 s after the game starts (when its window
 is up). `Plugin::init` runs once on the loader's thread. Requests (`plugin.*` and your commands) arrive from any thread.
 A new DLL needs a game restart.

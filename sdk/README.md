@@ -34,8 +34,8 @@ Restart the game to load it. See [Getting started](../docs/guides/getting-starte
 | Path | What |
 | --- | --- |
 | `dotnet/Jibbers.Sdk/` | **The C# SDK** mods reference (`Jibbers.Sdk.dll`), including the generated game bindings in `Generated/` |
-| `dotnet/template/MyMod/` | Starter mod: settings, an event, a pre-hook, a hotkey, a game setting, a command |
-| `dotnet/examples/` | `SlowMo` (detour of the physics step), `Inspector` (developer probes) |
+| `dotnet/template/MyMod/` | Starter mod: typed settings, a rebindable hotkey, and camera distance |
+| `dotnet/examples/` | `SlowMo` (high-level physics speed control), `Inspector` (developer probes) |
 | `dotnet/Jibbers.Sdk.Generator/` | `jibbers-gen`: regenerates the game bindings and the docs data from a game dump |
 | `dotnet/Jibbers.Sdk.Tests/` | Tests (`dotnet run`): symbol matcher, settings, Mods-tab protocol, the real dump |
 | `crates/jibbers-mod-sdk/symbols.json` | The symbol catalogue: stable names for the game's obfuscated classes |

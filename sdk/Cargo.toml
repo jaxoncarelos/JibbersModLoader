@@ -8,8 +8,6 @@ members = [
     "crates/jibbers-sdk-devtools",
     "crates/jibbers-dotnet-bridge",
 ]
-# The template is a standalone package (it is meant to be copied next to crates/ and edited).
-exclude = ["template"]
 
 [workspace.package]
 version = "0.1.2"

@@ -159,6 +159,14 @@ public static unsafe class Input
     /// <summary>Calls <paramref name="callback"/> on the main thread when <paramref name="key"/> is pressed (optionally with modifiers held).</summary>
     public static Handle OnPressed(Key key, Action callback, params Key[] modifiers) => Add(() => (int)key, Trigger.Pressed, callback, modifiers);
 
+    /// <summary>Binds a typed key property; changes from the Mods menu are followed automatically.</summary>
+    public static Handle OnPressed(Func<Key> key, Action callback, params Key[] modifiers)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(callback);
+        return Add(() => (int)key(), Trigger.Pressed, callback, modifiers);
+    }
+
     /// <summary>Calls <paramref name="callback"/> when <paramref name="key"/> is released.</summary>
     public static Handle OnReleased(Key key, Action callback, params Key[] modifiers) => Add(() => (int)key, Trigger.Released, callback, modifiers);
 

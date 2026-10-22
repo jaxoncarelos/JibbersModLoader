@@ -52,14 +52,19 @@ and binding keys from `OnLoad` is fine: the SDK applies them on the main thread 
 | **Events** `TrickPerformed.Subscribe(...)` | spawn, map load, tricks, replay, pause, time of day... (41 events) | none, no slot used |
 | **Game settings** `GameVars.Watch("shadow-distance", v => ...)` | any option the game's menus bind | none |
 | **Pre-hooks** `Follow.LateUpdateMethod.Before(...)` | run before a game method, every call | void/bool methods, ≤2 non-float params, 12 per game |
-| **Detours** `Scene.StepSceneMethod.Detour(fn)` | replace or wrap any function, skip the original, change results | none: you match the native signature |
-| **Input** `Input.OnSetting(this, "hotkey", ...)` | keys, mouse, the game's controller actions | callbacks only while focused and not typing |
+| **Around hooks** `Scene.StepSceneMethod.Around(original => ...)` | run, skip or wrap a game method | zero-argument void instance methods; original must be called synchronously |
+| **Typed detours** `method.Detour<Signature>(callback)` | replace or wrap any native signature | declare a matching delegate; call `hook.Original(...)` |
+| **Input** `Input.OnPressed(() => ApplyKey, ...)` | keys, mouse, the game's controller actions | callbacks only while focused and not typing |
 
-Callbacks are skipped while your mod's **enabled** toggle is off, and removed when your mod unloads.
+Event, pre-hook, Around, input and setting-watch callbacks are skipped while your mod's **enabled**
+toggle is off. Custom typed/raw detour callbacks must check `Enabled` themselves. All SDK-owned
+hooks are removed when your mod unloads.
 
 ## Settings
 
-Declare them in `Settings`; the SDK shows them in the Mods tab, validates and saves them
+Prefer typed properties marked with `[Toggle]`, `[Slider]`, `[Choice]`, or `[KeyBinding]`.
+The SDK fills them before `OnLoad` and updates them before `OnSettingChanged`.
+For dynamic schemas, declare them in `Settings`; the SDK shows them in the Mods tab, validates and saves them
 (`JibbersMods\<id>.settings.json`), and calls `OnSettingChanged`. Read them with `GetBool`,
 `GetDouble`, `GetString`, `GetKey`. Kinds: `Toggle`, `Slider`, `Choice`, `KeyBinding`; group them
 with `.InSection(...)` and explain them with `.WithTooltip(...)`.
@@ -75,3 +80,5 @@ developer loader's localhost port (`tools\hotload.py raw '<json>'`). Prefix comm
 - A game method that throws surfaces as `Il2CppException` with the game's message and stack trace.
 - Exceptions in your callbacks are caught and logged once; they never crash the game. Native
   mistakes (bad pointers, wrong detour signatures) **do** crash it: see [Native code](#guide/native).
+
+See [C# authoring](csharp-authoring.md) for typed examples and the public gameplay controllers.

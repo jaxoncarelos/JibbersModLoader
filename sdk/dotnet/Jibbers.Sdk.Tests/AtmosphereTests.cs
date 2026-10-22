@@ -1,7 +1,7 @@
 // The Rust Atmosphere's tests (cloud bank, presets, fog slider), run against the C# port.
 
 using System.Text.Json.Nodes;
-using Atmosphere;
+using Jibbers.Sdk.Features.Atmosphere;
 
 static class AtmosphereTests
 {
@@ -92,7 +92,7 @@ static class AtmosphereTests
     [Test]
     static void TheModsTabHasTheRustControlsInOrder()
     {
-        var mod = new AtmosphereMod();
+        var mod = new Atmosphere.AtmosphereMod();
         var keys = mod.Settings.Select(x => x.Key).ToArray();
         Assert.True(keys.SequenceEqual(new[] { "preset", "hotkeys", "toggleKey", "presetKey", "fog", "fogStart", "snow", "snowSize", "speedStreaks", "cloudBank", "cloudBankDistance", "sunShafts", "grading" }), string.Join(",", keys));
     }

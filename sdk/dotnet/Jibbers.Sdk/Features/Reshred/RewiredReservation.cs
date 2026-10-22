@@ -5,7 +5,7 @@
 using Jibbers.Sdk;
 using Jibbers.Sdk.Interop;
 
-namespace Reshred;
+namespace Jibbers.Sdk.Features.Rewind;
 
 internal sealed unsafe class RewiredReservation
 {

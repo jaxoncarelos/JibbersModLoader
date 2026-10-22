@@ -1,11 +1,11 @@
 // Drone sounds, synthesised so the mod ships no audio files. Loops are exactly one second long with
 // whole-number frequencies, so they repeat without a click; noise loops are crossfaded. Pitch and
 // volume follow the motors at runtime. Port of the Rust FPV's synth.rs (the bundle's clips are
-// rendered from these; see the Rust examples/write_sounds.rs).
+// rendered from these; see the native src/bin/write_sounds.rs asset utility).
 
-namespace Fpv;
+namespace Jibbers.Sdk.Features.Fpv;
 
-public static class Synth
+internal static class Synth
 {
     public const int Rate = 44_100;
 

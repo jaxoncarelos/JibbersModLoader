@@ -1,43 +1,70 @@
 # Native code
 
-Some mods need to go below game objects: replace a function, call a native library, read memory.
-C# does all of it with `unsafe` code and function pointers. Add
-`<AllowUnsafeBlocks>true</AllowUnsafeBlocks>` to your project (the template has it).
+Mods can wrap game methods with ordinary callbacks. Typed delegates cover custom native signatures;
+raw pointers remain available for direct memory access and engine internal calls.
 
 ## Detours
 
-A detour replaces a native function with yours. You call the original through the trampoline.
+A zero-argument void instance method can be wrapped directly:
 
 ```csharp
-using System.Runtime.InteropServices;
 using Jibbers.Sdk;
 using Jibbers.Sdk.Game.Physics;
 
-static Detour? step;
+MethodHook? step;
 
-public override unsafe void OnLoad()
+public override void OnLoad()
 {
-    step = Scene.StepSceneMethod.Detour((nint)(delegate* unmanaged<nint, nint, void>)&Step);
-    step.Enable();
-}
-
-[UnmanagedCallersOnly]
-static unsafe void Step(nint scene, nint method)
-{
-    // ... your code ...
-    ((delegate* unmanaged<nint, nint, void>)step!.Original)(scene, method);
+    step = Scene.StepSceneMethod.Around(original =>
+    {
+        if (!paused)
+            original();
+    });
 }
 ```
 
-**The signature must match exactly.** A game method compiled by IL2CPP takes
+`original()` runs the game method with the instance and metadata of the current invocation. Omitting
+it skips that call. Hooks start enabled, bypass disabled mods, and are removed on unload. Use
+`Around((instance, original) => ...)` when you also need the instance pointer.
+
+Callbacks run on the intercepted method's calling thread. Call `original()` synchronously there;
+do not save it or pass it to another thread. A callback exception is logged once, the hook switches
+to pass-through, and the original runs if it was not already called. `Around` rejects other signatures
+before installing anything. The [SlowMo example](../../../sdk/dotnet/examples/SlowMo/SlowMo.cs)
+shows a full mod without unsafe code.
+
+## Typed detours for other signatures
+
+Declare the native signature once; the original is then an ordinary callable delegate:
+
+```csharp
+using System.Runtime.InteropServices;
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+delegate void StepScene(nint scene, nint methodInfo);
+
+Detour<StepScene>? step;
+
+public override void OnLoad()
+{
+    step = Scene.StepSceneMethod.Detour<StepScene>(Step);
+    step.Enable();
+}
+
+void Step(nint scene, nint methodInfo) => step!.Original(scene, methodInfo);
+```
+
+**Typed detour signatures must still match exactly.** A game method compiled by IL2CPP takes
 `(this, arguments..., MethodInfo*)`; a static method has no `this`. Arguments use the Windows x64
 convention: integers, pointers and object references are `nint`/`int`/`long`; `float`/`double`
 are themselves; structs of 1, 2, 4 or 8 bytes are passed by value, bigger ones as a pointer. A
 wrong signature crashes the game.
 
-- `Detour.Create(target, replacement)` takes any address: `MethodRef.NativeCode`,
+- `Detour<TDelegate>.Create(target, replacement)` also accepts an engine or native-library address.
+- Keep exceptions inside custom native delegate callbacks; `Around` supplies its own exception boundary.
+- `Detour.Create(target, replacement)` remains available for function pointers: `MethodRef.NativeCode`,
   `Il2CppMethod.NativeCode`, `NativeLibrary.GetExport(...)`, `Il2Cpp.ICall("...")`.
-- `Detour.Create<TDelegate>(target, delegate)` takes a C# delegate instead (simpler, slower).
+- Do not use a saved original delegate after disposing the detour.
 - Detours are removed when your mod unloads. `Disable()` / `Enable()` toggle one.
 
 ## Calling native libraries

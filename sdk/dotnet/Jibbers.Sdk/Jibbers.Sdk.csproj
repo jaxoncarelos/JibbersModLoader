@@ -20,6 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Features\FPV\fpv_symbols.json" LogicalName="Fpv.symbols.json" />
     <!-- The symbol catalogue is shared with the native SDK. -->
     <!-- The repo's catalogue; the modder kit ships it as symbols.json at its root. -->
     <EmbeddedResource Condition="Exists('..\..\crates\jibbers-mod-sdk\symbols.json')" Include="..\..\crates\jibbers-mod-sdk\symbols.json" LogicalName="Jibbers.Sdk.symbols.json" />

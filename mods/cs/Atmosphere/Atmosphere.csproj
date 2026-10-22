@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <AssemblyName>Atmosphere</AssemblyName>
     <Version>0.2.0</Version>
   </PropertyGroup>

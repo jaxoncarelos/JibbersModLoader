@@ -72,3 +72,20 @@ rules, regenerate, and validate the build for players (`sdk/docs/GAME-BUILDS.md`
 
 A mod can register private symbols at runtime: `SymbolTable.Register(json)` in `OnLoad`, then
 `new ClassRef("my_mod.thing")`, `new FieldRef("my_mod.thing.value")`. Prefix ids with your mod id.
+
+## Engine classes (offline)
+
+The game's dump covers its own images. Unity's engine modules are not obfuscated, so their API comes
+from the matching Unity editor's player assemblies instead of a game dump:
+
+```powershell
+cd sdk\dotnet\Jibbers.Sdk.Generator
+$m = "C:\Program Files\Unity\Hub\Editor\6000.3.21f1\Editor\Data\PlaybackEngines\windowsstandalonesupport\Variations\win64_player_nondevelopment_mono\Data\Managed"
+dotnet run -c Release -- import --managed $m --images "<game>\Jibbers_Data\ScriptingAssemblies.json" --build "Unity 6000.3 engine modules" --out ..\..\..\out\dumps\unity-6000.3-engine.json
+dotnet run -c Release -- bindings --dump <game dump>.json --dump ..\..\..\out\dumps\unity-6000.3-engine.json --out ..\Jibbers.Sdk\Generated
+dotnet run -c Release -- docs --dump <same dumps> --sdk ..\Jibbers.Sdk\bin\Release\net8.0\Jibbers.Sdk.dll --out ..\..\..\docs\data
+```
+
+`--images` keeps only the assemblies the game ships. The import keeps parameter names, which IL2CPP
+dumps do not have. Use an editor of the game's Unity minor version (6000.3): the bindings look members
+up by name at runtime, so a member the game's build stripped fails only when it is used.

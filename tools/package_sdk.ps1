@@ -1,5 +1,5 @@
 # Builds the Jibbers Mod SDK package for modders: dist/JibbersModSDK.zip
-#   JibbersModSDK/  README.md, AGENTS.md, docs/, crates/, template/, compat/, Cargo.*  (the SDK source)
+#   JibbersModSDK/  README.md, AGENTS.md, docs/, crates/, dotnet/, compat/, Cargo.*  (the SDK source)
 #                   bin/version.dll        release loader (no server), same bytes as the mod releases
 #                   bin/jibbers_sdk.dll    SDK runtime plugin with the auto-updater
 #                   install.ps1            copies both into the game folder
@@ -37,8 +37,6 @@ try {
     if ($UpdateUrl) { $env:JIBBERS_SDK_UPDATE_URL = $UpdateUrl } else { Remove-Item Env:\JIBBERS_SDK_UPDATE_URL -ErrorAction SilentlyContinue }
     Invoke-Cargo -CargoArgs @('build', '--release', '-p', 'jibbers-sdk-runtime') -Dir $sdk
     Invoke-Cargo -CargoArgs @('build', '--release', '-p', 'jibbers-sdk-publish') -Dir $sdk
-    # The template is its own package: make sure a fresh copy of it still builds against the SDK.
-    Invoke-Cargo -CargoArgs @('build', '--release', '--target-dir', (Join-Path $root 'target/sdk-template')) -Dir (Join-Path $sdk 'template')
     Invoke-Cargo -CargoArgs @('build', '--release', '-p', 'jibbers-hotload', '--features', 'release', '--target-dir', 'target/mod-release/loader')
 
     $runtime = Join-Path $sdk 'target/release/jibbers_sdk.dll'
@@ -67,7 +65,7 @@ try {
     if (-not $UpdateUrl) { Write-Host 'Note: empty -UpdateUrl; auto-update is idle in this build.' }
 
     if ($Publish) {
-        # The update bundle is the same tree the zip carries (docs, template, SDK source), minus
+        # The update bundle is the same tree the zip carries (docs, managed starters, SDK source), minus
         # binaries, the list (shipped separately, stamped with the version) and the installer.
         $bundle = Join-Path $stage 'bundle'
         & robocopy $pkg $bundle /E /XD bin compat /XF install.ps1 /NFL /NDL /NJH /NJS /NP | Out-Null

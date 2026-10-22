@@ -164,12 +164,13 @@ pub struct DotnetBridge;
 impl Plugin for DotnetBridge {
     const INFO: Info = Info {
         id: "dotnet",
-        name: "C# mods",
+        name: "C# runtime",
         version: env!("CARGO_PKG_VERSION"),
         author: "Jaxon",
         description: "Hosts the .NET runtime and the C# SDK; every C# mod has its own section.",
     };
     const ENABLED_TOGGLE: bool = false;
+    const SHOW_IN_MENU: bool = false;
 
     fn settings() -> Vec<Setting> {
         vec![]

@@ -78,6 +78,12 @@ unsafe fn take(p: *mut u8, n: usize) -> Value {
     v
 }
 
+fn has_menu_section(info: &Value) -> bool {
+    info.get("ok").and_then(Value::as_bool) == Some(true)
+        && info.get("settings").and_then(Value::as_array).is_some()
+        && info.get("show_in_menu").and_then(Value::as_bool) != Some(false)
+}
+
 fn plugins() -> Vec<(u32, Value)> {
     unsafe {
         let (mut p, mut n) = (null_mut(), 0usize);
@@ -87,7 +93,7 @@ fn plugins() -> Vec<(u32, Value)> {
         for e in list.as_array().cloned().unwrap_or_default() {
             let Some(id) = e.get("id").and_then(Value::as_u64) else { continue };
             let info = call(id as u32, &json!({"cmd": "plugin.info"}));
-            if info.get("ok").and_then(Value::as_bool) == Some(true) && info.get("settings").is_some() {
+            if has_menu_section(&info) {
                 out.push((id as u32, info));
             }
         }
@@ -1053,6 +1059,16 @@ pub fn stop() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn host_services_are_hidden_but_managed_and_legacy_mods_stay_visible() {
+        assert!(!has_menu_section(&json!({"ok": true, "id": "dotnet", "settings": [], "show_in_menu": false})));
+        for sdk in ["dotnet 0.2.0", "0.1.2"] {
+            assert!(has_menu_section(&json!({"ok": true, "id": "fpv", "sdk": sdk, "settings": []})));
+        }
+        assert!(!has_menu_section(&json!({"ok": false, "settings": []})));
+        assert!(!has_menu_section(&json!({"ok": true, "settings": null})));
+    }
 
     #[test]
     fn builds_when_any_part_is_missing() {

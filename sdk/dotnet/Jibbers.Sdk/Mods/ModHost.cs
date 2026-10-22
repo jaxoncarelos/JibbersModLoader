@@ -81,6 +81,7 @@ internal sealed class ModPlugin
     JsonObject Set(string key, JsonNode? value)
     {
         var stored = Mod.Store!.Set(key, value);
+        PropertySettings.Apply(Mod, key, stored);
         ModContext.With(Mod, () =>
         {
             Mod.OnSettingChanged(key, stored);
@@ -224,6 +225,7 @@ internal static unsafe class ModHost
             return;
         }
         mod.Store = new SettingsStore(mod.Settings, mod.EnabledToggle ? mod.Name : null, Path.Combine(ModsDir, mod.Id + ".settings.json"));
+        PropertySettings.Load(mod);
         ModContext.Add(mod);
         var plugin = new ModPlugin(mod);
         if (Runtime.Native.Api->RegisterPlugin != null)
@@ -293,6 +295,7 @@ internal static unsafe class ModHost
 
     internal static void UnloadMod(JibbersMod mod)
     {
+        Input.RemoveOwner(mod.Id);
         try
         {
             ModContext.With(mod, () =>

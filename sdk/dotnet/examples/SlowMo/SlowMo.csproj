@@ -9,7 +9,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <!-- Where Jibbers.exe is. Leave empty to only build. -->
     <JibbersGame Condition="'$(JibbersGame)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Jibbers Playtest</JibbersGame>

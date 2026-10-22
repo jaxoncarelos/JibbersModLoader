@@ -1,9 +1,9 @@
 // The game-free parts of Reshred: scrub arithmetic, the Rewired key-code table and the category
 // and button-name policies. Unit tested (ported from the Rust tests).
 
-namespace Reshred;
+namespace Jibbers.Sdk.Features.Rewind;
 
-public static class Rewind
+internal static class Rewind
 {
     /// <summary>Seconds of history kept: how far back the rewind can go.</summary>
     public const float History = 6.0f;
@@ -25,7 +25,7 @@ public static class Rewind
 }
 
 /// <summary>Rewired's conventions: which maps are gameplay, how keys are coded, which button is "west".</summary>
-public static class RewiredPolicy
+internal static class RewiredPolicy
 {
     static string Normalized(string s) => new(s.Where(char.IsAsciiLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 

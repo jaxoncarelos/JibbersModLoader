@@ -79,7 +79,7 @@ and restart the game. Without the bundle the drone flies silently (the log says 
 
 The sounds ship as a Unity asset bundle because the game's build strips AudioClip.Create and
 most AudioSource setters. To rebuild it after changing src/synth.rs:
-  cargo run --release --offline --example write_sounds     (writes unity/Assets/Audio/*.wav)
+  cargo run --release --offline --bin write_sounds     (writes unity/Assets/Audio/*.wav)
   "C:\Program Files\Unity\Hub\Editor\6000.3.8f1\Editor\Unity.exe" -batchmode -quit -nographics
       -projectPath unity -executeMethod BuildFpv.Build      (writes build/jibbers_fpv.bundle)
 Use the game's Unity version (6000.3.8f1) or the bundle won't load.

@@ -4,9 +4,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Atmosphere;
+namespace Jibbers.Sdk.Features.Atmosphere;
 
-public static class AtmoConfig
+internal static class AtmoConfig
 {
     /// <summary>Every setting with its default (the Rust Settings::default()).</summary>
     public static JsonObject Defaults() => (JsonObject)JsonNode.Parse("""
@@ -32,7 +32,7 @@ public static class AtmoConfig
       "grading": true,
       "beautify": { "tonemap": 1, "tonemapExposurePre": 1.1, "contrast": 1.1, "saturate": 0.15, "colorTemp": 8000.0, "colorTempBlend": 0.6, "bloomIntensity": 0.12, "bloomThreshold": 0.9 },
       "environment": { "ambientSaturation": 0.55 },
-      "hotkeys": true, "toggleKey": 120, "presetKey": 121,
+      "hotkeys": true, "toggleKey": 114, "presetKey": 115,
       "preset": "Foggy day",
       "presets": {
         "Foggy day": {},
@@ -42,7 +42,7 @@ public static class AtmoConfig
     }
     """)!;
 
-    /// <summary>Built-in presets in the order F10 cycles them; other presets follow alphabetically.</summary>
+    /// <summary>Built-in presets in the order F4 cycles them; other presets follow alphabetically.</summary>
     public static readonly string[] BuiltInPresets = { "Foggy day", "Clear", "Snowstorm" };
 
     public static List<string> PresetOrder(JsonObject presets)

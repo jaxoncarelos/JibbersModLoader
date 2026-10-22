@@ -41,18 +41,16 @@ public sealed class Hello : JibbersMod
     public override string Id => "hello";
     public override string Name => "Hello";
 
-    public override IEnumerable<Setting> Settings => new[]
-    {
-        Setting.Toggle("tricks", "Log tricks", true),
-    };
+    [Toggle("Log tricks")]
+    public bool LogTricks { get; private set; }
 
     public override void OnLoad()
     {
-        TrickPerformed.Subscribe(t =>
+        TrickPerformed.Subscribe(trick =>
         {
-            if (GetBool("tricks") && !t.IsUpdate)
+            if (LogTricks && !trick.IsUpdate)
             {
-                Log($"{t.Name}: {t.Details}");
+                Log($"{trick.Name}: {trick.Details}");
             }
         });
     }

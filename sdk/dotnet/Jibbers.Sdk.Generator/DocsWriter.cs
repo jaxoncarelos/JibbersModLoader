@@ -95,6 +95,10 @@ internal static class DocsWriter
 
     static string TypeName(Type t)
     {
+        if (t.IsGenericParameter)
+        {
+            return t.Name;
+        }
         if (t.IsByRef)
         {
             return "ref " + TypeName(t.GetElementType()!);
@@ -160,13 +164,15 @@ internal static class DocsWriter
         }
         return t.Name switch
         {
-            "JibbersMod" or "Setting" or "SettingsStore" or "SettingKind" => "Writing a mod",
-            "MainThread" or "Log" or "Hooks" or "Detour" => "Runtime",
+            "JibbersMod" or "ModFeature" or "FeatureMod`1" or "SettingAttribute" or "ToggleAttribute" or "SliderAttribute" or "ChoiceAttribute" or "KeyBindingAttribute" or "Setting" or "SettingsStore" or "SettingKind" => "Writing a mod",
+            "MainThread" or "Log" or "Hooks" or "Detour" or "Detour`1" or "MethodHook" => "Runtime",
             "Events" or "GameEvent" or "Subscription" => "Events",
             "GameVars" => "Game settings",
             "Input" or "Key" => "Input",
             "Unity" or "GameRef" or "Vector2" or "Vector3" or "Vector4" or "Quaternion" or "Color" or "Rect" or "Bounds" or "Matrix4x4" => "Unity",
             "Inspect" or "Delegates" or "IGameObject" or "GameObjectExtensions" => "Utilities",
+            _ when ns.StartsWith("Jibbers.Sdk.Features.") => "Gameplay features",
+            _ when ns == "Jibbers.Sdk.Diagnostics" => "Developer tools",
             _ when ns == "Jibbers.Sdk.Interop" => "IL2CPP",
             _ when ns == "Jibbers.Sdk.Symbols" => "Symbols",
             _ => "SDK",

@@ -1,5 +1,5 @@
 //! Writes the drone sounds as 16-bit mono WAVs for the Unity project that builds jibbers_fpv.bundle:
-//! `cargo run --release --offline --example write_sounds` (from this folder).
+//! `cargo run --release --offline --bin write_sounds` (from this folder).
 //! The game's build strips AudioClip.Create/SetData, so the clips have to ship as assets.
 use jibbers_fpv::synth;
 use std::{fs, io::Write, path::Path};

@@ -13,12 +13,21 @@
   <ItemGroup>
     <ProjectReference Include="..\Jibbers.Sdk\Jibbers.Sdk.csproj" />
     <!-- The C# mod ports, for their game-free logic (camera math, smoothing, ...). -->
-    <ProjectReference Include="..\..\..\mods\cs\Filmer\Filmer.csproj" />
-    <ProjectReference Include="..\..\..\mods\cs\SkiSmooth\SkiSmooth.csproj" />
+    <ProjectReference Include="..\..\..\mods\cs\Filmer\Filmer.csproj" Condition="Exists('..\..\..\mods\cs\Filmer\Filmer.csproj')" />
+    <ProjectReference Include="..\..\..\mods\cs\SkiSmooth\SkiSmooth.csproj" Condition="Exists('..\..\..\mods\cs\SkiSmooth\SkiSmooth.csproj')" />
     <ProjectReference Include="..\..\..\mods\cs\Reshred\Reshred.csproj" />
     <ProjectReference Include="..\..\..\mods\cs\Atmosphere\Atmosphere.csproj" />
-    <ProjectReference Include="..\..\..\mods\cs\FastLoad\FastLoad.csproj" />
-    <ProjectReference Include="..\..\..\mods\cs\CollisionStream\CollisionStream.csproj" />
+    <ProjectReference Include="..\..\..\mods\cs\FastLoad\FastLoad.csproj" Condition="Exists('..\..\..\mods\cs\FastLoad\FastLoad.csproj')" />
+    <ProjectReference Include="..\..\..\mods\cs\CollisionStream\CollisionStream.csproj" Condition="Exists('..\..\..\mods\cs\CollisionStream\CollisionStream.csproj')" />
+    <ProjectReference Include="..\..\..\mods\cs\FPV\FPV.csproj" />
+  </ItemGroup>
+
+  <!-- Public source kits intentionally exclude the local-only mod projects. -->
+  <ItemGroup>
+    <Compile Remove="ModPortTests.cs" Condition="!Exists('..\..\..\mods\cs\Filmer\Filmer.csproj')" />
+    <Compile Remove="SkiSmoothTests.cs" Condition="!Exists('..\..\..\mods\cs\SkiSmooth\SkiSmooth.csproj')" />
+    <Compile Remove="FastLoadTests.cs" Condition="!Exists('..\..\..\mods\cs\FastLoad\FastLoad.csproj')" />
+    <Compile Remove="CollisionStreamTests.cs" Condition="!Exists('..\..\..\mods\cs\CollisionStream\CollisionStream.csproj')" />
   </ItemGroup>
 
 </Project>

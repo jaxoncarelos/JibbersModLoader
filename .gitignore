@@ -18,3 +18,7 @@
 /mods/cs/FastLoad/
 /mods/cs/Filmer/
 /mods/cs/SkiSmooth/
+
+# Rust asset-generator source is not a managed build output directory.
+!/mods/JibbersFPV/src/bin/
+!/mods/JibbersFPV/src/bin/*.rs

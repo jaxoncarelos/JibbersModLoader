@@ -1,6 +1,6 @@
 // The Rust Reshred's tests, run against the C# port.
 
-using Reshred;
+using Jibbers.Sdk.Features.Rewind;
 
 static class ReshredTests
 {

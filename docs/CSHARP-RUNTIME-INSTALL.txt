@@ -1,0 +1,17 @@
+C# mod runtime for Jibbers
+
+Close the game. Back up version.dll, then extract this ZIP into the folder
+containing Jibbers.exe, merging JibbersMods. Keep existing mods and settings.
+It includes the stable updater bootstrap and replaceable loader, the native
+.NET bridge, the C# SDK and (when packaged with -BundleRuntime) the .NET 8 runtime.
+Players do not need the .NET SDK or Rust sources.
+
+Launch once and check jibbers_hotload.log for dotnet: .NET 8 ... running.
+Put a C# mod DLL in JibbersMods\cs\, or use the C# mods installer to switch
+from Rust gameplay mods without leaving duplicate implementations active.
+
+Loader updates continue through the stable public channel. This C# runtime
+and the C# gameplay builds have not yet replaced the native public catalog.
+Keep the native stable release for general users until C# gameplay acceptance.
+
+Source: https://github.com/jaxoncarelos/JibbersModLoader (GPL-3.0).

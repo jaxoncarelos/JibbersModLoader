@@ -22,7 +22,9 @@ SDK type and member, every game symbol and event) or the generated code in `dotn
    names (two or three lowercase letters, like `bjc` or `<sdj>k__BackingField`). Raw `Jibbers.Interop.*`
    bindings use real names that change with game updates: prefer adding a symbol (`docs/guides/reverse-engineering.md`).
 3. Pre-hooks (`Hooks.Before`, `XxxMethod.Before`) take instance methods returning void or bool with at
-   most two non-float parameters; 12 per game. Install them in `OnLoad`. For anything else use `Detour`.
+   most two non-float parameters; 12 per game. Install hooks in `OnLoad`. To skip/wrap a zero-argument
+   void instance method, use `XxxMethod.Around(original => ...)` and call `original()` synchronously
+   when the game should continue. Other signatures use `Detour<TDelegate>` with a typed `Original`.
 4. A detour's `[UnmanagedCallersOnly]` function must match the native signature exactly: IL2CPP
    methods take `(this, args..., MethodInfo*)`. Never let an exception escape it.
 5. Root game objects you keep across frames (`.Keep()` / `GameRef`); check `IsDead()` before using

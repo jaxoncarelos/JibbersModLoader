@@ -8,7 +8,7 @@ do it in C#.
 | **Atmosphere** | per-frame work in `EnvironmentManager.Update` | `Game.Env.Manager.UpdateMethod.Before(...)` |
 | | map loaded (which map, its terrains) | `Game.Map.LoadEvent.Subscribe(e => e.Map.Name ...)` |
 | | post-processing (Beautify) fields | `Game.Env.Manager.Beautify_Field.GetObject(manager.Ptr)`, then `Il2Cpp.ClassOf(...).Field("contrast")` |
-| | load an asset bundle, spawn a prefab | `Il2Cpp.ICall("UnityEngine.AssetBundle::LoadFromFile_Internal_Injected")` with a detour-style function pointer, `Unity.Instantiate` |
+| | load an asset bundle, spawn a prefab | `AssetBundles.Load(path)`, `.Instantiate("Prefab", parent)`, `Dispose()` |
 | | shader globals, render settings | `Unity.CallStatic(Unity.Class("UnityEngine.Shader"), "SetGlobalFloat", ...)`, `Il2Cpp.ICall` for stripped setters |
 | | renderers of every rider | `Unity.GetComponentsInChildren(rider.Ptr, Unity.Class("UnityEngine.Renderer"))` |
 | **Reshred** | record and restore physics state each step | `Game.Physics.Scene.FixedUpdateMethod.Before(...)`; MuJoCo's `mj_getState`/`mj_setState` via `[DllImport("pcore.dll")]` |
@@ -25,7 +25,8 @@ do it in C#.
 | **Filmer** | per-frame camera control | `Game.Camera.Follow.LateUpdateMethod.Before(...)`, `.Target`, `.LockInput`, `.PhotoMode`, `.Mode` |
 | | hotkeys | `Input.OnPressed(Key.F6, ...)`, `Input.OnSetting(this, "key", ...)` |
 | **SkiSmooth** | find ski meshes and edit vertices | `Game.Ski.Segment.All()`, `.MeshTransform`, raw `UnityEngine.Mesh` methods via `Unity.Call` |
-| **FPV** | fly a camera, read sticks | `Input.Axis`, `Input.IsDown`, `Unity.Transform` + `set_position`/`set_rotation` through `Unity.Call` |
+| **FPV** | fly a camera, read sticks | `Gamepad.Read().WithDeadzone(...)`, `Input.IsDown`, `Game.Camera.Follow` (`.Mode`, `.Target`, `.GroundLayer`), typed `Jibbers.Interop.UnityEngine.Transform` / `Camera` |
+| | raycasts and sphere casts | `Jibbers.Interop.UnityEngine.Physics` raw bindings (engine classes, below) |
 | | audio prefab from a bundle | as Atmosphere |
 | **Mods tab** | clone game widgets, register buttons | `Game.Ui.NavigatableMenu.AddButton`, `.Layout()`, `Game.Ui.Behaviour.SetInteractable`, `Game.Ui.Button.Create(...)` |
 | | the game's own options | `GameVars.Get*`, `GameVars.Set`, `GameVars.Watch` |
@@ -35,7 +36,7 @@ do it in C#.
 
 ## The mods, ported
 
-Every original Rust mod except FPV has a C# port in `mods/cs/`, built against this SDK. Their
+Every original Rust mod has a C# port in `mods/cs/`, built against this SDK. Their
 game-free logic carries the Rust tests over (`sdk/dotnet/Jibbers.Sdk.Tests`), and the native parts
 are tested against the game's own MuJoCo (`pcore.dll`) outside the game.
 
@@ -47,10 +48,26 @@ are tested against the game's own MuJoCo (`pcore.dll`) outside the game.
 | `mods/cs/CollisionStream` | JibbersCollisionStream | planner, step gate, background compile on real MuJoCo | off by default, as in Rust; spawner lookup fixed (uses `player.ragdoll_spawner`) |
 | `mods/cs/Filmer` | JibbersFilmer | director camera math | |
 | `mods/cs/SkiSmooth` | JibbersSkiSmooth | smoothing, subdivision, normals | |
-| — | JibbersFPV | — | still Rust; being changed separately. Everything it uses is listed above |
+| `mods/cs/FPV` | JibbersFPV | math, sound synthesis, flight model (Acro/Angle/Cine, collisions, follow), input ramps and deadzone, OSD | the Rust mod stays the reference for flight tuning; needs `jibbers_fpv.bundle` in `JibbersMods` |
+
+The public source/binary packages include only FPV, Atmosphere and Rewind. The other ports remain
+local. See [rewrite status](../CSHARP-REWRITE.md) for packaging and the native-to-C# switch.
 
 Build one with `dotnet build mods/cs/<Name> -c Release` (it copies itself into the game's
 `JibbersMods\cs` when the game is installed; add `-p:JibbersNoInstall=true` to skip that).
+
+## Engine classes
+
+Every `UnityEngine.*` module the game ships (82 of them: Core, Physics, Animation, Audio, UI, Terrain,
+Particles, ...) has raw bindings under `Jibbers.Interop.UnityEngine`, with real parameter names:
+`new Transform(t).set_position(v)`, `Physics.Raycast(...)`, `Object.Instantiate(original, position, rotation)`.
+Every wrapper converts to `nint`, so it passes straight to `Unity.Call` and the IL2CPP API.
+
+Unity's names are not obfuscated, so these come from Unity 6000.3's own player assemblies
+(`jibbers-gen import`, see the reverse-engineering guide) and resolve against the game by name when
+first used. The game's build strips engine code it never calls: such a member throws
+`SymbolException` ("not found") when used, and `Il2Cpp.ICall` is the fallback (FastLoad and
+Atmosphere do this).
 
 ## Not covered on purpose
 

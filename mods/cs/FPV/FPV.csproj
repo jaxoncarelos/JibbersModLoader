@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><AssemblyName>FPV</AssemblyName><AllowUnsafeBlocks>false</AllowUnsafeBlocks></PropertyGroup>
+</Project>

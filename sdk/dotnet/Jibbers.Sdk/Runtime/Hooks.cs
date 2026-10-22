@@ -175,18 +175,16 @@ public static unsafe class Hooks
 
 /// <summary>
 /// A detour: replaces a native function (a game method's code, an engine or MuJoCo export) with
-/// yours. Any signature, any time, no slot limit. Call <see cref="Original"/> to run the game's code.
+/// yours. Any signature, any time, no slot limit. For ordinary callbacks use MethodRef.Around;
+/// for a callable typed original use Detour&lt;TDelegate&gt;. This class exposes raw native pointers.
 /// </summary>
 /// <example>
 /// <code>
-/// // A C# function with the exact native signature: (this, args..., MethodInfo*) for a game method.
-/// [UnmanagedCallersOnly]
-/// static void StepScene(nint self, nint method)
+/// // The common case requires no native signature or casts.
+/// step = Game.Physics.Scene.StepSceneMethod.Around(original =&gt;
 /// {
-///     if (!paused) ((delegate* unmanaged&lt;nint, nint, void&gt;)step.Original)(self, method);
-/// }
-/// step = Detour.Create(Game.Physics.Scene.Methods.StepScene.NativeCode, (nint)(delegate* unmanaged&lt;nint, nint, void&gt;)&amp;StepScene);
-/// step.Enable();
+///     if (!paused) original();
+/// });
 /// </code>
 /// </example>
 public sealed unsafe class Detour : IDisposable
@@ -199,6 +197,8 @@ public sealed unsafe class Detour : IDisposable
     public nint Original { get; }
     /// <summary>Whether the detour is active.</summary>
     public bool Enabled { get; private set; }
+    /// <summary>Whether this detour has been disposed.</summary>
+    public bool IsDisposed => handle == 0;
 
     Detour(nint handle, nint target, nint original, Delegate? keepAlive)
     {
@@ -242,6 +242,11 @@ public sealed unsafe class Detour : IDisposable
     /// </summary>
     public static Detour Create<T>(nint target, T replacement) where T : Delegate
     {
+        ArgumentNullException.ThrowIfNull(replacement);
+        if (!Runtime.Native.Ready)
+        {
+            throw new InvalidOperationException("the SDK is not running inside the game");
+        }
         var fp = Marshal.GetFunctionPointerForDelegate(replacement);
         nint tramp;
         var h = Runtime.Native.Api->DetourCreate(target, fp, &tramp);
@@ -258,6 +263,7 @@ public sealed unsafe class Detour : IDisposable
     /// <summary>Activates the detour.</summary>
     public void Enable()
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
         if (Runtime.Native.Api->DetourEnable(handle) != 0)
         {
             throw new InvalidOperationException(Runtime.Native.LastError());

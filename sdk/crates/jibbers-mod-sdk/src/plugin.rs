@@ -43,6 +43,9 @@ pub trait Plugin: 'static {
     /// Adds an `enabled` toggle (labelled with the plugin's name) as the first setting. Turn it off
     /// only for services that should always run. Read it with `settings::enabled()`.
     const ENABLED_TOGGLE: bool = true;
+    /// Whether this plugin has a player-facing settings section. Internal services can hide
+    /// themselves without hiding the gameplay mods they register.
+    const SHOW_IN_MENU: bool = true;
     /// The plugin's settings. Called once at load. (`enabled` is added for you.)
     fn settings() -> Vec<Setting>;
 
@@ -71,6 +74,7 @@ type CommandFn = fn(&str, &Value) -> Option<Result<Value, String>>;
 /// A plugin's identity, settings and callbacks. Separate from the global so it can be tested.
 pub struct Runtime {
     info: Info,
+    show_in_menu: bool,
     store: Store,
     changed: ChangedFn,
     command: CommandFn,
@@ -84,7 +88,7 @@ impl Runtime {
             return Err(format!("plugin id {:?} must be lowercase letters, digits and underscores", info.id));
         }
         let store = Store::new(P::settings(), P::ENABLED_TOGGLE.then_some(info.name), path)?;
-        Ok(Runtime { info, store, changed: P::changed, command: P::command, unload: P::unload })
+        Ok(Runtime { info, show_in_menu: P::SHOW_IN_MENU, store, changed: P::changed, command: P::command, unload: P::unload })
     }
 
     pub fn store(&self) -> &Store {
@@ -100,6 +104,7 @@ impl Runtime {
             "author": self.info.author,
             "description": self.info.description,
             "sdk": crate::SDK_VERSION,
+            "show_in_menu": self.show_in_menu,
             "enabled": self.store.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
             "settings": self.store.schema(),
         })
@@ -285,9 +290,29 @@ mod tests {
     #[test]
     fn info_matches_what_the_mods_tab_reads() {
         let i = rt().handle(&json!({"cmd": "plugin.info"})).unwrap();
+        assert_eq!(i["show_in_menu"], true);
         assert_eq!((&i["ok"], &i["id"], &i["name"], &i["version"], &i["enabled"]), (&json!(true), &json!("demo_mod"), &json!("Demo"), &json!("1.2.3"), &json!(true)));
         let keys: Vec<&str> = i["settings"].as_array().unwrap().iter().map(|s| s["key"].as_str().unwrap()).collect();
         assert_eq!(keys, ["enabled", "power", "mode"]);
+    }
+
+    #[test]
+    fn internal_services_can_hide_their_section_without_disabling_commands() {
+        struct Service;
+        impl Plugin for Service {
+            const INFO: Info = Info { id: "service", name: "Service", version: "1", author: "", description: "" };
+            const ENABLED_TOGGLE: bool = false;
+            const SHOW_IN_MENU: bool = false;
+            fn settings() -> Vec<Setting> { vec![] }
+            fn command(cmd: &str, _: &Value) -> Option<Result<Value, String>> {
+                (cmd == "service.status").then(|| Ok(json!({"running": true})))
+            }
+        }
+        let service = Runtime::new::<Service>(None).unwrap();
+        let info = service.handle(&json!({"cmd": "plugin.info"})).unwrap();
+        assert_eq!(info["show_in_menu"], false);
+        assert_eq!(info["enabled"], true);
+        assert_eq!(service.handle(&json!({"cmd": "service.status"})).unwrap()["running"], true);
     }
 
     #[test]

@@ -346,6 +346,20 @@ public sealed class MethodRef(string path)
 
     /// <summary>Detours the method's code (see <see cref="Detour.Create(nint, nint)"/>).</summary>
     public Detour Detour(nint replacement) => Sdk.Detour.Create(NativeCode, replacement);
+
+    /// <summary>Creates a disabled detour with a callable typed Original delegate (exact native signature required).</summary>
+    public Detour<TDelegate> Detour<TDelegate>(TDelegate replacement) where TDelegate : Delegate => Sdk.Detour<TDelegate>.Create(NativeCode, replacement);
+
+    /// <summary>Wraps a zero-argument void instance method. Call original() to continue, or omit it to skip.</summary>
+    /// <remarks>Created enabled. The callback runs on the method's calling thread; SDK-owned cleanup occurs on mod unload.</remarks>
+    public MethodHook Around(Action<Action> callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        return MethodHook.Create(Method, (_, original) => callback(original));
+    }
+
+    /// <summary>As Around(original =&gt; ...), also providing the instance pointer for this invocation.</summary>
+    public MethodHook Around(Action<nint, Action> callback) => MethodHook.Create(Method, callback);
 }
 
 /// <summary>
@@ -471,4 +485,17 @@ public sealed class RawMethodRef(RawClassRef owner, string name, params string[]
         var r = Invoke(self, args);
         return r == 0 ? throw new InvalidOperationException($"{name} returned null") : Il2Cpp.Unbox<T>(r);
     }
+
+    /// <summary>Creates a disabled detour with a callable typed Original delegate (exact native signature required).</summary>
+    public Detour<TDelegate> Detour<TDelegate>(TDelegate replacement) where TDelegate : Delegate => Sdk.Detour<TDelegate>.Create(NativeCode, replacement);
+
+    /// <summary>Wraps a zero-argument void instance method; call original() to continue or omit it to skip.</summary>
+    public MethodHook Around(Action<Action> callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        return MethodHook.Create(Method, (_, original) => callback(original));
+    }
+
+    /// <summary>Wraps a zero-argument void instance method and provides its instance pointer.</summary>
+    public MethodHook Around(Action<nint, Action> callback) => MethodHook.Create(Method, callback);
 }
