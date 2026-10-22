@@ -1,6 +1,5 @@
 // Atmosphere's settings: a camelCase JSON document (jibbers_atmosphere.json beside the game, the same
 // file and format as the Rust mod), with named partial presets. Game-free, unit tested.
-
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -41,10 +40,13 @@ internal static class AtmosphereConfiguration
       }
     }
     """)!;
-
     /// <summary>Built-in presets in the order F4 cycles them; other presets follow alphabetically.</summary>
-    public static readonly string[] BuiltInPresets = { "Foggy day", "Clear", "Snowstorm" };
-
+    public static readonly string[] BuiltInPresets =
+    {
+        "Foggy day",
+        "Clear",
+        "Snowstorm"
+    };
     public static List<string> PresetOrder(JsonObject presets)
     {
         var names = BuiltInPresets.Where(presets.ContainsKey).ToList();
@@ -60,9 +62,10 @@ internal static class AtmosphereConfiguration
         {
             return settings;
         }
-        if (JsonNode.Parse(text) is JsonObject file)
+
+        if (JsonNode.Parse(text)is JsonObject file)
         {
-            foreach (var (key, value) in file)
+            foreach (var(key, value)in file)
             {
                 if (settings.ContainsKey(key) && value is not null)
                 {
@@ -70,21 +73,23 @@ internal static class AtmosphereConfiguration
                 }
             }
         }
+
         return settings;
     }
 
-    /// <summary>Writes the fields of <paramref name="changes"/> into <paramref name="current"/>. Maps merge key by key (null removes); unknown keys are ignored.</summary>
+    /// <summary>Writes the fields of <paramref name = "changes"/> into <paramref name = "current"/>. Maps merge key by key (null removes); unknown keys are ignored.</summary>
     public static void Merge(JsonObject current, JsonObject changes)
     {
-        foreach (var (key, value) in changes)
+        foreach (var(key, value)in changes)
         {
             if (!current.ContainsKey(key))
             {
                 continue;
             }
+
             if (current[key] is JsonObject currentObject && value is JsonObject patchObject)
             {
-                foreach (var (propertyName, propertyValue) in patchObject)
+                foreach (var(propertyName, propertyValue)in patchObject)
                 {
                     if (propertyValue is null)
                     {
@@ -110,6 +115,7 @@ internal static class AtmosphereConfiguration
         {
             throw new ArgumentException($"no preset named \"{name}\"");
         }
+
         var next = Defaults();
         next["enabled"] = current["enabled"]?.DeepClone();
         next["presets"] = current["presets"]?.DeepClone();
@@ -126,13 +132,13 @@ internal static class AtmosphereConfiguration
         {
             throw new ArgumentException("no presets defined");
         }
+
         var index = order.IndexOf(current["preset"]?.GetValue<string>() ?? "");
         return order[index < 0 ? 0 : (index + 1) % order.Count];
     }
 
     /// <summary>hazeDensity and fogDensity at fog thickness 1 (the Snowstorm preset's scale).</summary>
     public const float FogHazeFull = 0.012f, FogDensityFull = 0.008f;
-
     /// <summary>The fog slider value to the fields it sets: both densities scale, the sky is fully hazed from 0.15 up.</summary>
     public static JsonObject FogFields(float value) => new()
     {
@@ -140,15 +146,10 @@ internal static class AtmosphereConfiguration
         ["fogDensity"] = value * FogDensityFull,
         ["skyHaze"] = value > 0.15f ? 1f : value * 5,
     };
-
     /// <summary>The fog slider value read back from the settings.</summary>
     public static float FogValue(JsonObject settings) => Math.Clamp(GetFloat(settings, "hazeDensity") / FogHazeFull, 0, 1);
-
     public static float GetFloat(JsonObject settings, string key) => settings[key] is JsonValue value ? (float)double.Parse(value.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture) : 0;
-
     public static float[] GetArray(JsonObject settings, string key) => (settings[key] as JsonArray)?.Select(component => component is null ? 0f : (float)double.Parse(component.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture)).ToArray() ?? Array.Empty<float>();
-
     public static bool GetBool(JsonObject settings, string key) => settings[key] is JsonValue value && value.TryGetValue(out bool booleanValue) && booleanValue;
-
     public static string Serialize(JsonObject settings) => settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 }

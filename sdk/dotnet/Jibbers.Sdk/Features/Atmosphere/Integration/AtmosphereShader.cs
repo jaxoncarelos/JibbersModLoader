@@ -7,13 +7,13 @@ static unsafe class AtmosphereShader
 {
     static readonly Dictionary<string, int> propertyIds = new();
     static Il2CppMethod setGlobalVector, setGlobalFloat, propertyToId;
-
     static void EnsureInitialized()
     {
         if (!setGlobalVector.IsNull)
         {
             return;
         }
+
         var shaderClass = Il2Cpp.RequireClass(Unity.Core, "UnityEngine.Shader");
         setGlobalVector = shaderClass.Method("SetGlobalVector", "System.Int32", "UnityEngine.Vector4");
         setGlobalFloat = shaderClass.Method("SetGlobalFloat", "System.Int32", "System.Single");
@@ -31,6 +31,7 @@ static unsafe class AtmosphereShader
         {
             propertyIds[propertyName] = propertyId = propertyToId.Invoke<int>(0, Il2Cpp.String(propertyName));
         }
+
         return propertyId;
     }
 

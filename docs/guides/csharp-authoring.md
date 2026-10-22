@@ -36,9 +36,17 @@ the host's settings store and identity so hook ownership and enabled toggles kee
 | `ReshredMod` | `RewindController` | Physics snapshots, rewind and replay restoration |
 
 These three DLLs require the matching SDK from the same build. Keep the runtime and mods packages
-together when testing. Only these three mods are included in the public source kit; other ports
-remain local. Native loader, bridge and updater code remains Rust. The Rust starter was removed;
+together when testing. These are the three retained gameplay mods and the only mods included in
+the public source kit. Native loader, bridge and updater code remains Rust. The Rust starter was removed;
 the native FPV sound generator is an asset build utility under `src/bin`, not a mod starter.
+
+For the complete implementations, start with the
+[public mod walkthrough](../../sdk/dotnet/Jibbers.Sdk/Features/README.md).
+Each controller connects settings and lifecycle to a runtime. Gameplay services depend on narrow
+interfaces; native calls and object ownership stay in `Integration` adapters. For example, Rewind's
+hold interaction and history buffer can be read and tested without knowing MuJoCo or byte layouts.
+FPV separates its flight session from camera, targets and presentation. Atmosphere separates
+configuration, scene measurements, shader calculations and effect restoration.
 
 Inspector delegates its probes to `Jibbers.Sdk.Diagnostics.InspectorCommands`, which dispatches
 game calls and owns its event subscriptions. Advanced native signatures remain available in the

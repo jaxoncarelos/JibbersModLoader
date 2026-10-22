@@ -20,12 +20,19 @@ internal sealed class AtmosphereShaderParameters(Action<string, Vector4> writeVe
 {
     static readonly string[] EffectSwitches =
     {
-        "_JA_FogColor", "_JA_Snow", "_JA_Cloud", "_JA_AO", "_JA_Sparkle", "_JA_Shafts", "_JA_Speed", "_JA_Bank",
+        "_JA_FogColor",
+        "_JA_Snow",
+        "_JA_Cloud",
+        "_JA_AO",
+        "_JA_Sparkle",
+        "_JA_Shafts",
+        "_JA_Speed",
+        "_JA_Bank",
     };
-
     public void Disable()
     {
-        foreach (var property in EffectSwitches) writeVector(property, default);
+        foreach (var property in EffectSwitches)
+            writeVector(property, default);
     }
 
     public void Apply(AtmosphereRenderSettings settings, in AtmosphereFrame frame)
@@ -58,10 +65,7 @@ internal sealed class AtmosphereShaderParameters(Action<string, Vector4> writeVe
         writeVector("_JA_Snow", new(snow.Amount, snow.BoxSize, snow.FallSpeed, snow.FlakeSize));
         Write("_JA_Wind", snow.Wind, snow.Flutter);
         // Flakes receive skylight and a little sunlight, capped at white.
-        var snowLighting = new Vector3(
-            MathF.Min(ambientLight.R * 1.25f + sunlight.X * 0.25f, 1),
-            MathF.Min(ambientLight.G * 1.25f + sunlight.Y * 0.25f, 1),
-            MathF.Min(ambientLight.B * 1.25f + sunlight.Z * 0.25f, 1));
+        var snowLighting = new Vector3(MathF.Min(ambientLight.R * 1.25f + sunlight.X * 0.25f, 1), MathF.Min(ambientLight.G * 1.25f + sunlight.Y * 0.25f, 1), MathF.Min(ambientLight.B * 1.25f + sunlight.Z * 0.25f, 1));
         Write("_JA_SnowColor", snowLighting, snow.Opacity);
     }
 
@@ -78,12 +82,8 @@ internal sealed class AtmosphereShaderParameters(Action<string, Vector4> writeVe
         Write("_JA_AOTint", occlusion.Tint, 1);
     }
 
-    void WriteSparkles(SparkleSettings sparkles, bool maskReady) =>
-        writeVector("_JA_Sparkle", new(maskReady ? sparkles.Strength : 0, sparkles.Density, sparkles.Distance, sparkles.Size));
-
-    void WriteSunShafts(SunShaftSettings shafts) =>
-        writeVector("_JA_Shafts", new(shafts.Strength, shafts.Reach, 0.96f, shafts.Sharpness));
-
+    void WriteSparkles(SparkleSettings sparkles, bool maskReady) => writeVector("_JA_Sparkle", new(maskReady ? sparkles.Strength : 0, sparkles.Density, sparkles.Distance, sparkles.Size));
+    void WriteSunShafts(SunShaftSettings shafts) => writeVector("_JA_Shafts", new(shafts.Strength, shafts.Reach, 0.96f, shafts.Sharpness));
     void WriteSpeedEffects(SpeedEffectSettings effects, Vector3 measuredVelocity)
     {
         var cameraVelocity = measuredVelocity + effects.DebugVelocity;
@@ -97,12 +97,11 @@ internal sealed class AtmosphereShaderParameters(Action<string, Vector4> writeVe
 
     void WriteCloudBank(CloudBankSettings clouds, in AtmosphereFrame frame)
     {
-        var (baseHeight, topHeight) = clouds.Bounds(frame.CameraPosition?.Y, frame.TerrainFloor, frame.TerrainCeiling);
+        var(baseHeight, topHeight) = clouds.Bounds(frame.CameraPosition?.Y, frame.TerrainFloor, frame.TerrainCeiling);
         writeVector("_JA_Bank", new(clouds.Strength, baseHeight, topHeight, clouds.InverseSize));
         writeVector("_JA_Bank2", new(clouds.Speed.X, clouds.Speed.Y, clouds.Coverage, clouds.Margin));
         writeVector("_JA_MapRect", frame.MapRectangle);
     }
 
-    void Write(string property, Vector3 components, float fourthComponent) =>
-        writeVector(property, new(components.X, components.Y, components.Z, fourthComponent));
+    void Write(string property, Vector3 components, float fourthComponent) => writeVector(property, new(components.X, components.Y, components.Z, fourthComponent));
 }

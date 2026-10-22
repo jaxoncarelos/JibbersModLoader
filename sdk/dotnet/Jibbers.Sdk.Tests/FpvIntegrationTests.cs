@@ -4,22 +4,22 @@ using Jibbers.Sdk.Symbols;
 
 static class FpvIntegrationTests
 {
-    sealed class EmptyWorld : IWorld { public Hit? Sweep(V3 o, V3 d, float length, float radius) => null; }
+    sealed class EmptyWorld : ICollisionWorld { public CollisionHit? Sweep(DroneVector origin, DroneVector direction, float length, float radius) => null; }
     [Test] static void InvalidTimeCannotPoisonTheCameraAndRecallResetsACrash()
     {
-        var d = new Drone(new(0, 20, 0), Quat.Identity, Mode.Angle);
+        var d = new Drone(new(0, 20, 0), DroneRotation.Identity, FlightMode.Angle);
         d.Step(float.NaN, default, null, new EmptyWorld(), new());
-        Assert.Equal(new V3(0, 20, 0), d.Position);
-        Assert.True(d.Camera(new(), 1).Finite);
-        d.Disarmed = 1; d.Velocity = new(10, -20, 5);
-        d.Recall(default, V3.Forward);
-        Assert.Equal(new V3(0, 2, -4), d.Position);
-        Assert.Equal(default, d.Velocity); Assert.Equal(0f, d.Disarmed);
+        Assert.Equal(new DroneVector(0, 20, 0), d.Position);
+        Assert.True(d.CalculateCameraRotation(new(), 1).IsFinite);
+        d.RearmDelaySeconds = 1; d.Velocity = new(10, -20, 5);
+        d.Recall(default, DroneVector.Forward);
+        Assert.Equal(new DroneVector(0, 2, -4), d.Position);
+        Assert.Equal(default, d.Velocity); Assert.Equal(0f, d.RearmDelaySeconds);
     }
     [Test] static void ControllerActionsUseEdgesAndLosingFocusCancelsALockTap()
     {
-        var input = new PilotInput(); var c = new PilotConfig();
-        Pad P(ushort buttons) => new(0, 0, 0, 0, 0, 0, buttons);
+        var input = new PilotInput(); var c = new PilotSettings();
+        GamepadInput P(ushort buttons) => new(0, 0, 0, 0, 0, 0, buttons);
         var (_, a) = input.Update(0.016f, true, P(0xc0), default, _ => false, c); Assert.True(a.Toggle);
         (_, a) = input.Update(0.016f, true, P(0xc0), default, _ => false, c); Assert.True(!a.Toggle);
         input.Update(0.1f, true, P(0x200), default, _ => false, c);
@@ -32,8 +32,8 @@ static class FpvIntegrationTests
     }
     [Test] static void KeyboardOverridesAbsoluteThrottleAndMouseInvertIsApplied()
     {
-        var input = new PilotInput(); var c = new PilotConfig { Throttle = Throttle.Trigger, InvertPitch = true };
-        var p = new Pad(0, 0, 0, 1, 0.2f, 0.7f, 0);
+        var input = new PilotInput(); var c = new PilotSettings { Throttle = Throttle.Trigger, InvertPitch = true };
+        var p = new GamepadInput(0, 0, 0, 1, 0.2f, 0.7f, 0);
         var (ctl, _) = input.Update(0.1f, true, p, new(5, 5, true), _ => false, c);
         Assert.Equal(0.7f, ctl.Throttle); Assert.Equal(-1f, ctl.Pitch); Assert.True(ctl.LookPitch > 0 && ctl.Precision);
         (ctl, _) = input.Update(0.1f, true, p, default, k => k == (int)Key.W, c);
@@ -41,7 +41,7 @@ static class FpvIntegrationTests
     }
     [Test] static void RiderNamesCannotInjectHudMarkup()
     {
-        var blocks = Effects.Text(new(Mode.Cine, 0, 0, null, 10, "<size=999>rider", false, false, false));
+        var blocks = DroneTelemetryFormatter.Format(new(FlightMode.Cine, 0, 0, null, 10, "<size=999>rider", false, false, false));
         Assert.True(!blocks[2].Contains("<size=999>"));
     }
     [Test] static void FpvSymbolsAreIncludedAndValidAlongsideTheSdkCatalogue()

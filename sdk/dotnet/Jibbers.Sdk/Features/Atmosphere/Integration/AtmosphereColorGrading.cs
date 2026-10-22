@@ -5,11 +5,10 @@ using Jibbers.Sdk.Interop;
 namespace Jibbers.Sdk.Features.Atmosphere;
 
 /// <summary>Colour grading through the game's own Beautify volume and EnvironmentManager lighting fields; originals restored when off.</summary>
-static unsafe class AtmosphereColorGrading
+internal sealed unsafe class AtmosphereColorGrading : IDisposable
 {
-    static readonly Dictionary<(string Kind, string Name), JsonNode?> originalValues = new();
-    static nint lastEnvironmentManager;
-
+    readonly Dictionary<(string Kind, string Name), JsonNode?> originalValues = new();
+    GameRef? environmentRoot;
     static nint Beautify(nint environmentManager)
     {
         var field = Manager.Beautify_Field;
@@ -23,6 +22,7 @@ static unsafe class AtmosphereColorGrading
         {
             return null;
         }
+
         return field.TypeName switch
         {
             "System.Single" => field.Get<float>(instance),
@@ -35,7 +35,6 @@ static unsafe class AtmosphereColorGrading
     }
 
     static JsonArray ColorComponents(Color color) => new(color.R, color.G, color.B, color.A);
-
     static void Write(nint instance, string name, JsonNode? value)
     {
         var field = Il2Cpp.ClassOf(instance).Field(name);
@@ -43,6 +42,7 @@ static unsafe class AtmosphereColorGrading
         {
             return;
         }
+
         double ReadNumber(JsonNode node) => double.Parse(node.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture);
         switch (field.TypeName)
         {
@@ -62,18 +62,26 @@ static unsafe class AtmosphereColorGrading
         }
     }
 
-    public static void Apply(nint environmentManager, bool enabled, JsonObject settings)
+    public void Apply(nint environmentManager, bool enabled, JsonObject settings)
     {
-        lastEnvironmentManager = environmentManager;
+        if (environmentRoot?.Target != environmentManager)
+        {
+            Restore();
+            environmentRoot = environmentManager == 0 ? null : new GameRef(environmentManager);
+        }
+
+        if (environmentManager == 0)
+            return;
         var beautifyInstance = Beautify(environmentManager);
         if (!enabled)
         {
             Restore();
             return;
         }
+
         if (beautifyInstance != 0 && settings["beautify"] is JsonObject beautifyValues)
         {
-            foreach (var (name, value) in beautifyValues)
+            foreach (var(name, value)in beautifyValues)
             {
                 var parameterField = Il2Cpp.ClassOf(beautifyInstance).Field(name);
                 var parameterInstance = parameterField.IsNull ? 0 : parameterField.GetObject(beautifyInstance);
@@ -81,53 +89,72 @@ static unsafe class AtmosphereColorGrading
                 {
                     continue;
                 }
+
                 if (!originalValues.ContainsKey(("beautify", name)))
                 {
                     originalValues[("beautify", name)] = Read(parameterInstance, "m_Value");
                     originalValues[("override", name)] = Read(parameterInstance, "m_OverrideState");
                 }
+
                 Write(parameterInstance, "m_Value", value);
                 Write(parameterInstance, "m_OverrideState", true);
             }
         }
+
         if (settings["environment"] is JsonObject environmentValues)
         {
-            foreach (var (name, value) in environmentValues)
+            foreach (var(name, value)in environmentValues)
             {
                 if (!originalValues.ContainsKey(("env", name)))
                 {
                     originalValues[("env", name)] = Read(environmentManager, name);
                 }
+
                 Write(environmentManager, name, value);
             }
         }
     }
 
-    public static void Restore()
+    public void Dispose() => Restore();
+    public void Restore()
     {
-        if (lastEnvironmentManager == 0 || originalValues.Count == 0)
+        var root = environmentRoot;
+        environmentRoot = null;
+        if (root is null)
         {
+            originalValues.Clear();
             return;
         }
-        var beautifyInstance = Beautify(lastEnvironmentManager);
-        foreach (var ((kind, name), value) in originalValues)
+
+        try
         {
-            try
+            var environmentManager = root.Target;
+            if (Unity.IsNull(environmentManager))
+                return;
+            var beautifyInstance = Beautify(environmentManager);
+            foreach (var((kind, name), value)in originalValues)
             {
-                if (kind == "env")
+                try
                 {
-                    Write(lastEnvironmentManager, name, value);
+                    if (kind == "env")
+                    {
+                        Write(environmentManager, name, value);
+                    }
+                    else if (beautifyInstance != 0 && Il2Cpp.ClassOf(beautifyInstance).Field(name)is var parameterField && !parameterField.IsNull && parameterField.GetObject(beautifyInstance)is var parameterInstance && parameterInstance != 0)
+                    {
+                        Write(parameterInstance, kind == "beautify" ? "m_Value" : "m_OverrideState", value);
+                    }
                 }
-                else if (beautifyInstance != 0 && Il2Cpp.ClassOf(beautifyInstance).Field(name) is var parameterField && !parameterField.IsNull && parameterField.GetObject(beautifyInstance) is var parameterInstance && parameterInstance != 0)
+                catch (Exception)
                 {
-                    Write(parameterInstance, kind == "beautify" ? "m_Value" : "m_OverrideState", value);
-                }
-            }
-            catch (Exception)
-            {
                 // the environment was replaced
+                }
             }
         }
-        originalValues.Clear();
+        finally
+        {
+            originalValues.Clear();
+            root.Dispose();
+        }
     }
 }

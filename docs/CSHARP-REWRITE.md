@@ -1,9 +1,12 @@
 # C# mod rewrite
 
-The C# SDK, native .NET bridge and seven gameplay ports are implemented locally. FPV now has
-the missing project, mod lifecycle, flight model, input, camera ownership, collision queries,
-target tracking, OSD and asset-bundle audio. It uses the original FPV symbols and controls.
-Atmosphere, Rewind, FastLoad, CollisionStream, Filmer and SkiSmooth retain their existing ports.
+The C# SDK, native .NET bridge and three gameplay mods are implemented: FPV, Atmosphere and
+Rewind. Their controllers connect lifecycle and settings to focused gameplay services. Native
+calls, hardware polling and game-object ownership live in separate integration adapters. The
+other gameplay mod folders have been removed.
+
+Read the [public mod walkthrough](../sdk/dotnet/Jibbers.Sdk/Features/README.md) for the complete
+source, responsibilities and learning paths.
 
 `docs/guides/` explains the SDK; `sdk/AGENTS.md` contains the game-thread and native-call rules.
 The Rust layer remains responsible for loading .NET, native hooks and the stable update bootstrap.
@@ -18,7 +21,7 @@ dotnet run --project sdk/dotnet/Jibbers.Sdk.Tests -c Release -p:JibbersNoInstall
 tools/package_dotnet.ps1 -BundleRuntime
 ```
 
-The test suite covers settings/menu protocol, symbol rules, the existing six ports, FPV flight,
+The test suite covers settings/menu protocol, symbol rules, all three gameplay services, FPV flight,
 collisions, follow pursuit, mode transitions, input focus/edges and synthesized sound. Optional
 real-game dump tests report a skip if the dump is absent; they are not gameplay acceptance.
 

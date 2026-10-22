@@ -36,22 +36,18 @@ do it in C#.
 
 ## The mods, ported
 
-Every original Rust mod has a C# port in `mods/cs/`, built against this SDK. Their
-game-free logic carries the Rust tests over (`sdk/dotnet/Jibbers.Sdk.Tests`), and the native parts
-are tested against the game's own MuJoCo (`pcore.dll`) outside the game.
+The retained gameplay mods are FPV, Atmosphere and Rewind. Their C# sources live in `mods/cs/`,
+and their reusable implementations and engine adapters live in `sdk/dotnet/Jibbers.Sdk/Features`.
+Gameplay, state and parameter calculations are tested without running the game.
 
 | Port | Rust original | Tests ported | Notes |
 | --- | --- | --- | --- |
 | `mods/cs/Atmosphere` | JibbersAtmosphere | cloud bank, presets, merge, fog slider, Mods-tab layout | needs `jibbers_atmosphere.bundle` beside `Jibbers.exe` |
 | `mods/cs/Reshred` | JibbersReshred | scrub, capacity, Rewired reservation | MuJoCo state through `pcore.dll` |
-| `mods/cs/FastLoad` | JibbersFastLoad | load clock, cacheability, cache round trip on real MuJoCo | four detours, same cache format |
-| `mods/cs/CollisionStream` | JibbersCollisionStream | planner, step gate, background compile on real MuJoCo | off by default, as in Rust; spawner lookup fixed (uses `player.ragdoll_spawner`) |
-| `mods/cs/Filmer` | JibbersFilmer | director camera math | |
-| `mods/cs/SkiSmooth` | JibbersSkiSmooth | smoothing, subdivision, normals | |
 | `mods/cs/FPV` | JibbersFPV | math, sound synthesis, flight model (Acro/Angle/Cine, collisions, follow), input ramps and deadzone, OSD | the Rust mod stays the reference for flight tuning; needs `jibbers_fpv.bundle` in `JibbersMods` |
 
-The public source/binary packages include only FPV, Atmosphere and Rewind. The other ports remain
-local. See [rewrite status](../CSHARP-REWRITE.md) for packaging and the native-to-C# switch.
+The source and binary packages include only FPV, Atmosphere and Rewind. The other mod folders
+have been removed. See [rewrite status](../CSHARP-REWRITE.md) for packaging and the native-to-C# switch.
 
 Build one with `dotnet build mods/cs/<Name> -c Release` (it copies itself into the game's
 `JibbersMods\cs` when the game is installed; add `-p:JibbersNoInstall=true` to skip that).

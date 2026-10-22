@@ -1,12 +1,11 @@
-# FPV Drone
+# FPV C# source
 
-The mod entry point is [FPV.cs](FPV.cs). The complete C# implementation is in
-[the SDK FPV feature folder](../../../sdk/dotnet/Jibbers.Sdk/Features/FPV):
+`FPV.cs` registers the SDK's reusable drone feature. The complete C# implementation is in
+[`sdk/dotnet/Jibbers.Sdk/Features/FPV`](../../../sdk/dotnet/Jibbers.Sdk/Features/FPV).
 
-- `DroneController.cs`: lifecycle, camera ownership, settings and target tracking.
-- `Flight.cs` and `DroneMath.cs`: drone physics, flight modes and collision response.
-- `PilotInput.cs` and `GameApi.cs`: controller, keyboard, mouse and game integration.
-- `Effects.cs` and `Synth.cs`: HUD, audio and sound generation.
-- `fpv_symbols.json`: game symbol definitions embedded in the SDK.
+Read `DroneController`, `DroneRuntime`, then `DroneFlightSession` for the gameplay flow.
+`Drone` is the game-independent flight model; `PilotInput` converts input into named pilot actions
+and controls. Camera, targets, HUD and audio live in separate `Integration` adapters.
 
-Build the SDK first, then this project. Use the matching SDK and mod DLLs together.
+See the [source walkthrough](../../../sdk/dotnet/Jibbers.Sdk/Features/README.md).
+Build with `dotnet build mods/cs/FPV -c Release -p:JibbersNoInstall=true`.
