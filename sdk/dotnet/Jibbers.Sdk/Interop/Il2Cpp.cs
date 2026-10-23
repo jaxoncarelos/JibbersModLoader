@@ -219,7 +219,7 @@ public readonly unsafe record struct Il2CppField(nint Ptr)
     /// <summary>Real name (obfuscated for most game fields).</summary>
     public string Name => Il2Cpp.Str(field_get_name(Ptr));
     /// <summary>IL2CPP type name.</summary>
-    public string TypeName => typeNames.GetOrResolve(Ptr, static field => Il2Cpp.TypeName(field_get_type(field)));
+    public string TypeName => typeNames.GetOrResolve(Ptr, static fieldPointer => Il2Cpp.TypeName(field_get_type(fieldPointer)));
     /// <summary>The field's <c>Il2CppType*</c>.</summary>
     public nint Type => field_get_type(Ptr);
     /// <summary>Class of the field's type.</summary>
