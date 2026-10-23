@@ -16,4 +16,4 @@ for path in paths:
         blocked.append(path)
 if blocked:
     raise SystemExit("Local-only mods must stay out of public source releases:\n" + "\n".join(blocked))
-print("Public mod sources: FPV, Atmosphere and Rewind only.")
+print("Public mod sources: Alpine Vision, FPV, Rewind and legacy Atmosphere test adapter.")

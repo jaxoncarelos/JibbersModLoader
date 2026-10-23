@@ -51,7 +51,7 @@ try {
     $mods = [IO.Compression.ZipFile]::OpenRead((Join-Path $root 'dist/JibbersCSharpMods.zip'))
     try {
         foreach ($entry in @(
-            @{folder='AlpineVision'; id='jibbers_atmosphere'; name='Alpine Vision'; description='Atmosphere extended: weather, alpine sky, lighting, cinematic finish and optional DX12 ray-traced shadows/AO. Replaces Atmosphere.'; asset='jibbers_alpinevision.bundle'},
+            @{folder='AlpineVision'; id='jibbers_atmosphere'; name='Alpine Vision'; description='Atmosphere extended: weather, alpine sky, lighting and a URP cinematic finish. Retains game shadows. Replaces Atmosphere.'; asset='jibbers_alpinevision.bundle'},
             @{folder='Reshred'; id='jibbers_reshred'; name='Rewind'; description='C# physics history, hold to rewind and resume.'; asset=$null},
             @{folder='FPV'; id='jibbers_fpv'; name='FPV Drone'; description='C# drone flight, camera, controls, HUD and audio.'; asset='JibbersMods/jibbers_fpv.bundle'}
         )) {
@@ -64,7 +64,7 @@ try {
                 $assetPath = if ($entry.folder -eq 'AlpineVision') { 'JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle' } else { $entry.asset }
                 Extract-Entry $mods $entry.asset "$payload/$assetPath"; $files += $assetPath
             }
-            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.1.2' } else { $Version }
+            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.0' } else { $Version }
             $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }

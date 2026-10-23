@@ -12,12 +12,10 @@ public sealed class AlpineVisionMod : JibbersMod
     public override IReadOnlyList<string> Conflicts=>new[]{"atmosphere","raytracing"};
     public override string Name=>"Alpine Vision";
     public override string Author=>"Jibbers mod community";
-    public override string Description=>"Atmosphere extended with alpine sky, lighting, native snow, cinematic finish and optional DXR shadows/AO.";
+    public override string Description=>"Atmosphere extended with alpine sky, lighting, native snow and a URP cinematic finish. Game shadows are retained.";
     public override IEnumerable<Setting> Settings=>new[] {
         Setting.Choice("look","Visual style",new[]{"Natural","Alpine Film","Golden Hour","Bluebird"},"Natural"),
         Setting.Choice("quality","Quality",new[]{"Performance","Balanced","Ultra"},"Balanced"),
-        Setting.Toggle("raytracing","Hardware ray tracing (DX12)",true),
-        Setting.KeyBinding("rtKey","Toggle hardware ray tracing",(int)Key.F7),
         Setting.Slider("weather","Atmosphere strength",1,0,1.5,.05),
         Setting.Slider("bloom","Bloom",.16,0,.5,.01),
         Setting.Slider("sharpness","Detail sharpening",.18,0,.5,.01),
@@ -26,9 +24,7 @@ public sealed class AlpineVisionMod : JibbersMod
     readonly WeatherConfiguration configuration=new();
     AtmosphereRuntime? weather;
     VisualRenderer? visuals;
-    RayTracer? rays;
     bool unloaded;
-    bool? hardwareReady;
     bool finishReady;
     JsonObject? atmosphereBase;
     int settingsChanged;
@@ -74,26 +70,8 @@ public sealed class AlpineVisionMod : JibbersMod
             {
                 finishReady=visuals.IsRendering;ApplySettings();weather?.ConfigurationChanged(false);
             }
-            if(!visuals.Ready) return;
-            rays??=new RayTracer(Log,visuals.Bundle);
-            var rt=GetBool("raytracing");
-            rays.Frame(rt,new(.58f,.38f,1.2f,.008f,quality=="Ultra"?.65f:quality=="Performance"?.3f:.45f,
-                quality=="Ultra"?6:quality=="Performance"?1:3,false));
-            var ready=rt && rays.HardwareReady;
-            if(hardwareReady!=ready)
-            {
-                hardwareReady=ready;
-                ApplySettings();
-                weather?.ConfigurationChanged(false);
-            }
         });
-        Jibbers.Sdk.Game.Map.LoadEvent.Subscribe(_=>Cleanup.Run(()=>visuals?.SceneChanged(),()=>rays?.SceneChanged()));
-        Input.OnSetting(this,"rtKey",()=>
-        {
-            var on=!GetBool("raytracing");
-            SetSetting("raytracing",System.Text.Json.Nodes.JsonValue.Create(on)!);
-            Log(on?"Hardware ray tracing requested ON; status will be reported after submission.":"Hardware ray tracing OFF; restored normal sun shadows.");
-        });
+        Jibbers.Sdk.Game.Map.LoadEvent.Subscribe(_=>visuals?.SceneChanged());
         Input.OnSetting(this,"cycleKey",()=>
         {
             if(!GetBool("hotkeys"))return;
@@ -101,13 +79,13 @@ public sealed class AlpineVisionMod : JibbersMod
             ApplySettings();Interlocked.Exchange(ref settingsChanged,1);SynchronizeWeatherMenu();
         });
         SynchronizeWeatherMenu();
-        Log("Alpine Vision 1.1.2 loaded: scene-safe owned materials, native snow, Atmosphere controls/F10, no valley cloud banks.");
+        Log("Alpine Vision 1.2.0 loaded: URP finish, native snow, Atmosphere controls/F10; game shadows retained, no ray tracing or valley cloud banks.");
     }
     void ApplySettings()
     {
         atmosphereBase=weatherControls.Capture().Values;
         configuration.Update(VisualProfile.For(GetString("look")).Weather(
-            GetString("quality")=="Performance",GetBool("raytracing") && hardwareReady==true,(float)GetDouble("weather"),atmosphereBase,finishReady));
+            GetString("quality")=="Performance",(float)GetDouble("weather"),atmosphereBase,finishReady));
     }
     public override void OnSettingChanged(string key,JsonNode value)
     {
@@ -125,18 +103,18 @@ public sealed class AlpineVisionMod : JibbersMod
         if(key=="enabled")MainThread.Later(()=>
         {
             if(unloaded)return;
-            if(!Enabled)Cleanup.Run(()=>rays?.Suspend(),()=>weather?.Disable(),()=>visuals?.Suspend());
+            if(!Enabled)Cleanup.Run(()=>weather?.Disable(),()=>visuals?.Suspend());
         });
     }
     public override JsonNode? OnCommand(string cmd,JsonObject request)=>cmd!="alpinevision.status"?null:
         MainThread.Run(()=>(JsonNode)new JsonObject {
             ["enabled"]=Enabled,["look"]=GetString("look"),["quality"]=GetString("quality"),
             ["weather_preset"]=AtmosphereModes.Current(weatherControls.Capture().Values),
-            ["visuals"]=visuals?.Status,["raytracing"]=rays?.Status,
+            ["visuals"]=visuals?.Status,
             ["weather_spawned"]=weather?.Status.Spawned,["weather_error"]=weather?.Status.Error });
     public override void OnUnload()
     {
-        unloaded=true; MainThread.Run(()=>Cleanup.Run(()=>rays?.Dispose(),()=>weather?.Dispose(),()=>visuals?.Dispose()));
+        unloaded=true; MainThread.Run(()=>Cleanup.Run(()=>weather?.Dispose(),()=>visuals?.Dispose()));
     }
 }
 

@@ -6,16 +6,15 @@ static double Number(System.Text.Json.Nodes.JsonNode? value)=>double.Parse(value
 var profiles=new[]{"Natural","Alpine Film","Golden Hour","Bluebird"}.Select(VisualProfile.For).ToArray();
 foreach(var p in profiles)
 {
-    var weather=p.Weather(false,true,1);
+    var weather=p.Weather(false,1);
     if(weather["snowSurface"]!.GetValue<bool>()!=false || weather["ao"]!.GetValue<double>()!=0)throw new Exception("Native snow/AO configuration is wrong");
     if(p.SunIntensity<=0 || p.Exposure<=0 || p.Contrast<1)throw new Exception("Invalid profile");
-    var low=p.Weather(true,false,1);
-    if(Number(low["ao"])<=0)throw new Exception("Fallback effects wrong");
-    Console.WriteLine("PASS "+p.Name+": native snow, preserved weather controls, RT/SSAO exclusion");
+    var low=p.Weather(true,1);
+    if(Number(low["ao"])!=0)throw new Exception("Mod must leave game AO/shadows alone");
+    Console.WriteLine("PASS "+p.Name+": native snow, preserved weather controls, native game shadows/AO");
 }
 if(profiles.Select(x=>x.SkyTop).Distinct().Count()!=4)throw new Exception("Profiles are identical");
-var rtKey=new AlpineVisionMod().Settings.Single(s=>s.Key=="rtKey");
-if(rtKey.Default!.GetValue<int>()!=(int)Key.F7)throw new Exception("RT hotkey overlaps Drone default");
+if(new AlpineVisionMod().Settings.Any(s=>s.Key is "raytracing" or "rtKey"))throw new Exception("Removed ray tracing control survived");
 RegressionTests.Run();
 if(args.Length==1)
 {

@@ -15,8 +15,7 @@ public static class BuildAlpineVision
     [Serializable] public class Profiles { public Profile[] profiles; }
     public static void BuildAndTest()
     {
-        Build();Test();
-        if(SystemInfo.supportsRayTracing)BuildRayTracing.Test();
+        Build();Test();TestUrp();
     }
     public static void Build()
     {
@@ -37,22 +36,107 @@ public static class BuildAlpineVision
         Mat("AV_BlurH","Hidden/AlpineVision/Blur").SetVector("_AV_Axis",new Vector4(1,0,0,0));
         Mat("AV_BlurV","Hidden/AlpineVision/Blur").SetVector("_AV_Axis",new Vector4(0,1,0,0));
         Mat("AV_Finish","Hidden/AlpineVision/Finish");
-        Mat("JRT_Composite","Hidden/JibbersRT/Composite");Mat("JRT_Debug","Hidden/JibbersRT/Debug");Mat("JRT_Proxy","Hidden/JibbersRT/Proxy");
+        Mat("AV_UrpFinish","Hidden/AlpineVision/UrpFinish");
         AssetDatabase.SaveAssets();
-        string[] names={"JibbersAtmosphere","AV_Copy","AV_Sky","AV_Extract","AV_BlurH","AV_BlurV","AV_Finish","JRT_Composite","JRT_Debug","JRT_Proxy","JibbersRT","JibbersRTBlur"};
-        var assets=names.Select(n=>n=="JibbersAtmosphere"?Gen+"/JibbersAtmosphere.prefab":n=="JibbersRT"?"Assets/RayTracing/JibbersRT.raytrace":n=="JibbersRTBlur"?"Assets/RayTracing/JibbersRTBlur.compute":Gen+"/"+n+".mat").ToArray();
+        string[] names={"JibbersAtmosphere","AV_Copy","AV_Sky","AV_Extract","AV_BlurH","AV_BlurV","AV_Finish","AV_UrpFinish"};
+        var assets=names.Select(n=>n=="JibbersAtmosphere"?Gen+"/JibbersAtmosphere.prefab":Gen+"/"+n+".mat").ToArray();
         Directory.CreateDirectory(OutDir);
         var manifest=BuildPipeline.BuildAssetBundles(OutDir,new[]{new AssetBundleBuild { assetBundleName="jibbers_alpinevision.bundle",assetNames=assets,addressableNames=names }},
             BuildAssetBundleOptions.ChunkBasedCompression|BuildAssetBundleOptions.ForceRebuildAssetBundle,BuildTarget.StandaloneWindows64);
         if(manifest==null)throw new Exception("Unified bundle build failed");
         var loaded=AssetBundle.LoadFromFile(Path.Combine(OutDir,"jibbers_alpinevision.bundle"));
         if(loaded==null)throw new Exception("Cannot reload unified bundle");
+        if(loaded.GetAllAssetNames().Any(n=>n.EndsWith(".raytrace") || n.EndsWith(".compute") || n.Contains("jrt_")))
+            throw new Exception("Removed ray tracing asset is still packaged");
         foreach(var n in names)if(loaded.LoadAsset(n)==null)throw new Exception("Missing packaged asset: "+n);
         if(loaded.LoadAsset<GameObject>("JibbersAtmosphere").transform.Find("SnowSurface")!=null)
             throw new Exception("Replacement terrain texture holder is still packaged");
         Debug.Log("PASS native snow: replacement texture holder excluded from the weather prefab.");
         loaded.Unload(false);
-        Debug.Log("PASS unified bundle: all 12 named assets, including weather prefab, procedural scene copy and ray tracing shaders.");
+        Debug.Log("PASS unified bundle: all 8 weather/visual assets; no ray tracing assets.");
+    }
+    public static void TestUrp()
+    {
+        var reports=new System.Collections.Generic.List<string>();
+        var priorPipeline=GraphicsSettings.defaultRenderPipeline;
+        var priorQuality=QualitySettings.renderPipeline;
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
+        var rendererData=ScriptableObject.CreateInstance<UnityEngine.Rendering.Universal.UniversalRendererData>();
+        rendererData.hideFlags=HideFlags.HideAndDontSave;
+        var pipeline=UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset.Create(rendererData);
+        pipeline.hideFlags=HideFlags.HideAndDontSave;
+        GraphicsSettings.defaultRenderPipeline=pipeline;QualitySettings.renderPipeline=pipeline;
+        typeof(RenderPipelineManager).GetMethod("TryPrepareRenderPipeline",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)
+            .Invoke(null,new object[]{pipeline});
+        var camera=new GameObject("UrpWorldCamera").AddComponent<Camera>();
+        camera.transform.position=new Vector3(0,3,-8);camera.transform.LookAt(Vector3.zero);
+        camera.backgroundColor=new Color(.2f,.35f,.55f);camera.clearFlags=CameraClearFlags.SolidColor;
+        var light=new GameObject("Sun").AddComponent<Light>();light.type=LightType.Directional;
+        light.transform.rotation=Quaternion.Euler(35,130,0);RenderSettings.sun=light;
+        var lit=Shader.Find("Universal Render Pipeline/Lit");
+        if(lit==null)throw new Exception("URP Lit shader missing");
+        for(int i=0;i<3;i++)
+        {
+            var obj=GameObject.CreatePrimitive(i==0?PrimitiveType.Plane:PrimitiveType.Cube);
+            obj.transform.position=i==0?new Vector3(0,-1,0):new Vector3(i==1?-2:2,0,0);
+            var material=new Material(lit);material.SetColor("_BaseColor",i==0?new Color(.75f,.8f,.86f):i==1?new Color(.8f,.15f,.1f):new Color(.1f,.3f,.8f));
+            obj.GetComponent<Renderer>().sharedMaterial=material;
+        }
+        const int W=640,H=360;
+        var target=new RenderTexture(W,H,24,RenderTextureFormat.ARGBHalf){hideFlags=HideFlags.HideAndDontSave};target.Create();
+        Color[] Render(string name)
+        {
+            var request=new UnityEngine.Rendering.Universal.UniversalRenderPipeline.SingleCameraRequest { destination=target };
+            RenderPipeline.SubmitRenderRequest(camera,request);
+            var previous=RenderTexture.active;RenderTexture.active=target;
+            var image=new Texture2D(W,H,TextureFormat.RGB24,false);image.ReadPixels(new Rect(0,0,W,H),0,0);image.Apply();
+            RenderTexture.active=previous;var pixels=image.GetPixels();File.WriteAllBytes(Path.Combine(OutDir,name),image.EncodeToPNG());Object.DestroyImmediate(image);return pixels;
+        }
+        GraphicsSettings.defaultRenderPipeline=pipeline;QualitySettings.renderPipeline=pipeline;
+        var prepared=typeof(RenderPipelineManager).GetMethod("TryPrepareRenderPipeline",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)
+            .Invoke(null,new object[]{pipeline});
+        Debug.Log("URP test pipeline: prepared="+prepared+" current="+RenderPipelineManager.currentPipeline+" asset="+GraphicsSettings.currentRenderPipeline);
+        var baseline=Render("urp-original.png");
+        var data=UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(camera);
+        var active=data.scriptableRenderer;
+        var featureList=(System.Collections.Generic.List<UnityEngine.Rendering.Universal.ScriptableRendererFeature>)
+            typeof(UnityEngine.Rendering.Universal.ScriptableRenderer).GetField("m_RendererFeatures",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(active);
+        // Match the runtime attachment, using the renderer instance's feature list.
+        var feature=ScriptableObject.CreateInstance<UnityEngine.Rendering.Universal.FullScreenPassRendererFeature>();
+        var finish=new Material(AssetDatabase.LoadAssetAtPath<Material>(Gen+"/AV_UrpFinish.mat")){hideFlags=HideFlags.HideAndDontSave};
+        feature.hideFlags=HideFlags.HideAndDontSave;feature.passMaterial=finish;
+        feature.fetchColorBuffer=true;feature.requirements=UnityEngine.Rendering.Universal.ScriptableRenderPassInput.None;
+        feature.injectionPoint=UnityEngine.Rendering.Universal.FullScreenPassRendererFeature.InjectionPoint.AfterRenderingPostProcessing;
+        feature.Create();featureList.Add(feature);
+        Color[] previousResult=baseline;
+        foreach(var profile in JsonUtility.FromJson<Profiles>(File.ReadAllText(Path.Combine(OutDir,"profiles.json"))).profiles)
+        {
+            finish.SetVector("_AV_Grade",new Vector4(profile.exposure,profile.contrast,profile.saturation,profile.warmth));
+            finish.SetVector("_AV_Mode",new Vector4(profile.name=="Natural"?0:1,0,0,0));
+            finish.SetVector("_AV_Finish",new Vector4(.16f,.18f,profile.name=="Natural"?0:.1f,0));
+            var pixels=Render("urp-"+profile.name.ToLowerInvariant().Replace(' ','-')+".png");
+            int changed=0,black=0;
+            for(int i=0;i<pixels.Length;i++)
+            {if(Mathf.Max(Mathf.Abs(pixels[i].r-previousResult[i].r),Mathf.Max(Mathf.Abs(pixels[i].g-previousResult[i].g),Mathf.Abs(pixels[i].b-previousResult[i].b)))>.005f)changed++;if(pixels[i].maxColorComponent<.01f)black++;}
+            if(profile.name!="Natural" && changed<W*H/20 || black>W*H*.4f)throw new Exception("URP feature failed: "+profile.name+" changed="+changed+" black="+black);
+            reports.Add($"PASS URP runtime fullscreen feature {profile.name}: {changed} visibly changed pixels; {black} black pixels");previousResult=pixels;
+        }
+        featureList.Remove(feature);
+        RenderSettings.skybox=null;
+        EditorUtility.UnloadUnusedAssetsImmediate(true);
+        if(finish==null || feature==null)throw new Exception("URP runtime feature/material lost during cleanup");
+        featureList.Add(feature);
+        Render("urp-after-cleanup.png");
+        featureList.Remove(feature);
+        var restored=Render("urp-restored.png");float maxError=0;
+        for(int i=0;i<baseline.Length;i++)maxError=Mathf.Max(maxError,Mathf.Abs(baseline[i].grayscale-restored[i].grayscale));
+        if(maxError>.01f)throw new Exception("URP feature detach did not restore image: "+maxError);
+        reports.Add("PASS URP cleanup/re-attach and detach restoration: max error "+maxError);
+        feature.Dispose();Object.DestroyImmediate(feature);Object.DestroyImmediate(finish);target.Release();Object.DestroyImmediate(target);
+        GraphicsSettings.defaultRenderPipeline=priorPipeline;QualitySettings.renderPipeline=priorQuality;
+        Object.DestroyImmediate(pipeline);Object.DestroyImmediate(rendererData);
+        File.WriteAllLines(Path.Combine(OutDir,"urp-render-validation.txt"),reports);
+        foreach(var report in reports)Debug.Log(report);
     }
     public static void Test()
     {

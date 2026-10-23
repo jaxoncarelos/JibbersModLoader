@@ -1,4 +1,4 @@
-C# gameplay mods: Atmosphere, Rewind (Reshred), FPV
+C# gameplay mods: Alpine Vision, Rewind (Reshred), FPV
 
 Close Jibbers and install JibbersCSharp.zip first.
 Extract this mod ZIP into a separate folder, then run its installer:
@@ -15,7 +15,7 @@ The public automatic-update catalog distributes these C# mods and their shared r
 With automatic updates enabled, updates apply at game startup. Existing manager installations
 receive selected C# mods automatically; there is no need to install these ZIPs again.
 
-Atmosphere: F10 cycles Off, Clear, Foggy, Snowstorm (also selectable in Options > Mods).
+Alpine Vision: F10 cycles Off, Clear, Foggy, Snowstorm (also selectable in Options > Mods).
 FPV: F9 or L3+R3 take off/land; F11 or LB mode; middle mouse or RB lock
 (hold to release); Home or Y return. All keys and flight settings are in Mods.
 

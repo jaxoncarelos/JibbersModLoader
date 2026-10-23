@@ -25,6 +25,8 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
     string? appliedProfile;
     int materialRecoveries;
     int runtimeRetries,retryFrames;
+    UrpFinish? urp;
+    bool builtInBufferAttached;
     public bool Ready=>!failed && buffer is not null;
     public bool IsRendering=>Ready && attached && frames>0;
     public string Status=>$"{(failed?"failed":Ready?"ready":"waiting")}; attached={attached}; frames={frames}; size={width}x{height}"+(error is null?"":"; error="+error);
@@ -94,7 +96,7 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
         LoadMaterials();
         var cb=api.CommandBufferClass.New();api.BufferCtor.Invoke(cb);buffer=new(cb);
         api.BufferName.Invoke(cb,Il2Cpp.String("Alpine Vision / bloom + film finish"));
-        log("Unified visual bundle loaded; sky, weather, snow, film finish and ray shaders available.");
+        log("Unified visual bundle loaded; sky, weather, native snow and film finish available; no shadow overrides.");
     }
     nint Target(nint texture)=>api.TargetFromTexture.Invoke(0,texture)+2*sizeof(nint);
     nint Builtin(int target)=>api.TargetFromBuiltin.Invoke(0,(nint)(&target))+2*sizeof(nint);
@@ -121,20 +123,34 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
             if(camera?.Target!=cam)
             {
                 Suspend();camera=new(cam);Capture(cam);
-                int evt=AfterImageEffects;
-                api.AddCommandBuffer.Invoke(cam,(nint)(&evt),buffer!.Target);attached=true;
+                var pipeline=Need("UnityEngine.Rendering.GraphicsSettings","get_currentRenderPipeline").Invoke(0);
+                if(Unity.IsNull(pipeline))
+                {
+                    int evt=AfterImageEffects;api.AddCommandBuffer.Invoke(cam,(nint)(&evt),buffer!.Target);
+                    builtInBufferAttached=true;
+                }
+                else urp??=new UrpFinish();
+                attached=true;
                 log("Alpine Vision attached: sky/lighting + weather + post-processing; "+profile.Name);
             }
             ApplyEnvironment(cam,profile);
             var w=api.PixelWidth.Invoke<int>(cam);var h=api.PixelHeight.Invoke<int>(cam);
             if(w<1 || h<1)return;
-            EnsureTargets(w,h,quality=="Performance"?4:2);
-            Record(profile,bloom,sharpness,exposure,quality,grading);
+            if(urp is not null && !builtInBufferAttached)
+            {
+                urp.Update(cam,Bundle,profile,bloom,sharpness,exposure,grading,quality);
+                width=w;height=h;
+            }
+            else
+            {
+                EnsureTargets(w,h,quality=="Performance"?4:2);
+                Record(profile,bloom,sharpness,exposure,quality,grading);
+            }
             frames++;error=null;
             if(appliedProfile!=profile.Name)
             {
                 appliedProfile=profile.Name;
-                log($"Applied visual style {profile.Name}: frame {frames}, {width}x{height}, grading={grading}, owned_materials=6, recoveries={materialRecoveries}.");
+                log($"Configured visual style {profile.Name} via {(builtInBufferAttached?"builtin camera buffer":"URP fullscreen feature")}: frame {frames}, {width}x{height}, grading={grading}, owned_materials=6, recoveries={materialRecoveries}.");
             }
         }
         catch(Exception ex)
@@ -266,9 +282,9 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
     public void Suspend()
     {
         if(api is null)return;
-        if(attached && camera is not null && !Unity.IsNull(camera.Target))
+        if(builtInBufferAttached && camera is not null && !Unity.IsNull(camera.Target))
         {int evt=AfterImageEffects;api.RemoveCommandBuffer.Invoke(camera.Target,(nint)(&evt),buffer!.Target);}
-        attached=false;
+        attached=false;builtInBufferAttached=false;urp?.Detach();
         if(captured)
         {
             var clear=oldClear;
@@ -280,7 +296,7 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
     }
     public void Dispose()
     {
-        Cleanup.Run(Suspend,ReleaseTargets,()=>{if(buffer is not null)api.BufferRelease.Invoke(buffer.Target);},
+        Cleanup.Run(Suspend,()=>{urp?.Dispose();urp=null;},ReleaseTargets,()=>{if(buffer is not null)api.BufferRelease.Invoke(buffer.Target);},
             ReleaseMaterials,()=>{buffer?.Dispose();buffer=null;},
             ()=>{bundle?.Dispose();bundle=null;});
     }

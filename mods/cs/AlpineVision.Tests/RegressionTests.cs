@@ -16,7 +16,7 @@ static class RegressionTests
         var before=original.ToJsonString();
         foreach(var name in new[]{"Alpine Film","Golden Hour","Bluebird"})
         {
-            var extended=VisualProfile.For(name).Weather(false,true,1,original,false);
+            var extended=VisualProfile.For(name).Weather(false,1,original,false);
             foreach(var key in new[]{"snow","snowSize","snowOpacity","fogDensity","hazeDensity","cloudBank","sparkle","sunShafts","speedStreaks","wind","beautify"})
                 if(extended[key]!.ToJsonString()!=original[key]!.ToJsonString() && key is "wind" or "beautify")throw new Exception("Old weather/grade replaced: "+key);
             var settings=new AtmosphereRenderSettings(extended);
@@ -27,7 +27,7 @@ static class RegressionTests
         Console.WriteLine("PASS every visual style extends existing snowfall, clouds, glitter and shafts; original configuration remains intact");
         new NativeSnowSurface().Apply(original,true); // Must work without Unity: never replaces any terrain property.
         foreach(var name in new[]{"Natural","Alpine Film","Golden Hour","Bluebird"})
-            if(VisualProfile.For(name).Weather(false,false,1,original)["snowSurface"]!.GetValue<bool>())
+            if(VisualProfile.For(name).Weather(false,1,original)["snowSurface"]!.GetValue<bool>())
                 throw new Exception("A visual preset re-enabled replacement snow");
         Console.WriteLine("PASS native snow surface makes no engine calls and every style keeps replacement maps disabled");
         var testDir=Path.Combine(Path.GetTempPath(),"AlpineVision-weather-tests-"+Guid.NewGuid().ToString("N"));
@@ -44,12 +44,12 @@ static class RegressionTests
             throw new Exception("Weather modes do not produce distinct fog/storm conditions");
         foreach(var name in new[]{"Natural","Alpine Film","Golden Hour","Bluebird"})
         {
-            var combined=new AtmosphereRenderSettings(VisualProfile.For(name).Weather(false,true,1,storm.Values));
+            var combined=new AtmosphereRenderSettings(VisualProfile.For(name).Weather(false,1,storm.Values));
             if(combined.Snow.Amount!=storm.Snow.Amount || combined.Fog.Density!=storm.Fog.Density || combined.Snow.Wind!=storm.Snow.Wind)
                 throw new Exception("Visual style replaced storm weather");
         }
         controls.ApplyMenuSetting("preset",JsonValue.Create("Off")!);
-        if(VisualProfile.For("Alpine Film").Weather(false,true,1,controls.Capture().Values)["enabled"]!.GetValue<bool>())
+        if(VisualProfile.For("Alpine Film").Weather(false,1,controls.Capture().Values)["enabled"]!.GetValue<bool>())
             throw new Exception("Weather Off was overridden by visual profile");
         controls.ApplyMenuSetting("preset",JsonValue.Create("Foggy")!);
         controls.ApplyMenuSetting("fog",JsonValue.Create(.8)!);

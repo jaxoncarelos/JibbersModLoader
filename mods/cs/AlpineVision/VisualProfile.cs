@@ -22,7 +22,7 @@ public sealed record VisualProfile(string Name, Color Sun, float SunIntensity, f
             1.04f,1.10f,.98f,.045f,.32f)
     };
 
-    public JsonObject Weather(bool performance, bool rayTracing, float amount, JsonObject? atmosphereBase=null, bool filmActive=true)
+    public JsonObject Weather(bool performance, float amount, JsonObject? atmosphereBase=null, bool filmActive=true)
     {
         // Extend the user's Atmosphere weather; a visual-style change must not erase it.
         var v=atmosphereBase is null?AtmosphereConfiguration.Defaults():(JsonObject)atmosphereBase.DeepClone();
@@ -42,7 +42,7 @@ public sealed record VisualProfile(string Name, Color Sun, float SunIntensity, f
         // Never replace native terrain maps, their scale, or the normal strength.
         v["snowSurface"]=false;
         v["cloudBank"]=0; // Valley cloud banks removed; keep fog, storms and sky clouds.
-        v["ao"]=rayTracing?0:.22; v["aoRadius"]=.8;
+        v["ao"]=0.0; // Leave ambient occlusion/shadows to the game.
         return v;
     }
 
@@ -50,7 +50,8 @@ public sealed record VisualProfile(string Name, Color Sun, float SunIntensity, f
 
 internal sealed class WeatherConfiguration : IAtmosphereSettings
 {
-    AtmosphereRenderSettings snapshot=new(VisualProfile.For("Alpine Film").Weather(false,true,1));
+    AtmosphereRenderSettings snapshot=new(VisualProfile.For("Alpine Film").Weather(false,1));
     public AtmosphereRenderSettings Capture()=>Volatile.Read(ref snapshot);
     public void Update(JsonObject values)=>Volatile.Write(ref snapshot,new AtmosphereRenderSettings(values));
 }
+

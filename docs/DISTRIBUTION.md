@@ -101,4 +101,4 @@ transactions before any plugin loads; failed recovery stops mod loading instead 
 Errors appear in `jibbers_hotload.log` and the mod-manager status. Catalog, preferences and installed-file
 records live under `JibbersMods/system/distribution/`. Deleting player settings is never part of uninstall.
 
-Alpine Vision retains the Atmosphere package ID `jibbers_atmosphere` for automatic replacement. Do not add a second Atmosphere package. Runtime conflict checks skip legacy `atmosphere`/`raytracing` mods before OnLoad. F7 toggles hardware ray tracing; F10 cycles weather.
+Alpine Vision retains the Atmosphere package ID `jibbers_atmosphere` for automatic replacement. Do not add a second Atmosphere package. Runtime conflict checks skip legacy `atmosphere`/`raytracing` mods before OnLoad. Alpine Vision has no hardware ray-tracing feature or hotkey. F10 cycles weather.

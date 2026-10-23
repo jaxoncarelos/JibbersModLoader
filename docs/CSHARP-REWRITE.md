@@ -28,7 +28,7 @@ real-game dump tests report a skip if the dump is absent; they are not gameplay 
 The three packages are:
 
 - `JibbersCSharp.zip`: updater bootstrap, loader implementation, .NET bridge, SDK and runtime.
-- `JibbersCSharpMods.zip`: C# FPV, Atmosphere and Rewind plus their two asset bundles and a
+- `JibbersCSharpMods.zip`: C# FPV, Alpine Vision and Rewind plus their two asset bundles and a
   backup/rollback installer that avoids running native and managed versions together.
 - `JibbersCSharpSDK.zip`: managed SDK sources, bindings, generator, examples, tests, guides and
   the three public mod sources. Local-only mods and Rust SDK source are excluded.
@@ -38,7 +38,7 @@ contains C# source. Only these three gameplay mod projects remain in the reposit
 
 ## Distribution and acceptance
 
-The public catalog distributes C# FPV, Atmosphere and Rewind, plus a shared SDK and bundled .NET
+The public catalog distributes C# FPV, Alpine Vision and Rewind, plus a shared SDK and bundled .NET
 runtime. Existing selected package IDs and DLL ownership paths are retained. On startup, the
 bootstrap installs the signed update atomically; the new loader recognizes the managed assemblies
 and loads them through the C# host. Existing updater installations do not need another download.
