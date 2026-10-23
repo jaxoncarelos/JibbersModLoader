@@ -102,3 +102,5 @@ Errors appear in `jibbers_hotload.log` and the mod-manager status. Catalog, pref
 records live under `JibbersMods/system/distribution/`. Deleting player settings is never part of uninstall.
 
 Alpine Vision retains the Atmosphere package ID `jibbers_atmosphere` for automatic replacement. Do not add a second Atmosphere package. Runtime conflict checks skip legacy `atmosphere`/`raytracing` mods before OnLoad. Alpine Vision has no hardware ray-tracing feature or hotkey. F10 cycles weather.
+
+The player catalog shows optional mods only. The loader and all of its required dependencies (including the C# runtime) are hidden from optional selections, installed automatically even with no mods selected, and cannot be deselected. Runtime payloads remain in the signed update manifest so the loader can authenticate and update them.

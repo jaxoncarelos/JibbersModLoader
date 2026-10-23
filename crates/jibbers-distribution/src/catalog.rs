@@ -95,6 +95,14 @@ impl Catalog {
         Ok(())
     }
 
+    /// Only optional packages belong in the player's mod catalog. The loader and its
+    /// transitive dependencies are installed by startup even with no selected mods.
+    pub fn selectable_packages(&self) -> Result<Vec<&Package>, String> {
+        let required = self.resolve(&["loader".into()])?;
+        let ids: HashSet<_> = required.iter().map(|package| package.id.as_str()).collect();
+        Ok(self.packages.iter().filter(|package| !ids.contains(package.id.as_str())).collect())
+    }
+
     pub fn resolve<'a>(&'a self, wanted: &[String]) -> Result<Vec<&'a Package>, String> {
         fn visit<'a>(cat: &'a Catalog, id: &str, stack: &mut HashSet<String>, done: &mut HashSet<String>, out: &mut Vec<&'a Package>) -> Result<(), String> {
             if done.contains(id) { return Ok(()); }

@@ -118,7 +118,7 @@ pub fn selected(root: &Path, id: Option<&str>) -> bool {
 pub fn select(root: &Path, id: &str, wanted: bool) -> Result<(), String> {
     let mut state = session(root).lock().unwrap();
     let cat = state.catalog.as_ref().ok_or("public catalog is unavailable")?;
-    if id == "loader" || !cat.packages.iter().any(|p| p.id == id) { return Err("unknown or required package".into()); }
+    if !cat.selectable_packages()?.iter().any(|p| p.id == id) { return Err("unknown or required package".into()); }
     let mut cfg = state.config.clone();
     cfg.wanted.retain(|p| p != id);
     if wanted { cfg.wanted.push(id.to_string()); }

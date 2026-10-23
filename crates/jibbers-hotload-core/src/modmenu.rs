@@ -1218,11 +1218,11 @@ unsafe fn fill_store() -> R<()> {
     let mut ids = vec![String::new()]; // index 0 is the auto-update preference
     let mut entries = vec![("Automatically update on launch".to_string(), snap.config.auto_update)];
     if let Some(catalog) = snap.catalog {
-        for p in catalog.packages.into_iter().filter(|p| p.id != "loader") {
+        for p in catalog.selectable_packages()? {
             let installed = snap.installed.packages.get(&p.id).map(|p| p.version.as_str());
             let state = match installed { Some(v) if v == p.version => "installed", Some(_) => "update available", None => "install" };
             entries.push((format!("{} {} ({state})", p.name, p.version), snap.config.wanted.contains(&p.id)));
-            ids.push(p.id);
+            ids.push(p.id.clone());
         }
     }
     *STORE_IDS.lock().unwrap() = ids;

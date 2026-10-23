@@ -208,3 +208,21 @@ fn locked_dll_rolls_back_other_writes_and_record() {
     assert_eq!(root.bytes("JibbersMods/example.dll"), b"MZ example v1");
     assert_eq!(root.bytes(&format!("{}/installed.json", crate::STATE_DIR)), record);
 }
+
+#[test]
+fn loader_runtime_is_hidden_and_required_even_without_optional_mods() {
+    let (mut cat, mut net) = setup();
+    cat.packages.push(package(&mut net, "jibbers_dotnet", "1.0.0", b"required runtime"));
+    cat.packages.push(package(&mut net, "runtime_support", "1.0.0", b"transitive support"));
+    cat.packages[0].dependencies.push("jibbers_dotnet".into());
+    cat.packages[2].dependencies.push("runtime_support".into());
+    cat.validate().unwrap();
+    let visible: Vec<_> = cat.selectable_packages().unwrap().iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(visible, ["example"]);
+    let dir = Sandbox::new();
+    let installed = install::apply(&dir.0, &cat, &[], true, &net).unwrap();
+    assert!(installed.packages.contains_key("loader"));
+    assert!(installed.packages.contains_key("jibbers_dotnet"));
+    assert!(installed.packages.contains_key("runtime_support"));
+    assert!(!installed.packages.contains_key("example"));
+}
