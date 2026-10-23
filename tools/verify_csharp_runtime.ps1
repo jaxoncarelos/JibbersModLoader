@@ -54,7 +54,7 @@ foreach (var file in files)
         Console.WriteLine($"Loaded {type.FullName}: {settings.Count} settings validated");
     }
 }
-if (!ids.SetEquals(new[] { "atmosphere", "reshred", "fpv" })) throw new Exception("Wrong public mod set");
+if (!ids.SetEquals(new[] { "alpinevision", "reshred", "fpv" })) throw new Exception("Wrong public mod set");
 Console.WriteLine($"PASS: {RuntimeInformation.FrameworkDescription}, bundled CoreLib: {core}");
 Console.WriteLine("SDK and all three public C# mods loaded; no game process or game APIs used.");
 '@

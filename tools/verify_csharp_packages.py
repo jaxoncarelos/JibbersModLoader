@@ -4,7 +4,7 @@ import sys
 import zipfile
 
 dist = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "dist")
-public = {"Atmosphere", "Reshred", "FPV"}
+public = {"AlpineVision", "Reshred", "FPV"}
 for filename in ("JibbersCSharp.zip", "JibbersCSharpMods.zip", "JibbersCSharpSDK.zip"):
     with zipfile.ZipFile(dist / filename) as archive:
         names = {n.replace("\\", "/") for n in archive.namelist()}
@@ -21,11 +21,11 @@ for filename in ("JibbersCSharp.zip", "JibbersCSharpMods.zip", "JibbersCSharpSDK
         elif filename == "JibbersCSharpMods.zip":
             assert "install.ps1" in names
             assert {n for n in names if n.endswith(".dll")} == {f"JibbersMods/cs/{p}/{p}.dll" for p in public}
-            assert {n for n in names if n.endswith(".bundle")} == {"jibbers_atmosphere.bundle", "JibbersMods/jibbers_fpv.bundle"}
+            assert {n for n in names if n.endswith(".bundle")} == {"jibbers_alpinevision.bundle", "JibbersMods/jibbers_fpv.bundle"}
             assert not any(n.endswith(".json") for n in names), "Player settings must not be packaged"
         else:
             projects = {n.split("/")[1] for n in names if n.startswith("mods/") and n.endswith(".csproj")}
-            assert projects == public, (filename, projects)
+            assert projects == public | {"Atmosphere"}, (filename, projects)
             assert "Jibbers.Sdk/Features/FPV/fpv_symbols.json" in names
             assert not any(n.endswith("/bin/") or "/obj/" in n for n in names)
             assert not any(n.split("/")[-1] in {"ModPortTests.cs", "SkiSmoothTests.cs", "FastLoadTests.cs", "CollisionStreamTests.cs"} for n in names)

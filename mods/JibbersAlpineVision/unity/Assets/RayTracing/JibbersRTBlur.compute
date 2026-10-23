@@ -1,0 +1,38 @@
+// Depth-aware blur of the ray-traced terms (plain compute; the tracing is in JibbersRT.raytrace).
+#pragma kernel Blur
+
+Texture2D<float> _CameraDepthTexture;
+SamplerState sampler_point_clamp;
+float4x4 _RT_InvViewProj;
+float4 _RT_CameraPos;
+float4 _RT_Size;           // x,y trace size; z,w full-resolution size
+Texture2D<float2> _RT_In;
+RWTexture2D<float2> _RT_Blurred;
+
+float3 WorldFromUV(float2 uv, float rawDepth)
+{
+    float4 world = mul(_RT_InvViewProj, float4(uv * 2 - 1, rawDepth, 1));
+    return world.xyz / world.w;
+}
+float RawDepth(float2 uv) { return _CameraDepthTexture.SampleLevel(sampler_point_clamp, uv, 0); }
+
+// Depth-aware 5x5 blur: removes ray noise without bleeding shadows across silhouettes.
+[numthreads(8, 8, 1)]
+void Blur(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_RT_Size.x || id.y >= (uint)_RT_Size.y) return;
+    float2 scale = _RT_Size.zw / _RT_Size.xy;
+    float2 uv = (floor(id.xy * scale) + 0.5) / _RT_Size.zw;
+    float centre = length(WorldFromUV(uv, RawDepth(uv)) - _RT_CameraPos.xyz);
+    float2 sum = 0; float weight = 0;
+    [unroll] for (int y = -2; y <= 2; y++)
+    [unroll] for (int x = -2; x <= 2; x++)
+    {
+        int2 q = clamp(int2(id.xy) + int2(x, y), 0, int2(_RT_Size.xy) - 1);
+        float2 quv = (floor(q * scale) + 0.5) / _RT_Size.zw;
+        float d = length(WorldFromUV(quv, RawDepth(quv)) - _RT_CameraPos.xyz);
+        float w = exp(-abs(d - centre) / (0.02 * centre + 0.05)) * exp(-(x * x + y * y) / 6.0);
+        sum += _RT_In[q] * w; weight += w;
+    }
+    _RT_Blurred[id.xy] = sum / max(weight, 1e-5);
+}

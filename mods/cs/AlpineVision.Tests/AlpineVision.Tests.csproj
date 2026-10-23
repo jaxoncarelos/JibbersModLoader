@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType><EnableDynamicLoading>false</EnableDynamicLoading></PropertyGroup>
+ <ItemGroup>
+  <ProjectReference Include="../AlpineVision/AlpineVision.csproj"/>
+  <Reference Include="Jibbers.Sdk"><HintPath>$(JibbersSdk)</HintPath><Private>true</Private></Reference>
+ </ItemGroup>
+</Project>

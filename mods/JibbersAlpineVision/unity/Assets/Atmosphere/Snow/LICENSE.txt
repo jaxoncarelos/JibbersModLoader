@@ -1,0 +1,1 @@
+Snow textures: ambientCG (https://ambientcg.com), CC0 1.0. Snow010A (albedo source, normal), Snow004 (dunes normal).

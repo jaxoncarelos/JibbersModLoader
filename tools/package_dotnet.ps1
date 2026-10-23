@@ -37,13 +37,13 @@ try {
     Run cargo @('build', '--release', '-p', 'jibbers-hotload', '-p', 'jibbers-bootstrap', '--features', 'release', '--target-dir', 'target/mod-release/loader')
     Run cargo @('build', '--release', '-p', 'jibbers-dotnet-bridge') $sdk
     Run dotnet @('build', 'Jibbers.Sdk', '-c', 'Release', '-nologo', '-v', 'q') $dotnet
-    if (-not $SkipTests) { Run dotnet @('run', '--project', 'Jibbers.Sdk.Tests', '-c', 'Release', '-p:JibbersNoInstall=true') $dotnet }
+    if (-not $SkipTests) { Run dotnet @('run', '--project', 'Jibbers.Sdk.Tests', '-c', 'Release', '-p:JibbersNoInstall=true') $dotnet; Run dotnet @('run','--project','mods/cs/AlpineVision.Tests','-c','Release','-p:JibbersNoInstall=true') $root }
     # The template and the examples must build against the SDK (without installing into a game).
     foreach ($p in @('template/MyMod') + (Get-ChildItem (Join-Path $dotnet 'examples') -Directory | ForEach-Object { 'examples/' + $_.Name })) {
         Run dotnet @('build', $p, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true', "-p:JibbersSdk=$dotnet/Jibbers.Sdk/bin/Release/net8.0/Jibbers.Sdk.dll") $dotnet
     }
     # The C# ports of the mods.
-    $publicNames = @('Atmosphere', 'Reshred', 'FPV')
+    $publicNames = @('AlpineVision', 'Reshred', 'FPV')
     $ports = @($publicNames | ForEach-Object { Get-Item -LiteralPath (Join-Path $root "mods/cs/$_") })
     foreach ($p in $ports) {
         Run dotnet @('build', $p.FullName, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true') $root
@@ -106,6 +106,9 @@ try {
     $props = Join-Path $kit 'mods/Directory.Build.props'
     (Get-Content -LiteralPath $props -Raw).Replace('..\..\sdk\dotnet\Jibbers.Sdk\bin\Release\net8.0\Jibbers.Sdk.dll', '..\lib\Jibbers.Sdk.dll') | Set-Content -LiteralPath $props -Encoding utf8
 
+    & robocopy (Join-Path $root 'mods/cs/Atmosphere') (Join-Path $kit 'mods/Atmosphere') /E /XD bin obj /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw 'Legacy feature test source copy failed' }
+    $global:LASTEXITCODE = 0
     $tests = Join-Path $kit 'Jibbers.Sdk.Tests/Jibbers.Sdk.Tests.csproj'
     (Get-Content -LiteralPath $tests -Raw).Replace('..\..\..\mods\cs\', '..\mods\') | Set-Content -LiteralPath $tests -Encoding utf8
 
@@ -118,7 +121,7 @@ try {
         New-Item -ItemType Directory -Path $dst -Force | Out-Null
         Copy-Item -LiteralPath $dll -Destination $dst
     }
-    Copy-Item -LiteralPath (Join-Path $root 'mods/JibbersAtmosphere/build/jibbers_atmosphere.bundle') -Destination $built
+    Copy-Item -LiteralPath (Join-Path $root 'mods/JibbersAlpineVision/build/jibbers_alpinevision.bundle') -Destination $built
     Copy-Item -LiteralPath (Join-Path $root 'mods/JibbersFPV/build/jibbers_fpv.bundle') -Destination (Join-Path $built 'JibbersMods')
     foreach ($folder in @($game, $kit, $built)) {
         Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $folder

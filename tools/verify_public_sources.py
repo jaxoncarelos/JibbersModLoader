@@ -1,8 +1,8 @@
 """Fail CI if local-only mods would enter GitHub's automatically generated source archives."""
 import subprocess
 
-public_roots = {"JibbersAtmosphere", "JibbersReshred", "JibbersFPV", "JibbersModLoader"}
-public_cs_ports = {"Atmosphere", "Reshred", "Rewind", "FPV"}
+public_roots = {"JibbersAlpineVision", "JibbersAtmosphere", "JibbersReshred", "JibbersFPV", "JibbersModLoader"}
+public_cs_ports = {"AlpineVision", "AlpineVision.Tests", "Atmosphere", "Reshred", "Rewind", "FPV"}
 paths = subprocess.check_output(["git", "ls-files", "-z"], text=True).split("\0")
 blocked = []
 for path in paths:

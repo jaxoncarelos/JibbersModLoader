@@ -189,21 +189,29 @@ internal static unsafe class ModHost
         ModsDir = modsDir;
         var dir = Path.Combine(modsDir, "cs");
         Directory.CreateDirectory(dir);
-        // Channel packages win over old manual copies; Register rejects duplicate mod IDs.
+        // Gather first so replacement mods reserve their conflicts before legacy OnLoad runs.
+        // Stable sorting retains catalog priority over manual copies of the same mod.
+        var candidates=new List<(JibbersMod Mod,string File)>();
         foreach (var file in PublicModPackages.Files(modsDir).Concat(ModFiles(dir)))
         {
             try
             {
-                LoadFile(file);
+                candidates.AddRange(ReadFile(file).Select(mod=>(mod,file)));
             }
             catch (Exception e)
             {
                 Log.Error("dotnet: " + Path.GetFileName(file), e);
             }
         }
+        foreach(var candidate in ModConflicts.Order(candidates.Select(c=>c.Mod)))
+        {
+            var file=candidates.First(c=>ReferenceEquals(c.Mod,candidate)).File;
+            try { Register(candidate,file); }
+            catch(Exception e) { Log.Error("dotnet: "+Path.GetFileName(file),e); }
+        }
     }
 
-    static void LoadFile(string file)
+    static IEnumerable<JibbersMod> ReadFile(string file)
     {
         var alc = new ModLoadContext(file);
         var asm = alc.LoadFromAssemblyPath(file);
@@ -211,12 +219,12 @@ internal static unsafe class ModHost
         if (types.Count == 0)
         {
             Log.Info($"dotnet: {Path.GetFileName(file)} has no JibbersMod class; skipped");
-            return;
+            yield break;
         }
         foreach (var t in types)
         {
             var mod = (JibbersMod)Activator.CreateInstance(t)!;
-            Register(mod, file);
+            yield return mod;
         }
     }
 
@@ -231,6 +239,12 @@ internal static unsafe class ModHost
         if (ModContext.All().Any(m => m.Id == mod.Id))
         {
             Log.Info($"dotnet: duplicate mod id {mod.Id} ({file}); skipped");
+            return;
+        }
+        var conflict = ModConflicts.Find(mod, ModContext.All());
+        if (conflict is not null)
+        {
+            Log.Info($"dotnet: {mod.Id} ({file}) conflicts with active {conflict.Id}; skipped before OnLoad");
             return;
         }
         mod.Store = new SettingsStore(mod.Settings, mod.EnabledToggle ? mod.Name : null, Path.Combine(ModsDir, mod.Id + ".settings.json"));

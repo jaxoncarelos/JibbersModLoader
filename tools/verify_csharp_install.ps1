@@ -8,7 +8,7 @@ function Fixture([string]$Name) {
     New-Item -ItemType Directory -Path "$fixtureRoot/JibbersMods/system/distribution", "$fixtureRoot/JibbersMods/cs" -Force | Out-Null
     foreach ($file in @('Jibbers.exe','version.dll','JibbersMods/jibbers_dotnet.dll','JibbersMods/jibbers_atmosphere.dll',
         'JibbersMods/jibbers_reshred.dll','JibbersMods/jibbers_fpv.dll','JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/Filmer.dll',
-        'jibbers_atmosphere.json','jibbers_atmosphere.bundle','JibbersMods/reshred.settings.json')) {
+        'JibbersMods/cs/RayTracing.dll','jibbers_atmosphere.json','jibbers_atmosphere.bundle','JibbersMods/reshred.settings.json')) {
         [IO.File]::WriteAllText((Join-Path $fixtureRoot $file), "original $file")
     }
     $config = '{"autoUpdate":false,"wanted":["jibbers_atmosphere","jibbers_reshred","jibbers_fpv","local_mod"],"catalogUrl":"https://example.com/catalog.json"}'
@@ -22,7 +22,10 @@ $success = Fixture 'success'
 foreach ($file in @('jibbers_atmosphere','jibbers_reshred','jibbers_fpv')) {
     if (Test-Path -LiteralPath "$success/JibbersMods/$file.dll") { throw 'Native duplicate survived installation' }
 }
-foreach ($name in @('Atmosphere','Reshred','FPV')) {
+foreach ($relative in @('JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/RayTracing.dll')) {
+    if (Test-Path -LiteralPath (Join-Path $success $relative)) { throw 'Conflicting manual mod survived migration' }
+}
+foreach ($name in @('AlpineVision','Reshred','FPV')) {
     if (-not (Test-Path -LiteralPath "$success/JibbersMods/cs/$name/$name.dll")) { throw 'Managed mod missing' }
 }
 foreach ($file in @('version.dll','JibbersMods/cs/Filmer.dll','jibbers_atmosphere.json','JibbersMods/reshred.settings.json')) {

@@ -45,7 +45,7 @@ and catalog mods; it does not change SDK trust keys or overwrite C# SDK files.
 
 ## Maintainers: GitHub Actions and Releases
 
-The public catalog contains **FPV Drone, Atmosphere and Rewind** (Rewind keeps its existing internal
+The public catalog contains **FPV Drone, Alpine Vision (the Atmosphere upgrade) and Rewind** (Rewind keeps its existing internal
 `jibbers_reshred` id and DLL name for compatibility). Other local mods are excluded from public builds,
 catalogs and release assets. The source allowlist check rejects accidentally tracked local mod directories.
 
@@ -100,3 +100,5 @@ All selected downloads verify before installed files change. A journal and backu
 transactions before any plugin loads; failed recovery stops mod loading instead of loading mixed versions.
 Errors appear in `jibbers_hotload.log` and the mod-manager status. Catalog, preferences and installed-file
 records live under `JibbersMods/system/distribution/`. Deleting player settings is never part of uninstall.
+
+Alpine Vision retains the Atmosphere package ID `jibbers_atmosphere` for automatic replacement. Do not add a second Atmosphere package. Runtime conflict checks skip legacy `atmosphere`/`raytracing` mods before OnLoad. F7 toggles hardware ray tracing; F10 cycles weather.

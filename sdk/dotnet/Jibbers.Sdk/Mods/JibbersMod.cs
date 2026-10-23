@@ -28,6 +28,8 @@ public abstract class JibbersMod
     public virtual string Version => GetType().Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
     /// <summary>Author shown in the Mods tab.</summary>
     public virtual string Author => "";
+    /// <summary>Other mod IDs that cannot run alongside this mod. Checked in both directions before OnLoad; catalog packages load first.</summary>
+    public virtual IReadOnlyList<string> Conflicts => Array.Empty<string>();
     /// <summary>One-sentence description.</summary>
     public virtual string Description => "";
     /// <summary>Adds an "enabled" toggle first (default true). While it is off the SDK skips your hooks and events.</summary>

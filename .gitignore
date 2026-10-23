@@ -22,3 +22,12 @@
 # Rust asset-generator source is not a managed build output directory.
 !/mods/JibbersFPV/src/bin/
 !/mods/JibbersFPV/src/bin/*.rs
+
+/mods/JibbersAlpineVision/unity/Library/
+/mods/JibbersAlpineVision/unity/Logs/
+/mods/JibbersAlpineVision/unity/Temp/
+/mods/JibbersAlpineVision/unity/UserSettings/
+/mods/JibbersAlpineVision/unity/Assets/Gen/
+/mods/JibbersAlpineVision/unity/Assets/Gen.meta
+/mods/JibbersAlpineVision/build/*
+!/mods/JibbersAlpineVision/build/jibbers_alpinevision.bundle

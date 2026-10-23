@@ -20,8 +20,8 @@ $preferences = Game-Path 'JibbersMods/system/distribution/preferences.json'
 $installed = Game-Path 'JibbersMods/system/distribution/installed.json'
 if (Test-Path -LiteralPath (Game-Path 'JibbersMods/system/distribution/journal.json')) { throw 'Launch and close the game to finish its pending update before switching to C# mods.' }
 $publicIds = @('jibbers_atmosphere','jibbers_reshred','jibbers_fpv')
-$payloads = @('JibbersMods/cs/Atmosphere/Atmosphere.dll','JibbersMods/cs/Reshred/Reshred.dll','JibbersMods/cs/FPV/FPV.dll',
-    'jibbers_atmosphere.bundle','JibbersMods/jibbers_fpv.bundle')
+$payloads = @('JibbersMods/cs/AlpineVision/AlpineVision.dll','JibbersMods/cs/Reshred/Reshred.dll','JibbersMods/cs/FPV/FPV.dll',
+    'jibbers_alpinevision.bundle','JibbersMods/jibbers_fpv.bundle')
 foreach ($relative in $payloads) {
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $relative) -PathType Leaf)) { throw "Package is incomplete: $relative" }
     $null = Game-Path $relative
@@ -54,13 +54,13 @@ try {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $relative) -Destination $target -Force
     }
     foreach ($relative in @('JibbersMods/jibbers_atmosphere.dll','JibbersMods/jibbers_reshred.dll','JibbersMods/jibbers_fpv.dll',
-        'JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/Reshred.dll','JibbersMods/cs/FPV.dll')) {
+        'JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/Atmosphere/Atmosphere.dll','JibbersMods/cs/RayTracing.dll','JibbersMods/cs/RayTracing/RayTracing.dll','JibbersMods/cs/AlpineVision.dll','JibbersMods/cs/Reshred.dll','JibbersMods/cs/FPV.dll')) {
         $target = Game-Path $relative
         if (Test-Path -LiteralPath $target -PathType Leaf) { $target = Save-Before $relative; Remove-Item -LiteralPath $target }
     }
     # Adopt only the bundles this installer explicitly copied. The next catalog update can
     # replace them safely without treating them as unrelated, unmanaged local files.
-    $bundlePaths = @{jibbers_atmosphere=@('jibbers_atmosphere.bundle');jibbers_reshred=@();jibbers_fpv=@('JibbersMods/jibbers_fpv.bundle')}
+    $bundlePaths = @{jibbers_atmosphere=@('jibbers_alpinevision.bundle');jibbers_reshred=@();jibbers_fpv=@('JibbersMods/jibbers_fpv.bundle')}
     foreach ($id in $publicIds) {
         $owned = @($bundlePaths[$id] | ForEach-Object {
             $path = Game-Path $_
@@ -91,6 +91,6 @@ try {
     }
     throw
 }
-Write-Host 'Installed C# Atmosphere, Rewind and FPV. Previous native copies and manager selections were backed up.'
+Write-Host 'Installed Alpine Vision, Rewind and FPV. Previous native copies and manager selections were backed up.'
 Write-Host 'The three C# mods remain enrolled in the public update channel; changes apply on the next launch.'
 Write-Host "Backup: $backup"

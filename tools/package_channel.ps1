@@ -51,7 +51,7 @@ try {
     $mods = [IO.Compression.ZipFile]::OpenRead((Join-Path $root 'dist/JibbersCSharpMods.zip'))
     try {
         foreach ($entry in @(
-            @{folder='Atmosphere'; id='jibbers_atmosphere'; name='Atmosphere'; description='C# weather, snowfall, fog and colour grading.'; asset='jibbers_atmosphere.bundle'},
+            @{folder='AlpineVision'; id='jibbers_atmosphere'; name='Alpine Vision'; description='Atmosphere extended: weather, alpine sky, lighting, cinematic finish and optional DX12 ray-traced shadows/AO. Replaces Atmosphere.'; asset='jibbers_alpinevision.bundle'},
             @{folder='Reshred'; id='jibbers_reshred'; name='Rewind'; description='C# physics history, hold to rewind and resume.'; asset=$null},
             @{folder='FPV'; id='jibbers_fpv'; name='FPV Drone'; description='C# drone flight, camera, controls, HUD and audio.'; asset='JibbersMods/jibbers_fpv.bundle'}
         )) {
@@ -60,8 +60,12 @@ try {
             $dll = "JibbersMods/$($entry.id).dll"
             Extract-Entry $mods "JibbersMods/cs/$($entry.folder)/$($entry.folder).dll" "$payload/$dll"
             $files = @($dll)
-            if ($entry.asset) { Extract-Entry $mods $entry.asset "$payload/$($entry.asset)"; $files += $entry.asset }
-            $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$Version; dependencies=@('jibbers_dotnet'); files=$files})
+            if ($entry.asset) {
+                $assetPath = if ($entry.folder -eq 'AlpineVision') { 'JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle' } else { $entry.asset }
+                Extract-Entry $mods $entry.asset "$payload/$assetPath"; $files += $assetPath
+            }
+            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.1.2' } else { $Version }
+            $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }
     $spec = [ordered]@{sequence=$Sequence; baseUrl='https://github.com/jaxoncarelos/JibbersModLoader/releases/download/mod-channel-stable'; packages=@($packages.ToArray())}
