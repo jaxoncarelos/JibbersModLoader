@@ -94,7 +94,7 @@ static class AtmosphereTests
     {
         var mod = new Atmosphere.AtmosphereMod();
         var keys = mod.Settings.Select(x => x.Key).ToArray();
-        Assert.True(keys.SequenceEqual(new[] { "preset", "hotkeys", "cycleKey", "fog", "fogStart", "snow", "snowSize", "speedStreaks", "cloudBank", "cloudBankDistance", "sunShafts", "grading" }), string.Join(",", keys));
+        Assert.True(keys.SequenceEqual(new[] { "preset", "hotkeys", "cycleKey", "fog", "fogStart", "snow", "snowSize", "speedStreaks", "cloudBank", "cloudBankDistance", "sunShafts", "grading", "terrainDetailBoost" }), string.Join(",", keys));
         Assert.True(!mod.EnabledToggle);
     }
 
@@ -116,9 +116,20 @@ static class AtmosphereTests
         var settings = AtmosphereConfiguration.Defaults();
         settings["hotkeys"] = false;
         settings["cycleKey"] = 122;
+        settings["terrainDetailBoost"] = true;
         var selected = AtmosphereModes.Select(settings, "Clear");
         Assert.True(!AtmosphereConfiguration.GetBool(selected, "hotkeys"));
         Assert.Equal(122f, AtmosphereConfiguration.GetFloat(selected, "cycleKey"));
+        Assert.True(AtmosphereConfiguration.GetBool(selected, "terrainDetailBoost"));
+    }
+
+    [Test]
+    static void LegacyWeatherDoesNotImplicitlyRaiseGameQuality()
+    {
+        var settings = AtmosphereConfiguration.Load("""{"enabled":true,"lodBias":2.0,"anisotropic":16}""");
+        Assert.True(!AtmosphereConfiguration.GetBool(settings, "terrainDetailBoost"));
+        foreach (var mode in new[] { "Clear", "Foggy", "Snowstorm" })
+            Assert.True(!AtmosphereConfiguration.GetBool(AtmosphereModes.Select(settings, mode), "terrainDetailBoost"));
     }
 
     [Test]

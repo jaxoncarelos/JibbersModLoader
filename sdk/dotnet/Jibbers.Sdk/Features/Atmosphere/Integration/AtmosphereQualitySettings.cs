@@ -7,26 +7,23 @@ namespace Jibbers.Sdk.Features.Atmosphere;
 internal sealed unsafe class AtmosphereQualitySettings : IAtmosphereQuality
 {
     float? originalLodBias;
+    int? originalFiltering;
     public void Apply(JsonObject settings)
     {
+        if (!AtmosphereConfiguration.GetBool(settings, "terrainDetailBoost"))
+        {
+            Restore();
+            return;
+        }
+        var qualitySettingsClass = Unity.Class("UnityEngine.QualitySettings");
         var anisotropicLevel = (int)AtmosphereConfiguration.GetFloat(settings, "anisotropic");
         if (anisotropicLevel > 0)
         {
-            var setAnisotropicFiltering = (delegate* unmanaged<int, void>)Il2Cpp.ICall("UnityEngine.QualitySettings::set_anisotropicFiltering");
-            if (setAnisotropicFiltering != null)
-            {
-                setAnisotropicFiltering(2); // ForceEnable
-            }
-
-            var setAnisotropicLimits = (delegate* unmanaged<int, int, void>)Il2Cpp.ICall("UnityEngine.Texture::SetGlobalAnisotropicFilteringLimits");
-            if (setAnisotropicLimits != null)
-            {
-                var anisotropicLimit = Math.Clamp(anisotropicLevel, 1, 16);
-                setAnisotropicLimits(anisotropicLimit, anisotropicLimit);
-            }
+            originalFiltering ??= Il2Cpp.Unbox<int>(Unity.CallStatic(qualitySettingsClass, "get_anisotropicFiltering"));
+            var forceEnabled = 2;
+            Unity.CallStatic(qualitySettingsClass, "set_anisotropicFiltering", (nint)(&forceEnabled));
         }
 
-        var qualitySettingsClass = Il2Cpp.RequireClass(Unity.Core, "UnityEngine.QualitySettings");
         var currentLodBias = Il2Cpp.Unbox<float>(Unity.CallStatic(qualitySettingsClass, "get_lodBias"));
         var requestedLodBias = AtmosphereConfiguration.GetFloat(settings, "lodBias");
         if (requestedLodBias > 0 && originalLodBias is null)
@@ -42,11 +39,21 @@ internal sealed unsafe class AtmosphereQualitySettings : IAtmosphereQuality
     }
 
     public void Restore()
+        => Cleanup.Run(RestoreLod, RestoreFiltering);
+
+    void RestoreLod()
     {
         if (originalLodBias is not { } value)
             return;
         Unity.CallStatic(Unity.Class("UnityEngine.QualitySettings"), "set_lodBias", (nint)(&value));
         originalLodBias = null;
+    }
+
+    void RestoreFiltering()
+    {
+        if (originalFiltering is not { } filtering) return;
+        Unity.CallStatic(Unity.Class("UnityEngine.QualitySettings"), "set_anisotropicFiltering", (nint)(&filtering));
+        originalFiltering = null;
     }
 
     public void Dispose() => Restore();

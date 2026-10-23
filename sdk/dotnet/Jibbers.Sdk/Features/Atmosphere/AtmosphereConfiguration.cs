@@ -26,7 +26,7 @@ internal static class AtmosphereConfiguration
       "cloudBank": 1.0, "cloudBankTop": 0.55, "cloudBankDistance": 180.0, "cloudBankMargin": 120.0,
       "cloudBankThickness": 250.0, "cloudBankSize": 450.0, "cloudBankCoverage": 0.6, "cloudBankSpeed": [1.5, 0.6],
       "snowSurface": false, "snowSurfaceScale": 2.5, "snowSurfaceNormal": 2.5, "snowSurfaceDuneScale": 60.0, "snowSurfaceDuneNormal": 0.6,
-      "anisotropic": 16, "lodBias": 2.0,
+      "terrainDetailBoost": false, "anisotropic": 16, "lodBias": 2.0,
       "debugCamVel": [0.0, 0.0, 0.0], "debugSplit": false,
       "grading": true,
       "beautify": { "tonemap": 1, "tonemapExposurePre": 1.1, "contrast": 1.1, "saturate": 0.15, "colorTemp": 8000.0, "colorTempBlend": 0.6, "bloomIntensity": 0.12, "bloomThreshold": 0.9 },

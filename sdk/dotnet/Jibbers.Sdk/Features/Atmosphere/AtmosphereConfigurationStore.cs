@@ -61,6 +61,7 @@ internal sealed class AtmosphereConfigurationStore(Func<string> settingsPath, Ac
                 Setting.Slider("cloudBankDistance", "Cloud distance below", 180, 60, 1000, 10).InSection("Sky").WithTooltip("Metres from your camera down to the cloud tops."),
                 Setting.Slider("sunShafts", "Sun shafts", 0, 0, 2, 0.1).InSection("Sky").WithTooltip("Light shafts around the sun."),
                 Setting.Toggle("grading", "Colour grading", true).InSection("Colour").WithTooltip("Filmic tonemapping, white balance and bloom."),
+                Setting.Toggle("terrainDetailBoost", "Terrain detail boost", false).InSection("Performance").WithTooltip("Optional extra terrain detail and anisotropic filtering. Leave off to retain the game's quality settings."),
             };
         }
     }
@@ -86,7 +87,8 @@ internal sealed class AtmosphereConfigurationStore(Func<string> settingsPath, Ac
             foreach (var settingKey in new[]
             {
                 "hotkeys",
-                "grading"
+                "grading",
+                "terrainDetailBoost"
             }
 
             )
