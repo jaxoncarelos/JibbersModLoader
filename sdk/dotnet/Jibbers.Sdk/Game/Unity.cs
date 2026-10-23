@@ -69,6 +69,10 @@ public static unsafe class Unity
 
     /// <summary>A class in an engine module, e.g. <c>Unity.Class("UnityEngine.Camera")</c> (searches every UnityEngine image).</summary>
     public static Il2CppClass Class(string fullName)
+        => engineClasses.GetOrResolve(fullName, static name => ResolveEngineClass(name));
+
+    static readonly ResolvedMetadataCache<string, Il2CppClass> engineClasses = new(type => !type.IsNull);
+    static Il2CppClass ResolveEngineClass(string fullName)
     {
         foreach (var (_, img) in Il2Cpp.Assemblies().Where(a => a.Name.StartsWith("UnityEngine") || a.Name.StartsWith("Unity.")))
         {

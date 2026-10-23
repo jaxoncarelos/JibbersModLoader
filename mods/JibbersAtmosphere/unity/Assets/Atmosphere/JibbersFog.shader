@@ -51,6 +51,10 @@ Shader "Hidden/JibbersAtmosphere/Fog"
             {
                 float facing = dot(dir, _JA_SunDir.xyz);
                 if (_JA_Shafts.x <= 0.0 || facing <= 0.0 || _JA_SunDir.y < -0.05) return 0.0;
+                float lobe = pow(saturate(facing), max(_JA_Shafts.w, 1.0));
+                float contribution = lobe * saturate(_JA_SunDir.y * 6.0 + 0.3);
+                // Do not take 24 depth samples where the final shaft is below display precision.
+                [branch] if (contribution * _JA_Shafts.x < (1.0 / 4096.0)) return 0.0;
                 float4 sc = mul(UNITY_MATRIX_VP, float4(_WorldSpaceCameraPos + _JA_SunDir.xyz * 1000.0, 1.0));
                 if (sc.w <= 0.0) return 0.0;
                 float2 sunUV = ComputeScreenPos(sc).xy / sc.w;
@@ -69,8 +73,7 @@ Shader "Hidden/JibbersAtmosphere/Fog"
                     }
                     w *= _JA_Shafts.z;
                 }
-                float lobe = pow(saturate(facing), max(_JA_Shafts.w, 1.0));
-                return total > 0.0 ? light / total * lobe * saturate(_JA_SunDir.y * 6.0 + 0.3) : 0.0;
+                return total > 0.0 ? light / total * contribution : 0.0;
             }
 
             // Premultiplied colour + opacity of the valley cloud sea along this ray, up to `maxDist`.
@@ -104,18 +107,20 @@ Shader "Hidden/JibbersAtmosphere/Fog"
                 {
                     float t = t0 + (k + jitter) * stepL;
                     float3 p = _WorldSpaceCameraPos + dir * t;
+                    float2 outside = max(max(_JA_MapRect.xy - p.xz, p.xz - _JA_MapRect.zw), 0.0);
+                    float edge = smoothstep(0.0, max(_JA_Bank2.w, 1.0), length(outside));
+                    float below = smoothstep(cy - 60.0, cy - 160.0, p.y) * smoothstep(350.0, 700.0, t);
+                    float visibility = max(edge, below) * saturate((t - 40.0) / 120.0);
+                    // Five noise octaves are wasted when this sample cannot contain visible cloud.
+                    [branch] if (visibility <= 0.0) continue;
                     float n = Fbm((p.xz - _JA_Bank2.xy * _Time.y) * _JA_Bank.w) + 0.5;
                     float h = saturate((p.y - base) / max(top - base, 1.0));
                     // lumpy tops: each column's cloud top rises with its noise
                     float ceilH = 0.45 + 0.55 * n;
                     float dens = smoothstep(threshold - 0.08, threshold + 0.12, n) * smoothstep(ceilH, ceilH - 0.3, h) * smoothstep(0.0, 0.12, h);
-                    dens *= saturate((t - 40.0) / 120.0); // never right in front of the camera
                     // Outside the map it fades in past the edge. Inside, only in low ground far from
                     // and well below the camera (valleys under the park), never near the rider's run.
-                    float2 outside = max(max(_JA_MapRect.xy - p.xz, p.xz - _JA_MapRect.zw), 0.0);
-                    float edge = smoothstep(0.0, max(_JA_Bank2.w, 1.0), length(outside));
-                    float below = smoothstep(cy - 60.0, cy - 160.0, p.y) * smoothstep(350.0, 700.0, t);
-                    dens *= max(edge, below);
+                    dens *= visibility;
                     float ext = dens * sigma * stepL;
                     // sunlit tops, cooler and darker underneath
                     float3 c = lerp(_JA_FogColor.rgb * 0.72, _JA_FogColor.rgb * 1.02 + _JA_SunColor.rgb * 0.3, h * h);

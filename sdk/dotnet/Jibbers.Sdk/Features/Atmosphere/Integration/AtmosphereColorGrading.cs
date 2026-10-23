@@ -7,6 +7,7 @@ namespace Jibbers.Sdk.Features.Atmosphere;
 /// <summary>Colour grading through the game's own Beautify volume and EnvironmentManager lighting fields; originals restored when off.</summary>
 internal sealed unsafe class AtmosphereColorGrading : IDisposable
 {
+    static readonly JsonValue overrideEnabled = JsonValue.Create(true)!;
     readonly Dictionary<(string Kind, string Name), JsonNode?> originalValues = new();
     GameRef? environmentRoot;
     static nint Beautify(nint environmentManager)
@@ -43,7 +44,16 @@ internal sealed unsafe class AtmosphereColorGrading : IDisposable
             return;
         }
 
-        double ReadNumber(JsonNode node) => double.Parse(node.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture);
+        double ReadNumber(JsonNode node)
+        {
+            if (node is JsonValue number)
+            {
+                if (number.TryGetValue<double>(out var precise)) return precise;
+                if (number.TryGetValue<float>(out var single)) return single;
+                if (number.TryGetValue<int>(out var integer)) return integer;
+            }
+            throw new ArgumentException("Expected a numeric atmosphere grading value.");
+        }
         switch (field.TypeName)
         {
             case "System.Single":
@@ -97,7 +107,7 @@ internal sealed unsafe class AtmosphereColorGrading : IDisposable
                 }
 
                 Write(parameterInstance, "m_Value", value);
-                Write(parameterInstance, "m_OverrideState", true);
+                Write(parameterInstance, "m_OverrideState", overrideEnabled);
             }
         }
 

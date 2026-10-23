@@ -11,6 +11,13 @@ internal sealed class CharacterSparkleMask : IDisposable
     int framesUntilRendererRefresh;
     readonly List<List<GameRef>> rendererGroups = new();
     readonly List<(Vector4 Center, Vector4 Extents)?> cachedBounds = new();
+    readonly List<(Vector4 Center, Vector4 Extents)> boxes = new();
+    readonly HashSet<nint> knownRiders = new();
+    readonly HashSet<nint> knownSkinnedRenderers = new();
+    bool inventoryKnown;
+    int checksUntilHierarchyRefresh;
+    static readonly string[] boxCenters = Enumerable.Range(0, MaximumBoxes).Select(index => $"_JA_CharBox{index}C").ToArray();
+    static readonly string[] boxExtents = Enumerable.Range(0, MaximumBoxes).Select(index => $"_JA_CharBox{index}E").ToArray();
     void ReleaseRenderers()
     {
         foreach (var rendererGroup in rendererGroups)
@@ -20,20 +27,30 @@ internal sealed class CharacterSparkleMask : IDisposable
 
         rendererGroups.Clear();
         cachedBounds.Clear();
+        knownRiders.Clear();
+        knownSkinnedRenderers.Clear();
+        inventoryKnown = false;
+        checksUntilHierarchyRefresh = 0;
     }
 
     void CollectRenderers()
     {
         var skinnedMeshRendererClass = Unity.Class("UnityEngine.SkinnedMeshRenderer");
         var meshRendererClass = Unity.Class("UnityEngine.MeshRenderer");
+        var riders = Jibbers.Sdk.Game.Player.Ragdoll.All().Select(rider => rider.Ptr).ToArray();
+        var skinnedRenderers = Unity.FindObjects(skinnedMeshRendererClass).Where(renderer => !Unity.IsNull(renderer)).ToArray();
+        // Most refreshes have exactly the same actors. Keep their groups and GC roots;
+        // only moving bounds need updating, not hierarchy walks and handle reconstruction.
+        if (inventoryKnown && checksUntilHierarchyRefresh-- > 0 && knownRiders.SetEquals(riders) && knownSkinnedRenderers.SetEquals(skinnedRenderers))
+            return;
         var rendererSets = new List<nint[]>();
-        foreach (var rider in Jibbers.Sdk.Game.Player.Ragdoll.All())
+        foreach (var rider in riders)
         {
-            rendererSets.Add(Unity.GetComponentsInChildren(rider.Ptr, Unity.Class("UnityEngine.Renderer")));
+            rendererSets.Add(Unity.GetComponentsInChildren(rider, Unity.Class("UnityEngine.Renderer")));
         }
 
         // Other skinned meshes (remote riders and clothing) grouped by their scene root.
-        foreach (var rendererGroup in Unity.FindObjects(skinnedMeshRendererClass).Where(renderer => !Unity.IsNull(renderer)).GroupBy(renderer => Unity.Call<int>(Unity.Call(Unity.Transform(renderer), "get_root"), "GetInstanceID")))
+        foreach (var rendererGroup in skinnedRenderers.GroupBy(renderer => Unity.Call<int>(Unity.Call(Unity.Transform(renderer), "get_root"), "GetInstanceID")))
         {
             rendererSets.Add(rendererGroup.ToArray());
         }
@@ -63,6 +80,10 @@ internal sealed class CharacterSparkleMask : IDisposable
                 cachedBounds.Add(null);
             }
         }
+        knownRiders.UnionWith(riders);
+        knownSkinnedRenderers.UnionWith(skinnedRenderers);
+        inventoryKnown = true;
+        checksUntilHierarchyRefresh = 20; // Periodic fallback also catches equipment-only hierarchy changes.
     }
 
     /// <summary>Refreshes the boxes for this frame; whether glitter may be drawn.</summary>
@@ -96,7 +117,7 @@ internal sealed class CharacterSparkleMask : IDisposable
 
     void UploadBounds(Vector3? cameraPosition)
     {
-        var boxes = new List<(Vector4 Center, Vector4 Extents)>();
+        boxes.Clear();
         bool CanReuseBounds((Vector4 Center, Vector4 Extents) rightBounds) => cameraPosition is { } observerPosition && (new Vector3(rightBounds.Center.X, rightBounds.Center.Y, rightBounds.Center.Z) - observerPosition).Magnitude > CachedBoundsDistance;
         for (var groupIndex = 0; groupIndex < rendererGroups.Count; groupIndex++)
         {
@@ -141,8 +162,8 @@ internal sealed class CharacterSparkleMask : IDisposable
         var boxCount = Math.Min(boxes.Count, MaximumBoxes);
         for (var boxIndex = 0; boxIndex < boxCount; boxIndex++)
         {
-            AtmosphereShader.SetVector($"_JA_CharBox{boxIndex}C", boxes[boxIndex].Center);
-            AtmosphereShader.SetVector($"_JA_CharBox{boxIndex}E", boxes[boxIndex].Extents);
+            AtmosphereShader.SetVector(boxCenters[boxIndex], boxes[boxIndex].Center);
+            AtmosphereShader.SetVector(boxExtents[boxIndex], boxes[boxIndex].Extents);
         }
 
         AtmosphereShader.SetFloat("_JA_CharBoxCount", boxCount);

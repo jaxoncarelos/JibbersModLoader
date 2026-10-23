@@ -20,6 +20,8 @@ public sealed class Il2CppException : Exception
 /// <summary>A game class (<c>Il2CppClass*</c>).</summary>
 public readonly unsafe record struct Il2CppClass(nint Ptr)
 {
+    static readonly ResolvedMetadataCache<(nint Class, string Name, int Count), Il2CppMethod> methodsByCount = new(method => !method.IsNull);
+    static readonly ResolvedMetadataCache<(nint Class, string Name), Il2CppField> fieldsByName = new(field => !field.IsNull);
     /// <summary>Whether this is the null class.</summary>
     public bool IsNull => Ptr == 0;
     /// <summary>Short name (<c>FollowCam</c>, or an obfuscated <c>qj</c>).</summary>
@@ -130,6 +132,9 @@ public readonly unsafe record struct Il2CppClass(nint Ptr)
 
     /// <summary>A field by name, searching parents too.</summary>
     public Il2CppField Field(string name)
+        => fieldsByName.GetOrResolve((Ptr, name), static key => new Il2CppClass(key.Class).ResolveField(key.Name));
+
+    Il2CppField ResolveField(string name)
     {
         var bytes = Il2Cpp.Utf8z(name);
         for (var k = this; !k.IsNull; k = k.Parent)
@@ -148,6 +153,9 @@ public readonly unsafe record struct Il2CppClass(nint Ptr)
 
     /// <summary>A method by name and parameter count (-1 = any), searching parents too.</summary>
     public Il2CppMethod Method(string name, int argc = -1)
+        => methodsByCount.GetOrResolve((Ptr, name, argc), static key => new Il2CppClass(key.Class).ResolveMethod(key.Name, key.Count));
+
+    Il2CppMethod ResolveMethod(string name, int argc)
     {
         var bytes = Il2Cpp.Utf8z(name);
         for (var k = this; !k.IsNull; k = k.Parent)
@@ -205,12 +213,13 @@ public readonly unsafe record struct Il2CppClass(nint Ptr)
 /// <summary>A field (<c>FieldInfo*</c>).</summary>
 public readonly unsafe record struct Il2CppField(nint Ptr)
 {
+    static readonly ResolvedMetadataCache<nint, string> typeNames = new(name => !string.IsNullOrEmpty(name));
     /// <summary>Whether this is the null field.</summary>
     public bool IsNull => Ptr == 0;
     /// <summary>Real name (obfuscated for most game fields).</summary>
     public string Name => Il2Cpp.Str(field_get_name(Ptr));
     /// <summary>IL2CPP type name.</summary>
-    public string TypeName => Il2Cpp.TypeName(field_get_type(Ptr));
+    public string TypeName => typeNames.GetOrResolve(Ptr, static field => Il2Cpp.TypeName(field_get_type(field)));
     /// <summary>The field's <c>Il2CppType*</c>.</summary>
     public nint Type => field_get_type(Ptr);
     /// <summary>Class of the field's type.</summary>
@@ -230,7 +239,7 @@ public readonly unsafe record struct Il2CppField(nint Ptr)
         }
         else
         {
-            Il2Cpp.Require(obj, Name);
+            if (obj == 0) Il2Cpp.Require(obj, Name);
             field_get_value(obj, Ptr, &v);
         }
         return v;
@@ -245,7 +254,7 @@ public readonly unsafe record struct Il2CppField(nint Ptr)
         }
         else
         {
-            Il2Cpp.Require(obj, Name);
+            if (obj == 0) Il2Cpp.Require(obj, Name);
             field_set_value(obj, Ptr, &value);
         }
     }
@@ -262,7 +271,7 @@ public readonly unsafe record struct Il2CppField(nint Ptr)
         }
         else
         {
-            Il2Cpp.Require(obj, Name);
+            if (obj == 0) Il2Cpp.Require(obj, Name);
             field_set_value(obj, Ptr, (void*)value);
         }
     }
@@ -464,6 +473,11 @@ public static unsafe class Il2Cpp
 
     /// <summary>A class by image, namespace and name, or the null class.</summary>
     public static Il2CppClass Class(string image, string ns, string name)
+        => classesByName.GetOrResolve((image, ns, name), static key => ResolveClass(key.Image, key.Namespace, key.Name));
+
+    static readonly ResolvedMetadataCache<(string Image, string Namespace, string Name), Il2CppClass> classesByName = new(type => !type.IsNull);
+
+    static Il2CppClass ResolveClass(string image, string ns, string name)
     {
         var img = Assemblies().FirstOrDefault(a => a.Name == image).Image;
         if (img == 0)
