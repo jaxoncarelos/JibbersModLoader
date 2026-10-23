@@ -22,7 +22,7 @@ try {
     $stage = Join-Path $root ('out/channel-' + [guid]::NewGuid().ToString('N'))
     $payload = Join-Path $stage 'payload'
     $installer = Join-Path $stage 'JibbersModManager'
-    New-Item -ItemType Directory -Path "$payload/JibbersMods/system", "$payload/JibbersMods/packages/jibbers_dotnet", "$installer/JibbersMods/system", "$stage/bin" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$payload/JibbersMods/system", "$payload/JibbersMods/packages/jibbers_dotnet", "$installer/JibbersMods/system", "$installer/JibbersMods/licenses", "$stage/bin" -Force | Out-Null
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     function Extract-Entry($Archive, [string]$Name, [string]$Destination) {
         $entry = $Archive.Entries | Where-Object { $_.FullName.Replace('\','/') -eq $Name } | Select-Object -First 1
@@ -41,11 +41,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Managed runtime archive failed' }
     Copy-Item 'target/release/jibbers-publish.exe' "$stage/bin/jibbers-publish.exe"
     Copy-Item 'target/release/examples/verify_managed_runtime.exe' "$stage/bin/verify_managed_runtime.exe"
-    Copy-Item 'tools/install_manager.ps1' "$installer/install.ps1"
-    Copy-Item 'LICENSE' "$installer/LICENSE"
-    Copy-Item 'docs/DISTRIBUTION.md' "$installer/README.md"
-    Copy-Item 'mods/JibbersAtmosphere/unity/Assets/Atmosphere/Snow/LICENSE.txt' "$installer/SNOW-TEXTURES-LICENSE.txt"
-    & python tools/third_party_notices.py --out "$installer/THIRD-PARTY-NOTICES.txt" Cargo.toml sdk/crates/jibbers-dotnet-bridge/Cargo.toml
+    Copy-Item 'LICENSE' "$installer/JibbersMods/licenses/LICENSE"
+    $sourceCommit = (& git rev-parse HEAD).Trim()
+    [IO.File]::WriteAllText("$installer/JibbersMods/README.txt", "Close Jibbers. Extract version.dll and JibbersMods beside Jibbers.exe. Launch and open Options > Mods.`nRequired runtime installs automatically on first launch (internet required).`nJibbers Mod Loader $Version. GPL-3.0-only. Source: https://github.com/jaxoncarelos/JibbersModLoader/tree/$sourceCommit`n", [Text.UTF8Encoding]::new($false))
+    & python tools/third_party_notices.py --out "$installer/JibbersMods/licenses/THIRD-PARTY-NOTICES.txt" Cargo.toml sdk/crates/jibbers-dotnet-bridge/Cargo.toml
     if ($LASTEXITCODE -ne 0) { throw 'License collection failed' }
     $packages = [Collections.Generic.List[object]]::new()
     $packages.Add([ordered]@{id='loader'; name='Jibbers Mod Loader'; description='Phone menu, startup updates and C# mod loading.'; version=$Version; dependencies=@('jibbers_dotnet'); files=@('JibbersMods/system/jibbers_loader.dll')})

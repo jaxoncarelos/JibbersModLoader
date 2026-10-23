@@ -11,10 +11,12 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $BootstrapZip).Path)
 try {
     $names = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\','/') })
-    foreach ($required in @('version.dll','JibbersMods/system/jibbers_loader.dll','catalog.json','catalog.json.sig','install.ps1','LICENSE')) {
-        if (-not ($names -contains "JibbersModManager/$required")) { throw "Bootstrap package is missing $required" }
+    $requiredFiles = @('version.dll','JibbersMods/system/jibbers_loader.dll','JibbersMods/licenses/LICENSE','JibbersMods/licenses/THIRD-PARTY-NOTICES.txt','JibbersMods/README.txt')
+    foreach ($required in $requiredFiles) {
+        if (-not ($names -contains $required)) { throw "Bootstrap package is missing $required" }
     }
     foreach ($entry in $archive.Entries) {
+        if ($entry.Name -ne '' -and $entry.FullName.Replace('\','/') -notin $requiredFiles) { throw "Unexpected file in minimal bootstrap: $($entry.FullName)" }
         if ($entry.FullName -match '(^|[\\/])\.\.([\\/]|$)|signing|\.key$|GameAssembly|UnityPlayer') { throw 'Unexpected private/game file in player package.' }
     }
 } finally { $archive.Dispose() }

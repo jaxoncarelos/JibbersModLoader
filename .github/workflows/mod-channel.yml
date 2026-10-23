@@ -101,8 +101,7 @@ jobs:
           } finally { Remove-Item -LiteralPath $keyPath -ErrorAction SilentlyContinue }
           & out/channel/bin/jibbers-publish.exe verify dist/channel
           if ($LASTEXITCODE -ne 0) { throw 'Signed artifact verification failed.' }
-          Copy-Item dist/channel/catalog.json,dist/channel/catalog.json.sig -Destination out/channel/JibbersModManager
-          Compress-Archive -Path out/channel/JibbersModManager -DestinationPath dist/JibbersModManager.zip
+          Compress-Archive -Path out/channel/JibbersModManager/* -DestinationPath dist/JibbersModManager.zip
           ./tools/verify_channel.ps1 -ChannelDir dist/channel -BootstrapZip dist/JibbersModManager.zip -Publisher out/channel/bin/jibbers-publish.exe
           ./tools/verify_managed_channel.ps1 -ChannelDir dist/channel -Publisher out/channel/bin/jibbers-publish.exe -RuntimeProbe out/channel/bin/verify_managed_runtime.exe
           ./tools/verify_loader_bridge.ps1 -UnsignedDir out/bridge -SignedDir dist/sdk-bridge
