@@ -30,6 +30,56 @@ const OPTIONS: &[&str] = &[
     "MainMenu/OptionsMenu/Content",
 ];
 const OURS: &str = "Mod_";
+const VERSION_LABEL: &str = "Mod_LoaderVersion";
+static VERSION_ERROR: Mutex<Option<String>> = Mutex::new(None);
+
+/// Compiled into the running implementation, never read from the update catalog.
+fn loader_version_text() -> String {
+    format!("Jibbers Mod Loader v{}", option_env!("JIBBERS_LOADER_VERSION").unwrap_or("development"))
+}
+
+/// Main thread only. Parent to MainMenu so the game controls visibility during transitions.
+/// Rediscover by name each time; no scene pointers survive a scene unload.
+unsafe fn ensure_version_label(ui: *mut Object) -> R<()> {
+    let menu = find(ui, "MainMenu");
+    if menu.is_null() || !find(menu, VERSION_LABEL).is_null() {
+        return Ok(());
+    }
+    // Clone only the text, retaining the game's font/material without any button callbacks.
+    let template = find(menu, "Content/VList/PlayButton/LabelText");
+    if template.is_null() { return Ok(()); }
+    let label = clone(template, menu, VERSION_LABEL)?;
+    let result = (|| -> R<()> {
+        for (method, mut value) in [
+            ("set_anchorMin", [1.0f32, 0.0]),
+            ("set_anchorMax", [1.0, 0.0]),
+            ("set_pivot", [1.0, 0.0]),
+            ("set_sizeDelta", [420.0, 32.0]),
+            ("set_anchoredPosition", [-20.0, 16.0]),
+        ] {
+            unity::callv(label, method, &mut [value.as_mut_ptr() as _])?;
+        }
+        let mut scale = [1.0f32; 3];
+        unity::callv(label, "set_localScale", &mut [scale.as_mut_ptr() as _])?;
+        let tmp = component(label, "TMP_Text")?;
+        for method in ["set_enableAutoSizing", "set_raycastTarget", "set_enableWordWrapping"] {
+            let mut no = false;
+            unity::callv(tmp, method, &mut [&mut no as *mut bool as _])?;
+        }
+        let mut size = 18.0f32;
+        unity::callv(tmp, "set_fontSize", &mut [&mut size as *mut f32 as _])?;
+        let mut alignment = 1028i32; // TMPro.TextAlignmentOptions.BottomRight
+        unity::callv(tmp, "set_alignment", &mut [&mut alignment as *mut i32 as _])?;
+        let mut color = [0.85f32, 0.85, 0.85, 0.9];
+        unity::callv(tmp, "set_color", &mut [color.as_mut_ptr() as _])?;
+        unity::callv(tmp, "set_text", &mut [il2cpp::string(&loader_version_text()) as _])?;
+        unity::callv(label, "SetAsLastSibling", &mut [])?;
+        set_active(label, true);
+        Ok(())
+    })();
+    if result.is_err() { let _ = destroy(label); }
+    result
+}
 
 /// What a widget changes: plugin id, schema key, and how to turn the widget's value into JSON.
 struct Control {
@@ -835,6 +885,15 @@ fn repeated_error(last: &mut Option<String>, e: &str) -> bool {
 pub fn ensure() -> R<bool> {
     unsafe {
         let Ok(ui) = ui_root() else { return Ok(false) };
+        // Cosmetic text must never prevent the Mods tab from being built.
+        match ensure_version_label(ui) {
+            Ok(()) => *VERSION_ERROR.lock().unwrap() = None,
+            Err(e) => {
+                if !repeated_error(&mut VERSION_ERROR.lock().unwrap(), &e) {
+                    log::info(format!("loader version label: {e}"));
+                }
+            }
+        }
         let tabs = find(options(ui), "TabMenu");
         if tabs.is_null() {
             return Ok(false);

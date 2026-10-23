@@ -3,6 +3,8 @@
 param([UInt64]$Sequence = 1, [string]$Version = '0.3.0', [switch]$SkipTests)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$previousLoaderVersion = $env:JIBBERS_LOADER_VERSION
+$env:JIBBERS_LOADER_VERSION = $Version
 Push-Location $root
 try {
     if (-not $SkipTests) {
@@ -64,7 +66,7 @@ try {
                 $assetPath = if ($entry.folder -eq 'AlpineVision') { 'JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle' } else { $entry.asset }
                 Extract-Entry $mods $entry.asset "$payload/$assetPath"; $files += $assetPath
             }
-            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.1' } else { $Version }
+            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.2' } else { $Version }
             $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }
@@ -72,4 +74,7 @@ try {
     [IO.File]::WriteAllText("$stage/spec.json", ($spec | ConvertTo-Json -Depth 12), [Text.UTF8Encoding]::new($false))
     Compress-Archive -Path "$stage/*" -DestinationPath 'dist/JibbersChannel-Unsigned.zip' -Force
     Write-Host "Unsigned C# channel ready: $stage"
-} finally { Pop-Location }
+} finally {
+    $env:JIBBERS_LOADER_VERSION = $previousLoaderVersion
+    Pop-Location
+}

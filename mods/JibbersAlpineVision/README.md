@@ -1,4 +1,4 @@
-# Alpine Vision 1.2.1
+# Alpine Vision 1.2.2
 
 Atmosphere extended with sky, lighting styles, native snow, fog, snowfall, storms, sun shafts and a cinematic finish that integrates with the game's URP renderer.
 

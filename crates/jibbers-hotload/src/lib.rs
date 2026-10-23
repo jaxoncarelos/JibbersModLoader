@@ -119,7 +119,7 @@ const MODE: &str = "lazy: nothing happens until the first request";
 /// first request or once the game window has settled (`auto_attach`, 8-45 s), whichever comes first.
 fn worker() {
     START.get_or_init(std::time::Instant::now);
-    log::info(format!("jibbers-hotload loader {} starting ({MODE})", env!("CARGO_PKG_VERSION")));
+    log::info(format!("jibbers-hotload loader {} starting ({MODE})", option_env!("JIBBERS_LOADER_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))));
     core::clean_temp();
     std::thread::spawn(auto_attach);
     #[cfg(not(feature = "release"))]
