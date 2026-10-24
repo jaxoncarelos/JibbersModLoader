@@ -16,7 +16,7 @@ def main():
     run('dotnet','build','mac/managed','-c','Release','-nologo','-v','q','-p:JibbersNoInstall=true',f'-p:MacPreviewVersion={args.version}-mac-preview')
     run('dotnet','run','--project','mac/tests','-c','Release','-p:JibbersNoInstall=true',f'-p:MacPreviewVersion={args.version}-mac-preview')
     for mod in ('AlpineVision','FPV','Reshred'):
-        run('dotnet','build',f'mods/cs/{mod}','-c','Release','-nologo','-v','q','-p:JibbersNoInstall=true')
+        run('dotnet','build',f'mods/cs/{mod}','-c','Release','-nologo','-v','q','-p:JibbersNoInstall=true',f'-p:JibbersSdk={ROOT / "mac/managed/bin/Release/net8.0/Jibbers.Sdk.dll"}')
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     dist=ROOT/'dist';dist.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='jibbers-mac-') as temporary:
