@@ -1,5 +1,5 @@
 """Build a self-contained native Mac tester ZIP. Never consumes the Windows catalog."""
-import argparse, hashlib, io, json, os, shutil, subprocess, tarfile, tempfile, urllib.request, zipfile
+import argparse, hashlib, io, json, os, shutil, subprocess, sys, tarfile, tempfile, urllib.request, zipfile
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DOBBY = "5dfc8546954ce3b3198132ab13fddb89ee92cdd7"
@@ -13,8 +13,8 @@ def copy(src, dst):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--native',type=Path,required=True);parser.add_argument('--version',default='0.1.0');args=parser.parse_args()
     native=args.native.resolve()
-    run('dotnet','build','mac/managed','-c','Release','-nologo','-v','q','-p:JibbersNoInstall=true')
-    run('dotnet','run','--project','mac/tests','-c','Release','-p:JibbersNoInstall=true')
+    run('dotnet','build','mac/managed','-c','Release','-nologo','-v','q','-p:JibbersNoInstall=true',f'-p:MacPreviewVersion={args.version}-mac-preview')
+    run('dotnet','run','--project','mac/tests','-c','Release','-p:JibbersNoInstall=true',f'-p:MacPreviewVersion={args.version}-mac-preview')
     for mod in ('AlpineVision','FPV','Reshred'):
         run('dotnet','build',f'mods/cs/{mod}','-c','Release','-nologo','-v','q','-p:JibbersNoInstall=true')
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
@@ -24,6 +24,7 @@ def main():
         copy(ROOT/'mac/Run Jibbers.command',stage/'Run Jibbers.command')
         copy(ROOT/'mac/README.md',mods/'README-Mac.md')
         copy(ROOT/'LICENSE',mods/'licenses/LICENSE')
+        run(sys.executable,'tools/third_party_notices.py','--out',str(mods/'licenses/THIRD-PARTY-NOTICES.txt'),'Cargo.toml')
         copy(ROOT/'mac/expected-build.json',mac/'expected-build.json')
         managed=ROOT/'mac/managed/bin/Release/net8.0'
         for name in ('Jibbers.Sdk.dll','Jibbers.Sdk.runtimeconfig.json','Jibbers.Sdk.deps.json'):
@@ -33,7 +34,7 @@ def main():
         copy(ROOT/'mac/assets/jibbers_alpinevision.bundle',mods/'packages/jibbers_atmosphere/jibbers_alpinevision.bundle')
         copy(ROOT/'mac/assets/jibbers_fpv.bundle',mods/'jibbers_fpv.bundle')
         for library in ('libjibbers_hooks.dylib','libjibbers_macos_ui.dylib'):
-            run('lipo','-create',str(native/'arm64'/library),str(native/'x86_64'/library),'-output',str(mac/library))
+            copy(native/'arm64'/library,mac/library)
         doorstop=get('https://github.com/NeighTools/UnityDoorstop/releases/download/v4.6.0/doorstop_macos_release_4.6.0.zip')
         if hashlib.sha256(doorstop).hexdigest()!=DOORSTOP_SHA256:raise ValueError('Doorstop checksum mismatch')
         with zipfile.ZipFile(io.BytesIO(doorstop)) as z:
@@ -47,7 +48,7 @@ def main():
         version=metadata['latest-runtime']
         release=next(r for r in metadata['releases'] if r.get('runtime',{}).get('version')==version)
         runtime_hashes={}
-        for rid in ('osx-arm64','osx-x64'):
+        for rid in ('osx-arm64',):
             file=next(f for f in release['runtime']['files'] if f.get('rid')==rid and f['name'].endswith('.tar.gz'))
             content=get(file['url'])
             if hashlib.sha512(content).hexdigest().lower()!=file['hash'].lower():raise ValueError('Microsoft runtime checksum mismatch for '+rid)
@@ -58,14 +59,14 @@ def main():
             for notice in ('LICENSE.txt','ThirdPartyNotices.txt'):
                 if (rt/notice).exists():copy(rt/notice,mods/'licenses/dotnet'/notice)
         for library in mac.glob('*.dylib'):
-            run('lipo','-verify_arch','arm64','x86_64',str(library))
+            run('lipo','-verify_arch','arm64',str(library))
             run('codesign','--force','--sign','-',str(library))
             run('codesign','--verify',str(library))
-        info={'version':args.version,'experimental':True,'source_commit':commit,'gameplay_verified':False,'architectures':['arm64','x86_64'],'dobby_commit':DOBBY,'doorstop':'4.6.0','doorstop_sha256':DOORSTOP_SHA256,'dotnet':runtime_hashes,'windows_catalog_enabled':False}
+        info={'version':args.version,'experimental':True,'source_commit':commit,'gameplay_verified':False,'architectures':['arm64'],'dobby_commit':DOBBY,'doorstop':'4.6.0','doorstop_sha256':DOORSTOP_SHA256,'dotnet':runtime_hashes,'windows_catalog_enabled':False,'gameplay_schema_sha256':hashlib.sha256((ROOT/'mac/expected-schema.json').read_bytes()).hexdigest()}
         (mac/'BUILD.json').write_text(json.dumps(info,indent=2))
         manifest={p.relative_to(stage).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in stage.rglob('*') if p.is_file()}
         (mac/'SHA256SUMS.json').write_text(json.dumps(manifest,indent=2,sort_keys=True))
-        output=dist/f'JibbersModLoader-macOS-preview-{args.version}.zip'
+        output=dist/f'JibbersModLoader-macOS-arm64-preview-{args.version}.zip'
         with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
             for p in sorted(stage.rglob('*')):
                 if not p.is_file():continue
@@ -80,7 +81,7 @@ def main():
             assert {n.split('/')[0] for n in z.namelist()}=={'Run Jibbers.command','JibbersMods'}
             assert not any(n.lower().endswith(('version.dll','jibbers_loader.dll','gameassembly.dll','jibbers.exe')) for n in z.namelist())
         # Complete source for the preview, including the exact Doorstop and Dobby revisions.
-        source=dist/f'JibbersModLoader-macOS-preview-{args.version}-source.zip'
+        source=dist/f'JibbersModLoader-macOS-arm64-preview-{args.version}-source.zip'
         repository_source=subprocess.check_output(['git','archive','--format=zip','HEAD'],cwd=ROOT)
         with zipfile.ZipFile(source,'w',compression=zipfile.ZIP_DEFLATED) as z:
             z.writestr('JibbersModLoader-source.zip',repository_source)

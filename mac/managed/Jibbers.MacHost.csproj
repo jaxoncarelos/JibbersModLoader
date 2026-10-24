@@ -3,12 +3,13 @@
     <TargetFramework>net8.0</TargetFramework><AssemblyName>Jibbers.Sdk</AssemblyName>
     <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableDynamicLoading>true</EnableDynamicLoading><GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
-    <Version>0.2.0</Version><LangVersion>latest</LangVersion><NoWarn>$(NoWarn);CS1591</NoWarn>
+    <Version>0.2.0</Version><InformationalVersion>$(MacPreviewVersion)</InformationalVersion><LangVersion>latest</LangVersion><NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../sdk/dotnet/Jibbers.Sdk/**/*.cs" Exclude="../../sdk/dotnet/Jibbers.Sdk/obj/**/*.cs;../../sdk/dotnet/Jibbers.Sdk/bin/**/*.cs" />
     <EmbeddedResource Include="../../sdk/crates/jibbers-mod-sdk/symbols.json" LogicalName="Jibbers.Sdk.symbols.json" />
     <EmbeddedResource Include="../../sdk/dotnet/Jibbers.Sdk/Features/FPV/fpv_symbols.json" LogicalName="Fpv.symbols.json" />
+    <EmbeddedResource Include="../expected-schema.json" LogicalName="Jibbers.Mac.expected-schema.json" />
     <EmbeddedResource Include="../expected-build.json" LogicalName="Jibbers.Mac.expected-build.json" />
   </ItemGroup>
 </Project>

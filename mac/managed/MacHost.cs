@@ -22,7 +22,7 @@ namespace Jibbers.Mac
 {
 internal static unsafe class Host
 {
-    const string Version = "0.1.0-mac-preview";
+    static string Version => typeof(Host).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "mac-preview";
     static readonly string Root = Environment.GetEnvironmentVariable("JIBBERS_GAME_ROOT") ?? AppContext.BaseDirectory;
     static readonly string Mods = Path.Combine(Root, "JibbersMods");
     static readonly string App = Environment.GetEnvironmentVariable("JIBBERS_GAME_APP") ?? "";
@@ -82,17 +82,20 @@ internal static unsafe class Host
     static void CheckBuild()
     {
         if (!OperatingSystem.IsMacOS()) throw new PlatformNotSupportedException("This package is for native macOS.");
-        if (RuntimeInformation.ProcessArchitecture is not (Architecture.Arm64 or Architecture.X64))
-            throw new PlatformNotSupportedException("Only arm64 and x86_64 are supported.");
+        if (RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
+            throw new PlatformNotSupportedException("This first native preview supports Apple Silicon (arm64) only.");
         var metadata = Path.Combine(App, "Contents/Resources/Data/il2cpp_data/Metadata/global-metadata.dat");
         if (!File.Exists(metadata)) throw new InvalidOperationException("No IL2CPP metadata in this app. Mono builds are not supported by this preview.");
         var digest = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(metadata))).ToLowerInvariant();
         using var stream = typeof(Host).Assembly.GetManifestResourceStream("Jibbers.Mac.expected-build.json")!;
         using var expected = JsonDocument.Parse(stream);
         Write("Game metadata SHA256: " + digest);
-        if (expected.RootElement.GetProperty("metadata_sha256").GetString() != digest)
-            throw new InvalidOperationException("Unrecognized game metadata. No hooks or mods were installed. Send the log and Mac app build information for compatibility validation; there is no force-load switch.");
-        Write("Exact managed metadata matched the supported test baseline.");
+        var bytes = File.ReadAllBytes(metadata);
+        if (bytes.Length < 8 || BitConverter.ToUInt32(bytes, 0) != 0xFAB11BAF || BitConverter.ToInt32(bytes, 4) != expected.RootElement.GetProperty("metadata_version").GetInt32())
+            throw new InvalidOperationException("Unsupported IL2CPP metadata format; no hooks or mods installed.");
+        Write(expected.RootElement.GetProperty("metadata_sha256").GetString() == digest
+            ? "Metadata file matches reference; checking gameplay member schema."
+            : "Platform metadata differs from Windows reference; checking compiled gameplay member schema.");
     }
     static void Initialize()
     {
@@ -126,6 +129,7 @@ internal static unsafe class Host
             var report = SymbolTable.Report();
             File.WriteAllText(Path.Combine(Mods, "mac-symbols.json"), report.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
             if (report["failed"]!.GetValue<int>() != 0) throw new InvalidOperationException("Game symbol validation failed. See JibbersMods/mac-symbols.json; no mods loaded.");
+            ValidateGameplaySchema();
             InstallPump();
             MainThread.Run(() =>
             {
@@ -136,6 +140,38 @@ internal static unsafe class Host
             Write("READY: native Mac mods loaded; Options > Mods; F9 drone, F10 weather. No Windows catalog is used.");
         }
         catch (Exception e) { Write("STOPPED: " + e); }
+    }
+    internal static void ValidateClassSchema(ClassInfo actual, JsonElement expected)
+    {
+        foreach (var field in expected.GetProperty("fields").EnumerateArray())
+        {
+            var name = field.GetProperty("name").GetString();
+            var type = field.GetProperty("type").GetString();
+            var isStatic = field.GetProperty("static").GetBoolean();
+            if (!actual.Fields.Any(f => f.Name == name && f.Type == type && f.Static == isStatic))
+                throw new InvalidOperationException($"Game schema mismatch: {actual.FullName}.{name}: {type}. No hooks installed.");
+        }
+        var methods = actual.Methods.Select(m => (m.Name+"("+string.Join(",",m.Params)+")->"+m.Return).Replace(" ", "")).ToHashSet();
+        foreach (var method in expected.GetProperty("methods").EnumerateArray())
+            if (!methods.Contains(method.GetString()!))
+                throw new InvalidOperationException($"Game schema mismatch: {actual.FullName} {method.GetString()}. No hooks installed.");
+    }
+    static void ValidateGameplaySchema()
+    {
+        using var stream = typeof(Host).Assembly.GetManifestResourceStream("Jibbers.Mac.expected-schema.json")!;
+        using var schema = JsonDocument.Parse(stream);
+        using var catalogue = JsonDocument.Parse(SymbolTable.BuiltInJson);
+        var checkedClasses = new HashSet<string>();
+        foreach (var symbol in catalogue.RootElement.GetProperty("symbols").EnumerateArray())
+        {
+            var info = SymbolTable.Info(symbol.GetProperty("id").GetString()!);
+            if (info.Image != "Assembly-CSharp.dll" || !checkedClasses.Add(info.FullName)) continue;
+            if (!schema.RootElement.TryGetProperty(info.FullName, out var expected))
+                throw new InvalidOperationException("No compiled gameplay schema for " + info.FullName + "; no hooks installed.");
+            ValidateClassSchema(info, expected);
+        }
+        if (checkedClasses.Count < 10) throw new InvalidOperationException("Incomplete gameplay schema validation; no hooks installed.");
+        Write("Gameplay schema validated before hooks: " + checkedClasses.Count + " resolved classes, declared fields and method signatures.");
     }
     static void InstallPump()
     {

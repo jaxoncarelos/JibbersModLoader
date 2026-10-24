@@ -39,10 +39,8 @@ fi
 arches=$(/usr/bin/lipo -archs "$exe")
 if [ "$(/usr/sbin/sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = 1 ] && [[ " $arches " == *" arm64 "* ]]; then
     arch=arm64; rid=osx-arm64
-elif [[ " $arches " == *" x86_64 "* ]]; then
-    arch=x86_64; rid=osx-x64
 else
-    echo "Unsupported game architecture: $arches"; exit 1
+    echo "This preview requires an Apple Silicon Mac and an arm64 game build. Found: $arches"; exit 1
 fi
 core="$mods/mac/runtime/$rid"
 if [ ! -f "$core/libcoreclr.dylib" ]; then echo "Incomplete ZIP: $core/libcoreclr.dylib is missing."; exit 1; fi

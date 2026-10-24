@@ -12,6 +12,7 @@ internal static class GameNativeLibrary
             foreach (var candidate in new[] {
                 $"Contents/Plugins/{name}.bundle/Contents/MacOS/{name}",
                 $"Contents/Plugins/{name}.bundle/Contents/MacOS/lib{name}",
+                $"Contents/Plugins/{name}.bundle", $"Contents/Frameworks/{name}.bundle",
                 $"Contents/Plugins/lib{name}.dylib", $"Contents/Plugins/{name}.dylib",
                 $"Contents/Frameworks/lib{name}.dylib", $"Contents/Frameworks/{name}.dylib" })
                 if (File.Exists(Path.Combine(app, candidate)) && NativeLibrary.TryLoad(Path.Combine(app, candidate), out library)) return true;

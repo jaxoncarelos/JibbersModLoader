@@ -1,6 +1,6 @@
-# Jibbers native Mac preview 0.1.0
+# Jibbers native Mac preview (Apple Silicon)
 
-Experimental native macOS package for tester feedback. This is not the Windows ZIP and does not need CrossOver. Both Apple Silicon and Intel payloads and the required .NET runtime are included. No separate .NET installation is needed.
+Experimental native macOS package for tester feedback. This is not the Windows ZIP and does not need CrossOver. This first package targets Apple Silicon (M-series Macs) and includes the required .NET runtime. Intel is excluded because its native hook backend failed the smoke test. No separate .NET installation is needed.
 
 1. Close Jibbers. Open its Steam installation folder (Manage > Browse local files).
 2. Extract `Run Jibbers.command` and `JibbersMods` beside the Jibbers `.app`, not inside it.
@@ -9,7 +9,7 @@ Experimental native macOS package for tester feedback. This is not the Windows Z
 
 To launch through Steam instead, set launch options to the quoted absolute path of `Run Jibbers.command`, followed by `%command%`.
 
-The preview requires an IL2CPP game build with managed metadata matching the shipped compatibility baseline. A mismatch stops before hooks or mods: it does not force unsupported builds to load. The launch log records the actual metadata SHA256. The Windows compatibility checks and catalog are unchanged. Native Mac previews bundle mods and never install files from the Windows update catalog.
+The preview requires an IL2CPP game build with v39 metadata, resolved symbols, and gameplay class fields and method signatures matching the compiled reference schema. A mismatch stops before hooks or mods: it does not force unsupported builds to load. The launch log records the actual metadata SHA256. The Windows compatibility checks and catalog are unchanged. Native Mac previews bundle mods and never install files from the Windows update catalog.
 
 Send `jibbers_hotload.log`, `JibbersMods/mac-launch.log`, and, if generated, `JibbersMods/mac-symbols.json`, plus your Mac model and macOS version. Look for `READY: native Mac mods loaded`. Check title screen/Mods navigation, weather presets and falling snow, visual filters, drone movement/audio, and rewind while skiing. Live gameplay has not been verified on a Mac by the maintainer yet; this package is for that first test.
 

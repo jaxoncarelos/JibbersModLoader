@@ -3,5 +3,5 @@
   "metadata_sha256": "a9a32995f5d541f19cb3e2de346e9707d48dae5e3e7f3a82e930886e46c0465e",
   "metadata_version": 39,
   "game_build": "26033753",
-  "purpose": "Exact managed-metadata compatibility gate for the native test build. Mismatches stop before hooks/mods; no force override."
+  "purpose": "Reference metadata SHA256 is diagnostic across OS builds. Metadata v39, all built-in symbol shapes and the compiled gameplay member schema must match before hooks. No force override."
 }
