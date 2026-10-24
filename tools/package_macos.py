@@ -59,7 +59,7 @@ def main():
             for notice in ('LICENSE.txt','ThirdPartyNotices.txt'):
                 if (rt/notice).exists():copy(rt/notice,mods/'licenses/dotnet'/notice)
         for library in mac.glob('*.dylib'):
-            run('lipo','-verify_arch','arm64',str(library))
+            run('lipo',str(library),'-verify_arch','arm64')
             run('codesign','--force','--sign','-',str(library))
             run('codesign','--verify',str(library))
         info={'version':args.version,'experimental':True,'source_commit':commit,'gameplay_verified':False,'architectures':['arm64'],'dobby_commit':DOBBY,'doorstop':'4.6.0','doorstop_sha256':DOORSTOP_SHA256,'dotnet':runtime_hashes,'windows_catalog_enabled':False,'gameplay_schema_sha256':hashlib.sha256((ROOT/'mac/expected-schema.json').read_bytes()).hexdigest()}
