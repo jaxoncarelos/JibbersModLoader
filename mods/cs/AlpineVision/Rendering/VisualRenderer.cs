@@ -73,6 +73,7 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
     }
     public void SceneChanged()
     {
+        UnitySkyLighting.ResetSun();
         if(api is null)return;
         Suspend();
         if(buffer is not null)api.Clear.Invoke(buffer.Target);
@@ -191,8 +192,7 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
         SetEnv("set_skybox","UnityEngine.Material").Invoke(0,sky!.Target);
         int skyFlag=1;
         Need("UnityEngine.Camera","set_clearFlags","UnityEngine.CameraClearFlags").Invoke(cam,(nint)(&skyFlag));
-        var light=api.Sun.Invoke(0);
-        if(Unity.IsNull(light))light=Unity.FindObjects(api.LightClass).FirstOrDefault(l=>api.LightType.Invoke<int>(l)==1);
+        var light=UnitySkyLighting.FindSun();
         if(p.Name=="Natural")RestoreLighting();
         else
         {

@@ -61,6 +61,6 @@ internal sealed class UnityAtmosphereScene : IAtmosphereScene
         active = false;
         var subscription = mapSubscription;
         mapSubscription = null;
-        Cleanup.Run(() => subscription?.Dispose(), camera.Dispose);
+        Cleanup.Run(() => subscription?.Dispose(), camera.Dispose, UnitySkyLighting.ResetSun);
     }
 }

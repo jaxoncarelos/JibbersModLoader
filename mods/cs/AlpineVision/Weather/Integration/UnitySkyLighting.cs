@@ -7,6 +7,28 @@ namespace JibbersAlpineVision.Weather;
 
 internal static unsafe class UnitySkyLighting
 {
+    static GameRef? fallbackSun;
+
+    /// <summary>The scene's sun, shared by the sky disc and weather glow/shafts. Main thread.</summary>
+    public static nint FindSun()
+    {
+        var renderSettingsClass=Il2Cpp.RequireClass(Unity.Core,"UnityEngine.RenderSettings");
+        var light=Unity.CallStatic(renderSettingsClass,"get_sun");
+        if(!Unity.IsNull(light))return light;
+        if(fallbackSun is not null && !Unity.IsNull(fallbackSun.Target))return fallbackSun.Target;
+        ResetSun();
+        light=Unity.FindObjects(Unity.Class("UnityEngine.Light"))
+            .FirstOrDefault(candidate=>Unity.Call<int>(candidate,"get_type")==1 && Unity.Call<bool>(candidate,"get_enabled"));
+        if(!Unity.IsNull(light))fallbackSun=new GameRef(light);
+        return light;
+    }
+
+    public static void ResetSun()
+    {
+        fallbackSun?.Dispose();
+        fallbackSun=null;
+    }
+
     public static Color ReadFogColor()
     {
         var fogColor = new Color(0.8f, 0.85f, 0.95f, 1);
@@ -21,11 +43,11 @@ internal static unsafe class UnitySkyLighting
 
     public static (Vector3 Dir, Vector3 Color) ReadSunlight()
     {
-        var fallback = (new Vector3(0.3f, 0.8f, 0.5f), new Vector3(1, 0.95f, 0.85f));
+        // Without a scene sun, ambient light remains but no directed glow is invented.
+        var fallback = (new Vector3(0, 1, 0), default(Vector3));
         try
         {
-            var renderSettingsClass = Il2Cpp.RequireClass(Unity.Core, "UnityEngine.RenderSettings");
-            var light = Unity.CallStatic(renderSettingsClass, "get_sun");
+            var light = FindSun();
             if (Unity.IsNull(light))
             {
                 return fallback;
