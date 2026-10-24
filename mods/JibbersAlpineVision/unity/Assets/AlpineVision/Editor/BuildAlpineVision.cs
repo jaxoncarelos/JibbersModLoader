@@ -17,7 +17,7 @@ public static class BuildAlpineVision
     [Serializable] public class Profiles { public Profile[] profiles; }
     public static void BuildAndTest()
     {
-        Build();Test();TestUrp();TestSunAlignment();
+        Build();Test();TestUrp();TestSunAlignment();NightRenderingTests.Run();
     }
     public static void TestSunAlignment()
     {
@@ -78,8 +78,9 @@ public static class BuildAlpineVision
         Mat("AV_BlurV","Hidden/AlpineVision/Blur").SetVector("_AV_Axis",new Vector4(0,1,0,0));
         Mat("AV_Finish","Hidden/AlpineVision/Finish");
         Mat("AV_UrpFinish","Hidden/AlpineVision/UrpFinish");
+        Mat("AV_TerrainShadow","Hidden/AlpineVision/TerrainShadow");
         AssetDatabase.SaveAssets();
-        string[] names={"JibbersAtmosphere","AV_Copy","AV_Sky","AV_Extract","AV_BlurH","AV_BlurV","AV_Finish","AV_UrpFinish"};
+        string[] names={"JibbersAtmosphere","AV_Copy","AV_Sky","AV_Extract","AV_BlurH","AV_BlurV","AV_Finish","AV_UrpFinish","AV_TerrainShadow"};
         var assets=names.Select(n=>n=="JibbersAtmosphere"?Gen+"/JibbersAtmosphere.prefab":Gen+"/"+n+".mat").ToArray();
         Directory.CreateDirectory(OutDir);
         var manifest=BuildPipeline.BuildAssetBundles(OutDir,new[]{new AssetBundleBuild { assetBundleName="jibbers_alpinevision.bundle",assetNames=assets,addressableNames=names }},
@@ -95,7 +96,7 @@ public static class BuildAlpineVision
             throw new Exception("Replacement terrain texture holder is still packaged");
         Debug.Log("PASS native snow: replacement texture holder excluded from the weather prefab.");
         loaded.Unload(false);
-        Debug.Log("PASS unified bundle: all 8 weather/visual assets; no ray tracing assets.");
+        Debug.Log($"PASS unified bundle: all {names.Length} weather/visual assets; no ray tracing assets.");
     }
     public static void TestUrp()
     {

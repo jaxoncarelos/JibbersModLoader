@@ -5,6 +5,7 @@ Shader "AlpineVision/AlpineSky"
   _AV_Horizon("Horizon",Color)=(.76,.83,.89,1)
   _AV_Sun("Sun direction",Vector)=(.3,.6,.4,0)
   _AV_Clouds("Clouds",Vector)=(.32,.006,0,0)
+  _AV_Night("Night blend",Vector)=(0,0,0,0)
  }
  SubShader {
  Tags { "Queue"="Background" "RenderType"="Background" "PreviewType"="Skybox" }
@@ -15,7 +16,7 @@ Shader "AlpineVision/AlpineSky"
  #pragma fragment frag
  #pragma target 3.0
  #include "UnityCG.cginc"
- float4 _AV_Zenith,_AV_Horizon,_AV_Sun,_AV_Clouds;
+ float4 _AV_Zenith,_AV_Horizon,_AV_Sun,_AV_Clouds,_AV_Night;
  struct v2f { float4 pos:SV_POSITION;float3 direction:TEXCOORD0; };
  v2f vert(float4 v:POSITION) { v2f o;o.pos=UnityObjectToClipPos(v);o.direction=v.xyz;return o; }
  float Hash(float2 p) { return frac(sin(dot(p,float2(127.1,311.7)))*43758.5453); }
@@ -37,7 +38,8 @@ Shader "AlpineVision/AlpineSky"
   float shape=Fbm(p),threshold=lerp(.78,.40,_AV_Clouds.x);
   float cloud=smoothstep(threshold,threshold+.13,shape)*smoothstep(0,.15,d.y);
   float shade=Fbm(p+sun.xz*.22);
-  float3 cloudColor=lerp(_AV_Horizon.rgb*.70,float3(1.0,.98,.94),saturate((shape-shade)*3+.66));
+  float3 cloudHighlight=lerp(float3(1.0,.98,.94),_AV_Horizon.rgb*1.25,saturate(_AV_Night.x));
+  float3 cloudColor=lerp(_AV_Horizon.rgb*.70,cloudHighlight,saturate((shape-shade)*3+.66));
   c=lerp(c,cloudColor,cloud*.87);
   c=lerp(_AV_Horizon.rgb*.55,c,smoothstep(-.3,0,d.y));
   return float4(c,1);

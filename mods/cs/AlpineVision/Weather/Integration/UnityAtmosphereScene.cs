@@ -32,6 +32,7 @@ internal sealed class UnityAtmosphereScene : IAtmosphereScene
             if (!active)
                 return;
             EnvironmentManager = environmentManager;
+            NightCycle.Observe(environmentManager);
             frame();
         });
         active = true;
@@ -61,6 +62,6 @@ internal sealed class UnityAtmosphereScene : IAtmosphereScene
         active = false;
         var subscription = mapSubscription;
         mapSubscription = null;
-        Cleanup.Run(() => subscription?.Dispose(), camera.Dispose, UnitySkyLighting.ResetSun);
+        Cleanup.Run(() => subscription?.Dispose(), camera.Dispose, UnitySkyLighting.ResetSun, NightCycle.Reset);
     }
 }

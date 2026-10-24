@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <AssemblyName>AlpineVision</AssemblyName>
-    <Version>1.2.3</Version>
+    <Version>1.2.4</Version>
   </PropertyGroup>
   <ItemGroup><AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo"><_Parameter1>AlpineVision.Tests</_Parameter1></AssemblyAttribute></ItemGroup>
 </Project>

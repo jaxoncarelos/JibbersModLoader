@@ -25,6 +25,7 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
     int runtimeRetries,retryFrames;
     UrpFinish? urp;
     bool builtInBufferAttached;
+    bool? previousNightState;
     public bool Ready=>!failed && buffer is not null;
     public bool IsRendering=>Ready && attached && frames>0;
     public string Status=>$"{(failed?"failed":Ready?"ready":"waiting")}; attached={attached}; frames={frames}; size={width}x{height}"+(error is null?"":"; error="+error);
@@ -133,6 +134,12 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
                 log("Alpine Vision attached: sky/lighting + weather + post-processing; "+profile.Name);
             }
             ApplyEnvironment(cam,profile);
+            var nightActive=profile.NightAmount>0;
+            if(previousNightState!=nightActive)
+            {
+                previousNightState=nightActive;
+                log($"Native day/night: time={NightCycle.NormalizedTime:F3}, nightStart={NightCycle.NightStart:F3}, twilightWidth={NightCycle.TwilightWidth:F3}, nightBlend={profile.NightAmount:F3}; native night lighting={nightActive}.");
+            }
             var w=api.PixelWidth.Invoke<int>(cam);var h=api.PixelHeight.Invoke<int>(cam);
             if(w<1 || h<1)return;
             if(urp is not null && !builtInBufferAttached)
@@ -193,7 +200,13 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
         int skyFlag=1;
         Need("UnityEngine.Camera","set_clearFlags","UnityEngine.CameraClearFlags").Invoke(cam,(nint)(&skyFlag));
         var light=UnitySkyLighting.FindSun();
-        if(p.Name=="Natural")RestoreLighting();
+        if(p.NightAmount>0)
+        {
+            // Native time-of-day has already applied its moon/ambient lighting. Do not
+            // restore a saved daytime state or overwrite it with a daytime preset.
+            sun?.Dispose();sun=null;lightingOwned=false;
+        }
+        else if(p.Name=="Natural")RestoreLighting();
         else
         {
             if(!lightingOwned)
@@ -223,11 +236,13 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
         // or draw a second disc at ReadSunlight's fallback direction when get_sun is unset.
         var sunAlignment=Unity.IsNull(light)?default:
             SunAlignment.FromLightForward(Need("UnityEngine.Transform","get_forward").Invoke<Vector3>(Unity.Transform(light)));
+        sunAlignment=new(sunAlignment.X,sunAlignment.Y,sunAlignment.Z,sunAlignment.W*(1-p.NightAmount));
         Vector(sky.Target,"_AV_Sun",sunAlignment);
         Vector(sky.Target,"_AV_Zenith",new(p.SkyTop.R,p.SkyTop.G,p.SkyTop.B,1));
-        var horizon=p.Name=="Natural"?UnitySkyLighting.ReadFogColor():p.Horizon;
+        var horizon=p.Name=="Natural" && p.NightAmount==0?UnitySkyLighting.ReadFogColor():p.Horizon;
         Vector(sky.Target,"_AV_Horizon",new(horizon.R,horizon.G,horizon.B,1));
         Vector(sky.Target,"_AV_Clouds",new(p.Clouds,.006f,0,0));
+        Vector(sky.Target,"_AV_Night",new(p.NightAmount,0,0,0));
     }
     nint Create(int w,int h)
     {

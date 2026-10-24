@@ -1,30 +1,36 @@
-# Alpine Vision 1.1
+# Alpine Vision 1.2.4
 
-One mod containing Atmosphere weather, Alpine Vision visual filters and optional hardware ray-traced shadows/AO.
+Atmosphere extended with sky, lighting styles, native snow, fog, snowfall, storms, sun shafts and a cinematic finish that integrates with the game's URP renderer.
 
-The game's **default snow textures, tiling, normals, tracks and material properties are retained**. The replacement texture holder is removed from the shared bundle and the weather surface adapter makes no terrain calls. Valley cloud banks are disabled in every preset and their controls are removed. Falling snow, fog, storms, sky clouds, glitter and sun shafts remain.
+Hardware ray tracing and all mod shadow/AO overrides have been removed. The mod has no ray-tracing setting or hotkey. F9 remains Drone's toggle; F10 cycles weather. Game shadow rendering stays in charge.
 
-## Controls
+## Options
 
-- Visual style: Natural, Alpine Film, Golden Hour or Bluebird. Existing style selections persist. Golden Hour's editor reference matches the previous filter exactly.
-- Atmosphere: Off, Clear, Foggy or Snowstorm, plus imported custom weather presets. This is independent of visual style. F10 cycles weather when Hotkeys is enabled.
-- Original Atmosphere controls: fog thickness/start, snowfall, flake size, speed streaks, sun shafts, colour grading, hotkeys/cycle key and optional terrain detail boost. Valley-cloud controls are intentionally excluded.
-- Existing quality, hardware RT, atmosphere strength, bloom, sharpening and exposure controls remain.
+- Visual style: Natural, Alpine Film, Golden Hour, Bluebird.
+- Weather: Off, Clear, Foggy, Snowstorm and imported custom Atmosphere presets.
+- Original Atmosphere controls, bloom, sharpening, exposure and quality remain.
+- Default game snow textures, normals, tiling and tracks remain. Valley cloud banks are removed.
 
-The original jibbers_atmosphere.json is imported once into alpinevision_weather.json. Subsequent weather edits persist in the latter; the old configuration is not modified. Weather presets reset their sliders as in the original Atmosphere mod and synchronize the displayed values. Switching visual style preserves weather. Weather Off leaves the rest of Alpine Vision available.
+Visual style and weather are independent. Weather Off only disables weather. The original jibbers_atmosphere.json is imported once into alpinevision_weather.json and retained. Settings persist; removed RT settings are ignored.
 
-Natural keeps the map's lighting and existing Atmosphere grade. Film styles keep the established Alpine Vision filter. The film tone mapper and preceding tone mapper are coordinated; they are not applied together. Colour grading can be disabled separately.
+The sky's sun enhancement follows the game's directional light. Visual styles change colour and intensity without rotating the sun; a missing light disables the extra disc instead of drawing one at a fixed fallback angle.
 
-## Installation and validation
+## Night
 
-Use tools/install_alpinevision.ps1 with the package. It waits for Jibbers to close, backs up replaced files, installs one DLL and one bundle, and keeps the old managed Atmosphere package deselected so it is not reinstalled. Other mods, SDK binaries and the loader are preserved. This update continues the unified mod; it does not re-enable the old mod DLLs.
+Native time of day controls night lighting. Night style selects Moonlit or Night Skiing; the palette follows the game's night/twilight state. At night, visual styles stop forcing daytime sun/ambient values, the added sun fades out, and clouds use the dark horizon palette.
 
-DX11 supports weather and the visual stack. Add -force-d3d12 for hardware ray-traced sun shadows/AO. alpinevision.status reports weather preset, prefab and renderer state. Submission status is not GPU timing.
+Efficient night shadows (preview) is opt-in. It prepares tiled shadow-only meshes from the live terrain heightfield while retaining the visible terrain, snow textures/tracks, lamps and moving-object shadows. Native terrain shadow casting switches only after preparation completes; disabling the option, a map change or an error restores it. This caches terrain geometry, not baked lighting or shadow maps. Ruka performance/appearance still needs live comparison; the option defaults off.
 
-Tests cover retained weather controls/persistence, independent weather/style combinations, Weather Off, nonblocking preset callbacks, native snow ownership and optional API failures. Unity tests check capture accuracy, reference images, bundle contents, detachment and DXR output. Editor tests do not substitute for checking live gameplay appearance.
+## Rendering
 
-Research and decisions are summarized in AlpineVision-GRAPHICS-RESEARCH.md. This update does not implement path tracing, SSGI, ray-traced reflections, DLSS or rebuilt world models.
+The film finish uses the player's existing FullScreenPassRendererFeature, its active renderer feature list, URP color-copy input and RenderGraph fullscreen pass. It does not attach a camera command buffer in URP. A built-in renderer fallback is kept for compatible environments. Runtime materials/features are owned, protected from unused-asset cleanup, detached on transitions/disable and destroyed on unload.
 
-## Source
+Logs report feature configuration, not GPU execution. Editor tests render through a real URP pipeline, compare profiles and test removal/restoration. Live gameplay still needs separate verification.
 
-C#: mods/cs/AlpineVision. Unity: mods/JibbersAlpineVision/unity. Weather is a local fork of the repository's Atmosphere engine. Neither old mod DLL is required. Source uses the repository GPL-3.0 license. Legacy CC0 texture credits remain in the source tree; replacement snow maps are not used by this build.
+## Upgrade and conflicts
+
+The catalog upgrades Atmosphere's existing slot under stable package ID jibbers_atmosphere. Subscribers automatically receive Alpine Vision on the next updating launch. There is one selectable catalog entry for the weather/visual stack.
+
+SDK conflict checks run before OnLoad. Alpine Vision takes priority over stale manual Atmosphere or Ray Tracing copies, which are skipped before they hook the game. Manual installation backs up and removes those legacy DLLs; settings and unrelated mods remain.
+
+Source: mods/cs/AlpineVision and mods/JibbersAlpineVision/unity. GPL-3.0-only. No replacement terrain textures or ray-tracing assets are packaged.

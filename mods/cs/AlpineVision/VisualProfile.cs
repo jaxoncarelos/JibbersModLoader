@@ -8,6 +8,22 @@ public sealed record VisualProfile(string Name, Color Sun, float SunIntensity, f
     Color SkyTop, Color Horizon, Color AmbientSky, Color AmbientGround,
     float Exposure, float Contrast, float Saturation, float Warmth, float Clouds)
 {
+    public float NightAmount { get; init; }
+
+    public VisualProfile AtNight(float amount, string nightStyle)
+    {
+        amount=Math.Clamp(amount,0,1);
+        Color Mix(Color day,Color night)=>new(day.R+(night.R-day.R)*amount,day.G+(night.G-day.G)*amount,day.B+(night.B-day.B)*amount,1);
+        var floodlit=nightStyle=="Night Skiing";
+        return this with {
+            NightAmount=amount,
+            SkyTop=Mix(SkyTop,floodlit?new(.006f,.012f,.027f,1):new(.008f,.016f,.038f,1)),
+            Horizon=Mix(Horizon,floodlit?new(.025f,.030f,.046f,1):new(.016f,.025f,.048f,1)),
+            Exposure=Exposure*(1-amount*.1f),
+            Warmth=Warmth*(1-amount)+(floodlit?.015f:-.025f)*amount
+        };
+    }
+
     public static VisualProfile For(string name) => name switch
     {
         "Natural" => new(name,new(1,1,1,1),1,32,new(.09f,.22f,.40f,1),new(.76f,.83f,.89f,1),new(.5f,.5f,.5f,1),new(.3f,.3f,.3f,1),1,1,1,0,.32f),

@@ -1,4 +1,4 @@
-# Alpine Vision 1.2.3
+# Alpine Vision 1.2.4
 
 Atmosphere extended with sky, lighting styles, native snow, fog, snowfall, storms, sun shafts and a cinematic finish that integrates with the game's URP renderer.
 
@@ -14,6 +14,12 @@ Hardware ray tracing and all mod shadow/AO overrides have been removed. The mod 
 Visual style and weather are independent. Weather Off only disables weather. The original jibbers_atmosphere.json is imported once into alpinevision_weather.json and retained. Settings persist; removed RT settings are ignored.
 
 The sky's sun enhancement follows the game's directional light. Visual styles change colour and intensity without rotating the sun; a missing light disables the extra disc instead of drawing one at a fixed fallback angle.
+
+## Night
+
+Native time of day controls night lighting. Night style selects Moonlit or Night Skiing; the palette follows the game's night/twilight state. At night, visual styles stop forcing daytime sun/ambient values, the added sun fades out, and clouds use the dark horizon palette.
+
+Efficient night shadows (preview) is opt-in. It prepares tiled shadow-only meshes from the live terrain heightfield while retaining the visible terrain, snow textures/tracks, lamps and moving-object shadows. Native terrain shadow casting switches only after preparation completes; disabling the option, a map change or an error restores it. This caches terrain geometry, not baked lighting or shadow maps. Ruka performance/appearance still needs live comparison; the option defaults off.
 
 ## Rendering
 

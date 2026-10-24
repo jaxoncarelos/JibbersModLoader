@@ -8,6 +8,37 @@ static class RegressionTests
 {
     public static void Run()
     {
+        if(NightCycle.CalculateNightBlend(.9f,.6f,.1f)!=1 || NightCycle.CalculateNightBlend(.2f,.6f,.1f)!=0)
+            throw new Exception("Native night time is interpreted as daylight");
+        var twilight=NightCycle.CalculateNightBlend(.65f,.6f,.1f);
+        if(twilight<.49f || twilight>.51f)throw new Exception("Twilight does not blend smoothly");
+        foreach(var look in new[]{"Natural","Alpine Film","Golden Hour","Bluebird"})
+        foreach(var nightStyle in new[]{"Moonlit","Night Skiing"})
+        {
+            var day=VisualProfile.For(look);
+            var night=day.AtNight(1,nightStyle);
+            if(night.NightAmount!=1 || night.Exposure>day.Exposure || Math.Max(night.SkyTop.R,Math.Max(night.SkyTop.G,night.SkyTop.B))>.05f)
+                throw new Exception("Night palette restores daytime sky brightness: "+look+" / "+nightStyle);
+            if(day.NightAmount!=0 || day.SkyTop==night.SkyTop)throw new Exception("Day profile mutated by night adaptation");
+            var daylight=day.AtNight(0,nightStyle);
+            if(daylight.SkyTop!=day.SkyTop || daylight.Horizon!=day.Horizon || daylight.Exposure!=day.Exposure)
+                throw new Exception("Night palette changed daylight rendering");
+        }
+        Console.WriteLine("PASS native night/twilight blending and both dark night palettes across all visual styles; daylight preserved");
+        var ramp=Enumerable.Range(0,25).Select(index=>(float)(index%5)/4).ToArray();
+        var shadowMesh=TerrainShadowMesh.Build(ramp,5,5,4,4,4,1);
+        if(shadowMesh.Vertices.Length!=25 || shadowMesh.Triangles.Length!=96 || shadowMesh.Triangles.Any(index=>index<0 || index>=25))
+            throw new Exception("Terrain shadow topology is invalid");
+        for(var index=0;index<shadowMesh.Vertices.Length;index++)
+        {
+            var vertex=shadowMesh.Vertices[index];
+            if(Math.Abs(vertex.Y-vertex.X)>.00001f || Math.Abs(shadowMesh.Normals[index].X+.7071068f)>.0001f)
+                throw new Exception("Terrain shadow geometry or normals differ from the source ramp");
+        }
+        var coarseMesh=TerrainShadowMesh.Build(ramp,5,5,4,4,4,2);
+        if(coarseMesh.Vertices.Length!=9 || coarseMesh.Vertices[^1]!=shadowMesh.Vertices[^1])
+            throw new Exception("Terrain shadow simplification loses the boundary");
+        Console.WriteLine("PASS shadow tile topology, ramp heights/normals, simplified boundaries and valid index ranges");
         var alignedSun=SunAlignment.FromLightForward(new(0,-3,4));
         if(Math.Abs(alignedSun.Y-.6f)>.00001f || Math.Abs(alignedSun.Z+.8f)>.00001f || alignedSun.W!=1)
             throw new Exception("Sun enhancement does not follow the native light direction");
