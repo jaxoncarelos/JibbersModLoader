@@ -17,7 +17,9 @@ public static unsafe class Bootstrap
     /// IL2CPP API, then every C# mod. Returns 0 on success.
     /// </summary>
     [UnmanagedCallersOnly]
-    public static int Init(nint api)
+    public static int Init(nint api) => Initialize(api, true);
+
+    internal static int Initialize(nint api, bool loadMods)
     {
         try
         {
@@ -33,7 +35,7 @@ public static unsafe class Bootstrap
             Interop.Il2CppApi.Load();
             AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Info($"dotnet: unhandled {e.ExceptionObject}");
             Log.Info($"dotnet: .NET {Environment.Version} running, SDK {typeof(Bootstrap).Assembly.GetName().Version?.ToString(3)}");
-            ModHost.LoadAll(ModsDir);
+            if (loadMods) ModHost.LoadAll(ModsDir);
             return 0;
         }
         catch (Exception e)

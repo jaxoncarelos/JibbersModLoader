@@ -47,20 +47,21 @@ public static unsafe class Input
     public static bool IsDown(Key key) => IsDown((int)key);
 
     /// <summary>Whether a virtual-key code is held now.</summary>
-    public static bool IsDown(int vk) => vk is > 0 and < 256 && (GetAsyncKeyState(vk) & 0x8000) != 0;
+    public static bool IsDown(int vk) => vk is > 0 and < 256 && (OperatingSystem.IsMacOS() ? PlatformInput.Down(vk) : (GetAsyncKeyState(vk) & 0x8000) != 0);
 
     /// <summary>Whether the game window is in the foreground.</summary>
     public static bool GameFocused
     {
         get
         {
+            if (OperatingSystem.IsMacOS()) return PlatformInput.Focused;
             var w = GetForegroundWindow();
             return w != 0 && GetWindowThreadProcessId(w, out var pid) != 0 && pid == Environment.ProcessId;
         }
     }
 
     /// <summary>The mouse position on screen (pixels).</summary>
-    public static (int X, int Y) MouseScreen => GetCursorPos(out var p) ? (p.X, p.Y) : (0, 0);
+    public static (int X, int Y) MouseScreen => OperatingSystem.IsMacOS() ? PlatformInput.Mouse : GetCursorPos(out var p) ? (p.X, p.Y) : (0, 0);
 
     static Il2CppClass inputField;
     static nint[] fields = Array.Empty<nint>();

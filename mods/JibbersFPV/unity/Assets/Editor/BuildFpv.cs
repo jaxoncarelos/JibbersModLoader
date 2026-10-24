@@ -52,9 +52,10 @@ public static class BuildFpv
         PrefabUtility.SaveAsPrefabAsset(root, Prefab);
         Object.DestroyImmediate(root);
         AssetImporter.GetAtPath(Prefab).assetBundleName = "jibbers_fpv.bundle";
-        string output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../build"));
+        bool mac=System.Environment.GetEnvironmentVariable("JIBBERS_ASSET_PLATFORM")=="macos";
+        string output = Path.GetFullPath(Path.Combine(Application.dataPath, mac?"../../build/macos":"../../build"));
         Directory.CreateDirectory(output);
-        BuildPipeline.BuildAssetBundles(output, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.StandaloneWindows64);
+        BuildPipeline.BuildAssetBundles(output, BuildAssetBundleOptions.ChunkBasedCompression, mac?BuildTarget.StandaloneOSX:BuildTarget.StandaloneWindows64);
         Debug.Log("JibbersFPV bundle built in " + output);
     }
 }

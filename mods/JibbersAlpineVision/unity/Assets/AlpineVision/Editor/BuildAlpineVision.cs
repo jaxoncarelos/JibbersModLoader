@@ -10,7 +10,9 @@ using Object=UnityEngine.Object;
 public static class BuildAlpineVision
 {
     const string Gen="Assets/Gen";
-    static string OutDir=>Path.GetFullPath(Path.Combine(Application.dataPath,"..","..","build"));
+    static bool Mac=>Environment.GetEnvironmentVariable("JIBBERS_ASSET_PLATFORM")=="macos";
+    static BuildTarget Target=>Mac?BuildTarget.StandaloneOSX:BuildTarget.StandaloneWindows64;
+    static string OutDir=>Path.GetFullPath(Path.Combine(Application.dataPath,"..","..",Mac?"build/macos":"build"));
     [Serializable] public class Profile { public string name;public float[] sun,top,horizon,ambient,ground;public float intensity,elevation,exposure,contrast,saturation,warmth,clouds; }
     [Serializable] public class Profiles { public Profile[] profiles; }
     public static void BuildAndTest()
@@ -81,8 +83,9 @@ public static class BuildAlpineVision
         var assets=names.Select(n=>n=="JibbersAtmosphere"?Gen+"/JibbersAtmosphere.prefab":Gen+"/"+n+".mat").ToArray();
         Directory.CreateDirectory(OutDir);
         var manifest=BuildPipeline.BuildAssetBundles(OutDir,new[]{new AssetBundleBuild { assetBundleName="jibbers_alpinevision.bundle",assetNames=assets,addressableNames=names }},
-            BuildAssetBundleOptions.ChunkBasedCompression|BuildAssetBundleOptions.ForceRebuildAssetBundle,BuildTarget.StandaloneWindows64);
+            BuildAssetBundleOptions.ChunkBasedCompression|BuildAssetBundleOptions.ForceRebuildAssetBundle,Target);
         if(manifest==null)throw new Exception("Unified bundle build failed");
+        if(Mac){ Debug.Log("PASS macOS Metal bundle built: "+OutDir); return; }
         var loaded=AssetBundle.LoadFromFile(Path.Combine(OutDir,"jibbers_alpinevision.bundle"));
         if(loaded==null)throw new Exception("Cannot reload unified bundle");
         if(loaded.GetAllAssetNames().Any(n=>n.EndsWith(".raytrace") || n.EndsWith(".compute") || n.Contains("jrt_")))

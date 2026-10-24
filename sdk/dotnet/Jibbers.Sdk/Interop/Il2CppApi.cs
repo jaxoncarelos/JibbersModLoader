@@ -12,8 +12,23 @@ public static unsafe class Il2CppApi
 {
     static nint module;
 
+    [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "dlsym")]
+    static extern nint MacSymbol(nint handle, string symbol);
+
+    static nint MacExport(string name)
+    {
+        var symbol = "il2cpp_" + name;
+        var address = MacSymbol(-2, symbol); // RTLD_DEFAULT: already-loaded game images only.
+        if (address != 0) return address;
+        var path = Environment.GetEnvironmentVariable("JIBBERS_IL2CPP_LIBRARY");
+        if (module == 0 && path is not null) NativeLibrary.TryLoad(path, out module);
+        return module != 0 && NativeLibrary.TryGetExport(module, symbol, out address) ? address : 0;
+    }
+
     static nint Get(string name)
     {
+        if (OperatingSystem.IsMacOS())
+            return MacExport(name) is var p && p != 0 ? p : throw new EntryPointNotFoundException("il2cpp_" + name);
         if (module == 0)
         {
             module = NativeLibrary.Load("GameAssembly.dll");
@@ -23,6 +38,7 @@ public static unsafe class Il2CppApi
 
     static nint TryGet(string name)
     {
+        if (OperatingSystem.IsMacOS()) return MacExport(name);
         if (module == 0)
         {
             module = NativeLibrary.Load("GameAssembly.dll");

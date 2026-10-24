@@ -1249,9 +1249,12 @@ unsafe fn fill_form(parent: *mut Object) -> R<(*mut Object, usize)> {
         let mut open = false;
         il2cpp::invoke(accordion, form as *mut c_void, &mut [il2cpp::string(&name) as *mut c_void, build as *mut c_void, &mut open as *mut bool as _])?;
     }
+    #[cfg(not(target_os = "macos"))]
+    {
     let store = arg_delegate(accordion, 1, on_store as *const () as usize, 0)?;
     let mut closed = false;
     il2cpp::invoke(accordion, form as _, &mut [il2cpp::string("Install and update mods") as _, store as _, &mut closed as *mut bool as _])?;
+    }
     STORE_SEQUENCE.store(jibbers_distribution::manager::snapshot(&crate::game_dir()).catalog.map(|c| c.sequence).unwrap_or(0), std::sync::atomic::Ordering::Relaxed);
     Ok((form, made))
 }

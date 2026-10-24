@@ -8,7 +8,30 @@
 
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::sync::OnceLock;
+#[cfg(windows)]
 use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+
+unsafe fn loaded_export(name: &str) -> Result<*mut c_void, String> {
+    #[cfg(windows)]
+    {
+        let module = GetModuleHandleA(c"GameAssembly.dll".as_ptr() as _);
+        if module.is_null() { return Err("GameAssembly.dll not loaded".into()); }
+        GetProcAddress(module, name.as_ptr()).map(|f| f as *mut c_void).ok_or_else(|| format!("missing export {name:?}"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" { fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void; fn dlopen(path: *const c_char, mode: i32) -> *mut c_void; }
+        let mut symbol = dlsym(-2isize as _, name.as_ptr() as _);
+        if symbol.is_null() {
+            if let Ok(path) = std::env::var("JIBBERS_IL2CPP_LIBRARY") {
+                let path = CString::new(path).map_err(|e| e.to_string())?;
+                let handle = dlopen(path.as_ptr(), 2);
+                if !handle.is_null() { symbol = dlsym(handle, name.as_ptr() as _); }
+            }
+        }
+        if symbol.is_null() { Err(format!("missing loaded macOS export {name:?}")) } else { Ok(symbol) }
+    }
+}
 
 pub type Domain = c_void;
 pub type Assembly = c_void;
@@ -27,15 +50,10 @@ macro_rules! api {
 
         impl Api {
             unsafe fn load() -> Result<Api, String> {
-                let module = GetModuleHandleA(c"GameAssembly.dll".as_ptr() as _);
-                if module.is_null() {
-                    return Err("GameAssembly.dll not loaded".into());
-                }
                 Ok(Api { $(
                     $name: {
                         let sym = concat!("il2cpp_", stringify!($name), "\0");
-                        let f = GetProcAddress(module, sym.as_ptr())
-                            .ok_or_else(|| format!("missing export {}", stringify!($name)))?;
+                        let f = loaded_export(sym)?;
                         std::mem::transmute(f)
                     },
                 )* })

@@ -143,8 +143,10 @@ public static class BuildAtmosphere
     [MenuItem("Jibbers/Build Atmosphere Bundle")]
     public static void Build()
     {
-        PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
-        PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, new[] { GraphicsDeviceType.Direct3D11, GraphicsDeviceType.Direct3D12, GraphicsDeviceType.Vulkan });
+        var mac=System.Environment.GetEnvironmentVariable("JIBBERS_ASSET_PLATFORM")=="macos";
+        var target=mac?BuildTarget.StandaloneOSX:BuildTarget.StandaloneWindows64;
+        PlayerSettings.SetUseDefaultGraphicsAPIs(target, false);
+        PlayerSettings.SetGraphicsAPIs(target, mac?new[]{GraphicsDeviceType.Metal}:new[] { GraphicsDeviceType.Direct3D11, GraphicsDeviceType.Direct3D12, GraphicsDeviceType.Vulkan });
         PlayerSettings.colorSpace = ColorSpace.Linear;
 
         if (AssetDatabase.IsValidFolder(Gen)) AssetDatabase.DeleteAsset(Gen);
@@ -181,7 +183,7 @@ public static class BuildAtmosphere
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();
 
-        var outDir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "build"));
+        var outDir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", mac?"build/macos":"build"));
         Directory.CreateDirectory(outDir);
         var build = new AssetBundleBuild
         {
@@ -191,7 +193,7 @@ public static class BuildAtmosphere
         };
         var manifest = BuildPipeline.BuildAssetBundles(outDir, new[] { build },
             BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.ForceRebuildAssetBundle,
-            BuildTarget.StandaloneWindows64);
+            target);
         if (manifest == null) throw new System.Exception("asset bundle build failed");
         Debug.Log("JibbersAtmosphere bundle built in " + outDir);
     }

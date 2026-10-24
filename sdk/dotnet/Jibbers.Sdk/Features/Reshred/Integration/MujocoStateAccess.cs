@@ -19,7 +19,7 @@ internal sealed unsafe class MujocoStateAccess
     {
         if (stateSize != null)
             return true;
-        if (!NativeLibrary.TryLoad("pcore.dll", out var library))
+        if (!Runtime.GameNativeLibrary.TryLoad("pcore", out var library))
             return false;
         try
         {

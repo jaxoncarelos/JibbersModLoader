@@ -1,0 +1,89 @@
+name: Native macOS preview
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a separate experimental Mac release
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            arch: x86_64
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build the pinned native hook backend
+        run: |
+          git clone --recurse-submodules https://github.com/jmpews/Dobby.git "$RUNNER_TEMP/Dobby"
+          git -C "$RUNNER_TEMP/Dobby" checkout 5dfc8546954ce3b3198132ab13fddb89ee92cdd7
+          git -C "$RUNNER_TEMP/Dobby" submodule update --init --recursive
+          cmake -S mac/native -B out/mac-hooks -DDOBBY_SOURCE="$RUNNER_TEMP/Dobby" -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build out/mac-hooks -j 3
+      - name: Test real native hooks on this Mac architecture
+        run: |
+          test "$(uname -m)" = "${{ matrix.arch }}"
+          ./out/mac-hooks/hook_smoke
+      - name: Build the shared Mods menu for macOS
+        env:
+          JIBBERS_LOADER_VERSION: 0.1.${{ github.run_number }}-mac-preview
+        run: |
+          cargo build --release -p jibbers-macos-ui --target ${{ matrix.target }}
+          mkdir -p out/mac-native
+          cp out/mac-hooks/libjibbers_hooks.dylib target/${{ matrix.target }}/release/libjibbers_macos_ui.dylib out/mac-native/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-native-${{ matrix.arch }}
+          path: out/mac-native/*.dylib
+          if-no-files-found: error
+  package:
+    needs: native
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-native-arm64
+          path: out/mac-native/arm64
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-native-x86_64
+          path: out/mac-native/x86_64
+      - name: Check public source allowlist
+        run: python tools/verify_public_sources.py
+      - name: Build and verify the self-contained Mac tester package
+        run: python tools/package_macos.py --native out/mac-native --version 0.1.${{ github.run_number }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-preview
+          path: |
+            dist/*macOS*.zip
+            dist/Mac-preview-verification.json
+          if-no-files-found: error
+      - name: Publish experimental release without changing the Windows catalog
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create mac-preview-0.1.${{ github.run_number }} dist/*macOS*.zip dist/Mac-preview-verification.json --target '${{ github.sha }}' --title 'Native Mac preview 0.1.${{ github.run_number }}' --prerelease --latest=false --notes-file mac/README.md
