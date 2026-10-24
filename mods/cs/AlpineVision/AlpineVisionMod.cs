@@ -79,7 +79,7 @@ public sealed class AlpineVisionMod : JibbersMod
             ApplySettings();Interlocked.Exchange(ref settingsChanged,1);SynchronizeWeatherMenu();
         });
         SynchronizeWeatherMenu();
-        Log("Alpine Vision 1.2.2 loaded: URP finish, native snow, Atmosphere controls/F10; game shadows retained, no ray tracing or valley cloud banks.");
+        Log("Alpine Vision 1.2.3 loaded: URP finish, native snow, Atmosphere controls/F10; game shadows retained, no ray tracing or valley cloud banks.");
     }
     void ApplySettings()
     {

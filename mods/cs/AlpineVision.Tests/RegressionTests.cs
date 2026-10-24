@@ -1,12 +1,20 @@
 using Jibbers.Sdk;
 using JibbersAlpineVision;
 using JibbersAlpineVision.Weather;
+using JibbersAlpineVision.Rendering;
 using System.Text.Json.Nodes;
 
 static class RegressionTests
 {
     public static void Run()
     {
+        var alignedSun=SunAlignment.FromLightForward(new(0,-3,4));
+        if(Math.Abs(alignedSun.Y-.6f)>.00001f || Math.Abs(alignedSun.Z+.8f)>.00001f || alignedSun.W!=1)
+            throw new Exception("Sun enhancement does not follow the native light direction");
+        foreach(var invalidForward in new[]{default(Vector3),new Vector3(float.NaN,0,0),new Vector3(0,float.PositiveInfinity,0)})
+            if(SunAlignment.FromLightForward(invalidForward).W!=0)
+                throw new Exception("An unavailable sun creates an invented disc");
+        Console.WriteLine("PASS sun enhancement follows the native light direction; unavailable/invalid directions disable the disc");
         var mod=new AlpineVisionMod();
         // No running SDK/main-thread dispatcher: preset changes must publish data and return.
         var changes=Task.Run(()=>{for(int i=0;i<100;i++)mod.OnSettingChanged("look",JsonValue.Create("Golden Hour")!);});

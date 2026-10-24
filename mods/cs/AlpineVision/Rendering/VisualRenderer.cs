@@ -1,7 +1,6 @@
 using Jibbers.Sdk;
 using Jibbers.Sdk.Interop;
 using JibbersAlpineVision.Weather;
-using NQuaternion=System.Numerics.Quaternion;
 
 namespace JibbersAlpineVision.Rendering;
 
@@ -15,7 +14,6 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
     readonly Dictionary<string,Il2CppMethod> methods=new();
     GameRef? oldSky,sun;
     Color oldSunColor,oldAmbientSky,oldAmbientEquator,oldAmbientGround,oldFog;
-    Quaternion oldSunRotation;
     float oldSunIntensity;
     int oldAmbientMode,oldClear;
     bool lightingOwned;
@@ -182,10 +180,9 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
         EnvColor("ambientGroundColor",oldAmbientGround);EnvColor("fogColor",oldFog);
         if(sun is not null && !Unity.IsNull(sun.Target))
         {
-            var c=oldSunColor;var intensity=oldSunIntensity;var rotation=oldSunRotation;
+            var c=oldSunColor;var intensity=oldSunIntensity;
             Need("UnityEngine.Light","set_color","UnityEngine.Color").Invoke(sun.Target,(nint)(&c));
             Need("UnityEngine.Light","set_intensity","System.Single").Invoke(sun.Target,(nint)(&intensity));
-            Need("UnityEngine.Transform","set_rotation","UnityEngine.Quaternion").Invoke(Unity.Transform(sun.Target),(nint)(&rotation));
         }
         sun?.Dispose();sun=null;lightingOwned=false;
     }
@@ -216,18 +213,17 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
                     sun?.Dispose();
                     sun=new(light);oldSunColor=Need("UnityEngine.Light","get_color").Invoke<Color>(light);
                     oldSunIntensity=Need("UnityEngine.Light","get_intensity").Invoke<float>(light);
-                    oldSunRotation=Need("UnityEngine.Transform","get_rotation").Invoke<Quaternion>(Unity.Transform(light));
                 }
                 var c=p.Sun;var intensity=p.SunIntensity;
-                var q=NQuaternion.CreateFromYawPitchRoll(155*MathF.PI/180,p.Elevation*MathF.PI/180,0);
-                var rotation=new Quaternion(q.X,q.Y,q.Z,q.W);
                 Need("UnityEngine.Light","set_color","UnityEngine.Color").Invoke(light,(nint)(&c));
                 Need("UnityEngine.Light","set_intensity","System.Single").Invoke(light,(nint)(&intensity));
-                Need("UnityEngine.Transform","set_rotation","UnityEngine.Quaternion").Invoke(Unity.Transform(light),(nint)(&rotation));
             }
         }
-        var (direction,_) = UnitySkyLighting.ReadSunlight();
-        Vector(sky.Target,"_AV_Sun",new(direction.X,direction.Y,direction.Z,0));
+        // Follow the same light the game uses. Never move it to a preset-specific angle,
+        // or draw a second disc at ReadSunlight's fallback direction when get_sun is unset.
+        var sunAlignment=Unity.IsNull(light)?default:
+            SunAlignment.FromLightForward(Need("UnityEngine.Transform","get_forward").Invoke<Vector3>(Unity.Transform(light)));
+        Vector(sky.Target,"_AV_Sun",sunAlignment);
         Vector(sky.Target,"_AV_Zenith",new(p.SkyTop.R,p.SkyTop.G,p.SkyTop.B,1));
         var horizon=p.Name=="Natural"?UnitySkyLighting.ReadFogColor():p.Horizon;
         Vector(sky.Target,"_AV_Horizon",new(horizon.R,horizon.G,horizon.B,1));

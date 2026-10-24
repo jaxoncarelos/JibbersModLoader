@@ -15,7 +15,46 @@ public static class BuildAlpineVision
     [Serializable] public class Profiles { public Profile[] profiles; }
     public static void BuildAndTest()
     {
-        Build();Test();TestUrp();
+        Build();Test();TestUrp();TestSunAlignment();
+    }
+    public static void TestSunAlignment()
+    {
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
+        GraphicsSettings.defaultRenderPipeline=null;QualitySettings.renderPipeline=null;
+        var camera=new GameObject("SunAlignmentCamera").AddComponent<Camera>();
+        camera.clearFlags=CameraClearFlags.Skybox;camera.fieldOfView=30;
+        var target=new RenderTexture(128,128,24,RenderTextureFormat.ARGBHalf);target.Create();
+        camera.targetTexture=target;
+        var material=new Material(Shader.Find("AlpineVision/AlpineSky"));
+        material.SetColor("_AV_Zenith",Color.black);material.SetColor("_AV_Horizon",Color.black);
+        material.SetVector("_AV_Clouds",Vector4.zero);RenderSettings.skybox=material;
+        var light=new GameObject("NativeSun").AddComponent<Light>();light.type=LightType.Directional;
+        RenderSettings.sun=light;
+        float CenterBrightness()
+        {
+            camera.Render();var previous=RenderTexture.active;RenderTexture.active=target;
+            var image=new Texture2D(128,128,TextureFormat.RGBAFloat,false,true);
+            image.ReadPixels(new Rect(0,0,128,128),0,0);image.Apply();
+            var brightness=image.GetPixel(64,64).maxColorComponent;
+            Object.DestroyImmediate(image);RenderTexture.active=previous;return brightness;
+        }
+        foreach(var rotation in new[]{new Vector3(17,155,0),new Vector3(48,30,0),new Vector3(32,260,0)})
+        {
+            light.transform.rotation=Quaternion.Euler(rotation);
+            var direction=-light.transform.forward;
+            material.SetVector("_AV_Sun",new Vector4(direction.x,direction.y,direction.z,1));
+            camera.transform.rotation=Quaternion.LookRotation(direction);
+            if(CenterBrightness()<1)throw new Exception("Enhanced sun is not centred on the native light: "+rotation);
+            camera.transform.rotation=Quaternion.LookRotation(-direction);
+            if(CenterBrightness()>.01f)throw new Exception("Enhanced sun appears away from the native light");
+        }
+        material.SetVector("_AV_Sun",Vector4.zero);
+        camera.transform.rotation=Quaternion.LookRotation(Vector3.up,Vector3.forward);
+        if(CenterBrightness()>.01f)throw new Exception("Unavailable native sun draws a fallback disc");
+        RenderSettings.skybox=null;RenderSettings.sun=null;camera.targetTexture=null;
+        target.Release();Object.DestroyImmediate(target);Object.DestroyImmediate(material);
+        Object.DestroyImmediate(camera.gameObject);Object.DestroyImmediate(light.gameObject);
+        Debug.Log("PASS sun enhancement follows three native light angles; no opposite or fallback sun.");
     }
     public static void Build()
     {
@@ -237,16 +276,17 @@ public static class BuildAlpineVision
         reports.Add($"Device {SystemInfo.graphicsDeviceType}; AfterImageEffects={(int)CameraEvent.AfterImageEffects}; Trilight={(int)AmbientMode.Trilight}; ARGBHalf={(int)RenderTextureFormat.ARGBHalf}");
         foreach(var p in profiles)
         {
-            // Profiles extend the map lighting rather than replacing its ambient probes/sun angle.
+            // Profiles change colour/intensity; the game's sun angle remains authoritative.
             if(p.name!="Natural")
             {
-                sun.color=C(p.sun);sun.intensity=p.intensity;sun.transform.rotation=Quaternion.Euler(p.elevation,155,0);
+                sun.color=C(p.sun);sun.intensity=p.intensity;
                 RenderSettings.ambientMode=AmbientMode.Trilight;RenderSettings.ambientSkyColor=C(p.ambient);
                 RenderSettings.ambientEquatorColor=C(p.ambient)*.8f;RenderSettings.ambientGroundColor=C(p.ground);
             }
             RenderSettings.skybox=sky;cam.clearFlags=CameraClearFlags.Skybox;
             sky.SetVector("_AV_Zenith",C(p.top));sky.SetVector("_AV_Horizon",C(p.horizon));
-            sky.SetVector("_AV_Sun",-sun.transform.forward);sky.SetVector("_AV_Clouds",new Vector4(p.clouds,0,0,0));
+            var sunDirection=-sun.transform.forward;
+            sky.SetVector("_AV_Sun",new Vector4(sunDirection.x,sunDirection.y,sunDirection.z,1));sky.SetVector("_AV_Clouds",new Vector4(p.clouds,0,0,0));
             cb.Clear();cb.SetGlobalTexture("_AV_SceneSource",BuiltinRenderTextureType.CameraTarget);
             cb.SetRenderTarget(scene);cb.DrawProcedural(Matrix4x4.identity,copy,0,MeshTopology.Triangles,3);
             cb.SetGlobalVector("_AV_Grade",new Vector4(p.exposure,p.contrast,p.saturation,p.warmth));

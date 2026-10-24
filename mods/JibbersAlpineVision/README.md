@@ -1,4 +1,4 @@
-# Alpine Vision 1.2.2
+# Alpine Vision 1.2.3
 
 Atmosphere extended with sky, lighting styles, native snow, fog, snowfall, storms, sun shafts and a cinematic finish that integrates with the game's URP renderer.
 
@@ -12,6 +12,8 @@ Hardware ray tracing and all mod shadow/AO overrides have been removed. The mod 
 - Default game snow textures, normals, tiling and tracks remain. Valley cloud banks are removed.
 
 Visual style and weather are independent. Weather Off only disables weather. The original jibbers_atmosphere.json is imported once into alpinevision_weather.json and retained. Settings persist; removed RT settings are ignored.
+
+The sky's sun enhancement follows the game's directional light. Visual styles change colour and intensity without rotating the sun; a missing light disables the extra disc instead of drawing one at a fixed fallback angle.
 
 ## Rendering
 
