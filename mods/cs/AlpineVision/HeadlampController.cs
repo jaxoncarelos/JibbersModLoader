@@ -25,9 +25,14 @@ internal sealed unsafe class HeadlampController(Action<string> log) : IDisposabl
                     Dispose();
                 return;
             }
-            if (spawner is null || Unity.IsNull(spawner.Target))
+            if (spawner is not null && (Unity.IsNull(spawner.Target)
+                || !Unity.Call<bool>(Unity.Call(spawner.Target, "get_gameObject"), "get_activeInHierarchy")))
             {
                 Dispose();
+                discoveryDelay = 0;
+            }
+            if (spawner is null)
+            {
                 if (discoveryDelay-- > 0)
                     return;
                 discoveryDelay = 60;
