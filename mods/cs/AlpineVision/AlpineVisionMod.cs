@@ -16,6 +16,7 @@ public sealed class AlpineVisionMod : JibbersMod
     public override IEnumerable<Setting> Settings=>new[] {
         Setting.Choice("look","Visual style",new[]{"Natural","Alpine Film","Golden Hour","Bluebird"},"Natural"),
         Setting.Choice("nightLook","Night style",new[]{"Moonlit","Night Skiing"},"Moonlit"),
+        Setting.Toggle("headlamp","Headlamp (Ctrl+L)",true),
         Setting.Toggle("nightTerrainShadows","Efficient night shadows (preview)",false),
         Setting.Choice("quality","Quality",new[]{"Performance","Balanced","Ultra"},"Balanced"),
         Setting.Slider("weather","Atmosphere strength",1,0,1.5,.05),
@@ -27,6 +28,7 @@ public sealed class AlpineVisionMod : JibbersMod
     AtmosphereRuntime? weather;
     VisualRenderer? visuals;
     TerrainShadowProxy? nightShadows;
+    HeadlampController? headlamp;
     bool unloaded;
     bool finishReady;
     JsonObject? atmosphereBase;
@@ -61,6 +63,7 @@ public sealed class AlpineVisionMod : JibbersMod
         ApplySettings();
         visuals=new VisualRenderer(Log);
         nightShadows=new TerrainShadowProxy(Log);
+        headlamp=new HeadlampController(Log);
         weather=new AtmosphereRuntime(configuration,AtmosphereGameServices.Create(Log,()=>visuals.Bundle),()=>Enabled,Log);
         weather.Start();
         Follow.LateUpdateMethod.Around((self,original)=>
@@ -68,6 +71,7 @@ public sealed class AlpineVisionMod : JibbersMod
             original(); if(unloaded || !Enabled) return;
             // Observe after the game's Update, so switching time cannot reapply a stale daytime profile.
             NightCycle.Refresh();
+            headlamp.Update(GetBool("headlamp"));
             if(Interlocked.Exchange(ref settingsChanged,0)!=0)weather?.ConfigurationChanged(false);
             var profile=VisualProfile.For(GetString("look")).AtNight(NightCycle.NightBlend,GetString("nightLook"));
             var quality=GetString("quality");
@@ -78,7 +82,8 @@ public sealed class AlpineVisionMod : JibbersMod
                 finishReady=visuals.IsRendering;ApplySettings();weather?.ConfigurationChanged(false);
             }
         });
-        Jibbers.Sdk.Game.Map.LoadEvent.Subscribe(_=>Cleanup.Run(()=>nightShadows?.Reset(),()=>visuals?.SceneChanged()));
+        Jibbers.Sdk.Game.Map.LoadEvent.Subscribe(_=>Cleanup.Run(()=>headlamp?.Dispose(),()=>nightShadows?.Reset(),()=>visuals?.SceneChanged()));
+        Input.OnPressed(Key.L,()=>SetSetting("headlamp",JsonValue.Create(!GetBool("headlamp"))!),Key.Control);
         Input.OnSetting(this,"cycleKey",()=>
         {
             if(!GetBool("hotkeys"))return;
@@ -86,7 +91,7 @@ public sealed class AlpineVisionMod : JibbersMod
             ApplySettings();Interlocked.Exchange(ref settingsChanged,1);SynchronizeWeatherMenu();
         });
         SynchronizeWeatherMenu();
-        Log("Alpine Vision 1.2.4 loaded: native night lighting, Moonlit/Night Skiing palettes, opt-in efficient terrain shadows; native snow and rider shadows retained.");
+        Log("Alpine Vision 1.2.5 loaded: Ctrl+L toggles your headlamp; native night lighting, Moonlit/Night Skiing palettes, opt-in efficient terrain shadows.");
     }
     void ApplySettings()
     {
@@ -96,6 +101,11 @@ public sealed class AlpineVisionMod : JibbersMod
     }
     public override void OnSettingChanged(string key,JsonNode value)
     {
+        if(key=="headlamp")
+        {
+            Log("Headlamp " + (GetBool("headlamp") ? "enabled" : "disabled") + "; saved for future launches.");
+            return;
+        }
         if(WeatherKeys.Contains(key))
         {
             var change=weatherControls.ApplyMenuSetting(key,value);
@@ -110,7 +120,7 @@ public sealed class AlpineVisionMod : JibbersMod
         if(key=="enabled")MainThread.Later(()=>
         {
             if(unloaded)return;
-            if(!Enabled)Cleanup.Run(()=>nightShadows?.Reset(),()=>weather?.Disable(),()=>visuals?.Suspend());
+            if(!Enabled)Cleanup.Run(()=>headlamp?.Dispose(),()=>nightShadows?.Reset(),()=>weather?.Disable(),()=>visuals?.Suspend());
         });
     }
     public override JsonNode? OnCommand(string cmd,JsonObject request)=>cmd!="alpinevision.status"?null:
@@ -118,12 +128,13 @@ public sealed class AlpineVisionMod : JibbersMod
             ["enabled"]=Enabled,["look"]=GetString("look"),["quality"]=GetString("quality"),
             ["weather_preset"]=AtmosphereModes.Current(weatherControls.Capture().Values),
             ["native_time"]=NightCycle.NormalizedTime,["night_blend"]=NightCycle.NightBlend,
+            ["headlamp"]=GetBool("headlamp"),
             ["terrain_shadows"]=nightShadows?.Status,
             ["visuals"]=visuals?.Status,
             ["weather_spawned"]=weather?.Status.Spawned,["weather_error"]=weather?.Status.Error });
     public override void OnUnload()
     {
-        unloaded=true; MainThread.Run(()=>Cleanup.Run(()=>nightShadows?.Dispose(),()=>weather?.Dispose(),()=>visuals?.Dispose()));
+        unloaded=true; MainThread.Run(()=>Cleanup.Run(()=>headlamp?.Dispose(),()=>nightShadows?.Dispose(),()=>weather?.Dispose(),()=>visuals?.Dispose()));
     }
 }
 

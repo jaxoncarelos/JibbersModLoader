@@ -65,7 +65,7 @@ try {
                 $assetPath = if ($entry.folder -eq 'AlpineVision') { 'JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle' } else { $entry.asset }
                 Extract-Entry $mods $entry.asset "$payload/$assetPath"; $files += $assetPath
             }
-            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.4' } else { $Version }
+            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.5' } else { $Version }
             $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }

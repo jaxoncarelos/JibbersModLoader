@@ -1,4 +1,4 @@
-# Alpine Vision 1.2.4
+# Alpine Vision 1.2.5
 
 Atmosphere extended with sky, lighting styles, native snow, fog, snowfall, storms, sun shafts and a cinematic finish that integrates with the game's URP renderer.
 
@@ -14,6 +14,8 @@ Hardware ray tracing and all mod shadow/AO overrides have been removed. The mod 
 Visual style and weather are independent. Weather Off only disables weather. The original jibbers_atmosphere.json is imported once into alpinevision_weather.json and retained. Settings persist; removed RT settings are ignored.
 
 The sky's sun enhancement follows the game's directional light. Visual styles change colour and intensity without rotating the sun; a missing light disables the extra disc instead of drawing one at a fixed fallback angle.
+
+Ctrl+L toggles your rider's headlamp. The Headlamp option in the Mods menu follows the same saved preference. Turning it back on restores native day/night activation; other riders and map lamps are untouched.
 
 ## Night
 
