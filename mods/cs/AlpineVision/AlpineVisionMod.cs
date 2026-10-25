@@ -91,7 +91,7 @@ public sealed class AlpineVisionMod : JibbersMod
             ApplySettings();Interlocked.Exchange(ref settingsChanged,1);SynchronizeWeatherMenu();
         });
         SynchronizeWeatherMenu();
-        Log("Alpine Vision 1.2.5 loaded: Ctrl+L toggles your headlamp; native night lighting, Moonlit/Night Skiing palettes, opt-in efficient terrain shadows.");
+        Log("Alpine Vision 1.2.6 loaded: Ctrl+L toggles your headlamp; native night lighting, Moonlit/Night Skiing palettes, opt-in efficient terrain shadows.");
     }
     void ApplySettings()
     {

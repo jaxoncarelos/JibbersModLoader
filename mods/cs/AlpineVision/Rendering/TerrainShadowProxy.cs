@@ -20,6 +20,7 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
     GameRef? material;
     int surfaceIndex,tileIndex,validationFrames;
     bool initialized,ready,active,failed,restoreNeeded;
+    bool diagnosticsReported;
     float spacing;
 
     public string Status=>failed?"unavailable; native shadows retained":ready?active?"active":"ready":initialized?"preparing":"idle";
@@ -45,6 +46,11 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
             if(initialized && spacing!=requestedSpacing)Dispose();
             if(!initialized)
             {
+                if(!diagnosticsReported)
+                {
+                    diagnosticsReported=true;
+                    NightShadowDiagnostics.Report(log);
+                }
                 Initialize(bundle,requestedSpacing);
                 if(!initialized)return;
             }
@@ -59,7 +65,7 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
                     || Unity.Position(surface.Terrain.Target)!=surface.Position
                     || Unity.Call<Vector3>(surface.Data.Target,"get_size")!=surface.Size
                     || !Unity.Call<bool>(surface.Terrain.Target,"get_enabled")
-                    || !Unity.Call<bool>(surface.Terrain.Target,"get_drawHeightmap")
+                    || !DrawsHeightmap(surface.Terrain.Target)
                     || ReadHeightmapVersion(surface.Data.Target)!=surface.HeightmapVersion))
                 {
                     Reset();return;
@@ -81,7 +87,7 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
         if(terrainObjects.Count==0)return;
         foreach(var terrain in terrainObjects)
         {
-            if(!Unity.Call<bool>(terrain,"get_enabled") || !Unity.Call<bool>(terrain,"get_drawHeightmap"))continue;
+            if(!Unity.Call<bool>(terrain,"get_enabled") || !DrawsHeightmap(terrain))continue;
             var data=Unity.Call(terrain,"get_terrainData");
             if(Unity.IsNull(data))continue;
             var originalShadowMode=Unity.Call<int>(terrain,"get_shadowCastingMode");
@@ -106,6 +112,15 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
         material=new(source);
         spacing=requestedSpacing;initialized=true;
         log("Preparing tiled terrain shadow geometry; native terrain remains active until ready.");
+    }
+
+    static bool DrawsHeightmap(nint terrain)
+    {
+        // Some player builds retain the setter but strip this optional visibility getter.
+        // Importer terrain membership and Behaviour.enabled remain authoritative here;
+        // this preview never changes the terrain's native visibility setting.
+        var getter=Il2Cpp.ClassOf(terrain).Method("get_drawHeightmap",0);
+        return getter.IsNull || getter.Invoke<bool>(terrain);
     }
 
     void BuildNextTile()
@@ -223,5 +238,5 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
             initialized=ready=active=restoreNeeded=false;surfaceIndex=tileIndex=validationFrames=0;
         }
     }
-    public void Reset() { Dispose();failed=false; }
+    public void Reset() { Dispose();failed=false;diagnosticsReported=false; }
 }
