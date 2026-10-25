@@ -24,7 +24,7 @@ internal static class NightShadowDiagnostics
     static void ReportTerrainContract(Action<string> log)
     {
         var requirements = new Dictionary<string, string[]> {
-            ["UnityEngine.Terrain"] = new[] { "get_terrainData", "get_shadowCastingMode", "set_shadowCastingMode" },
+            ["UnityEngine.Terrain"] = new[] { "get_terrainData" },
             ["UnityEngine.TerrainData"] = new[] { "get_size", "get_heightmapResolution", "GetHeights" },
             ["UnityEngine.Mesh"] = new[] { ".ctor", "set_vertices", "set_normals", "set_triangles", "RecalculateBounds" },
             ["UnityEngine.MeshFilter"] = new[] { "set_sharedMesh" },
@@ -36,6 +36,8 @@ internal static class NightShadowDiagnostics
             var missing = methodNames.Where(name => nativeClass.Method(name).IsNull).ToArray();
             log("Night shadow API " + className + ": " + (missing.Length == 0 ? "available" : "missing " + string.Join(", ", missing)));
         }
+        foreach (var name in new[] { "get_shadowCastingMode_Injected", "set_shadowCastingMode_Injected", "get_drawHeightmap_Injected" })
+            log("Night shadow engine binding " + name + ": " + (Il2Cpp.ICall("UnityEngine.Terrain::" + name) != 0 ? "available" : "unavailable"));
     }
 
     static void ReportLocalRider(Action<string> log)

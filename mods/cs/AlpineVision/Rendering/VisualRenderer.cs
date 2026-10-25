@@ -96,7 +96,7 @@ internal sealed unsafe class VisualRenderer(Action<string> log) : IDisposable
         LoadMaterials();
         var cb=api.CommandBufferClass.New();api.BufferCtor.Invoke(cb);buffer=new(cb);
         api.BufferName.Invoke(cb,Il2Cpp.String("Alpine Vision / bloom + film finish"));
-        log("Unified visual bundle loaded; sky, weather, native snow and film finish available; no shadow overrides.");
+        log("Unified visual bundle loaded; sky, weather, native snow and film finish available.");
     }
     nint Target(nint texture)=>api.TargetFromTexture.Invoke(0,texture)+2*sizeof(nint);
     nint Builtin(int target)=>api.TargetFromBuiltin.Invoke(0,(nint)(&target))+2*sizeof(nint);

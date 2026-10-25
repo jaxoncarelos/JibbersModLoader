@@ -8,6 +8,7 @@ static class RegressionTests
 {
     public static void Run()
     {
+        TerrainShadowBindingTests.Run();
         if(NightCycle.CalculateNightBlend(.9f,.6f,.1f)!=1 || NightCycle.CalculateNightBlend(.2f,.6f,.1f)!=0)
             throw new Exception("Native night time is interpreted as daylight");
         var twilight=NightCycle.CalculateNightBlend(.65f,.6f,.1f);

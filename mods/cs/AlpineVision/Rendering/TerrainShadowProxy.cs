@@ -18,6 +18,7 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
     readonly List<Surface> surfaces=new();
     readonly List<GameRef> gameObjects=new(),meshes=new();
     GameRef? material;
+    TerrainShadowProperties? properties;
     int surfaceIndex,tileIndex,validationFrames;
     bool initialized,ready,active,failed,restoreNeeded;
     bool diagnosticsReported;
@@ -65,7 +66,7 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
                     || Unity.Position(surface.Terrain.Target)!=surface.Position
                     || Unity.Call<Vector3>(surface.Data.Target,"get_size")!=surface.Size
                     || !Unity.Call<bool>(surface.Terrain.Target,"get_enabled")
-                    || !DrawsHeightmap(surface.Terrain.Target)
+                    || !properties!.DrawsHeightmap(surface.Terrain.Target)
                     || ReadHeightmapVersion(surface.Data.Target)!=surface.HeightmapVersion))
                 {
                     Reset();return;
@@ -85,12 +86,13 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
     {
         var terrainObjects=UnityTerrain.MapTerrains();
         if(terrainObjects.Count==0)return;
+        properties??=new TerrainShadowProperties();
         foreach(var terrain in terrainObjects)
         {
-            if(!Unity.Call<bool>(terrain,"get_enabled") || !DrawsHeightmap(terrain))continue;
+            if(!Unity.Call<bool>(terrain,"get_enabled") || !properties.DrawsHeightmap(terrain))continue;
             var data=Unity.Call(terrain,"get_terrainData");
             if(Unity.IsNull(data))continue;
-            var originalShadowMode=Unity.Call<int>(terrain,"get_shadowCastingMode");
+            var originalShadowMode=properties.GetShadowMode(terrain);
             if(originalShadowMode==0)continue;
             var size=Unity.Call<Vector3>(data,"get_size");
             var scale=Unity.Call<Vector3>(Unity.Transform(terrain),"get_lossyScale");
@@ -112,15 +114,6 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
         material=new(source);
         spacing=requestedSpacing;initialized=true;
         log("Preparing tiled terrain shadow geometry; native terrain remains active until ready.");
-    }
-
-    static bool DrawsHeightmap(nint terrain)
-    {
-        // Some player builds retain the setter but strip this optional visibility getter.
-        // Importer terrain membership and Behaviour.enabled remain authoritative here;
-        // this preview never changes the terrain's native visibility setting.
-        var getter=Il2Cpp.ClassOf(terrain).Method("get_drawHeightmap",0);
-        return getter.IsNull || getter.Invoke<bool>(terrain);
     }
 
     void BuildNextTile()
@@ -198,7 +191,7 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
         {
             var restoration=surfaces.Select(surface=>(Action)(()=>
             {
-                if(!Unity.IsNull(surface.Terrain.Target))SetInt(surface.Terrain.Target,"set_shadowCastingMode",surface.OriginalShadowMode);
+                if(!Unity.IsNull(surface.Terrain.Target))properties!.SetShadowMode(surface.Terrain.Target,surface.OriginalShadowMode);
             })).Concat(gameObjects.Select(gameObject=>(Action)(()=>
             {
                 if(!Unity.IsNull(gameObject.Target))SetBool(gameObject.Target,"SetActive",false);
@@ -209,7 +202,7 @@ internal sealed unsafe class TerrainShadowProxy(Action<string> log) : IDisposabl
         if(value)restoreNeeded=true;
         // Switch only after every tile is ready. Restoration always precedes destruction.
         foreach(var surface in surfaces)
-            if(!Unity.IsNull(surface.Terrain.Target))SetInt(surface.Terrain.Target,"set_shadowCastingMode",value?0:surface.OriginalShadowMode);
+            if(!Unity.IsNull(surface.Terrain.Target))properties!.SetShadowMode(surface.Terrain.Target,value?0:surface.OriginalShadowMode);
         foreach(var gameObject in gameObjects)
             if(!Unity.IsNull(gameObject.Target))SetBool(gameObject.Target,"SetActive",value);
         active=value;
