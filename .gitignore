@@ -18,10 +18,24 @@
 /mods/cs/FastLoad/
 /mods/cs/Filmer/
 /mods/cs/SkiSmooth/
+/mods/cs/FrameDoctor/
+/mods/cs/FrameDoctor.Tests/
+/mods/cs/House/
+/mods/cs/House.Tests/
+/mods/cs/RayTracing/
+/mods/cs/RayTracing.Tests/
+/mods/JibbersRayTracing/
 
-# Rust asset-generator source is not a managed build output directory.
-!/mods/JibbersFPV/src/bin/
-!/mods/JibbersFPV/src/bin/*.rs
+# Unity editor caches of the asset projects.
+/mods/*/unity/Library/
+/mods/*/unity/Logs/
+/mods/*/unity/Temp/
+/mods/*/unity/UserSettings/
+
+# Local scratch output.
+/*.log
+/alpinevision_weather.json
+
 
 /mods/JibbersAlpineVision/unity/Library/
 /mods/JibbersAlpineVision/unity/Logs/

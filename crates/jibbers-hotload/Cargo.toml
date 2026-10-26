@@ -3,7 +3,7 @@ name = "jibbers-hotload"
 version = "0.2.1"
 license = "GPL-3.0-only"
 edition = "2021"
-description = "In-game hotload mod for Jibbers: a version.dll proxy that loads the hotload core into the game"
+description = "Mod loader for Jibbers: a version.dll proxy that loads plugins and the C# runtime into the game"
 
 [lib]
 # Built as version.dll so UnityPlayer.dll loads it from the game folder.

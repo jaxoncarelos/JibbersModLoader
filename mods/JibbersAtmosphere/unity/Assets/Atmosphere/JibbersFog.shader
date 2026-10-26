@@ -6,7 +6,7 @@
 // sea fills the valleys (a raymarched height slab of drifting noise outside the map's rectangle that
 // stops at the scene depth, so it meets the terrain softly). At high speed a faint cold frost creeps in at the screen edges.
 // Globals come
-// from the hotload core; they all default to 0, so nothing is drawn until the core turns it on.
+// from the Atmosphere mod; they all default to 0, so nothing is drawn until the mod turns it on.
 Shader "Hidden/JibbersAtmosphere/Fog"
 {
     SubShader

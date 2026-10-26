@@ -3,7 +3,7 @@
 //     kickers, the rider, buildings on the snow). Gentle terrain curvature never qualifies.
 //   - Cloud shadows: soft domain-warped cloud shapes projected along the sun, only on sunlit slopes.
 // Both tint towards cool blue rather than grey, like shade on real snow. Globals come from the
-// hotload core; with both strengths at 0 the pass draws nothing.
+// mod; with both strengths at 0 the pass draws nothing.
 Shader "Hidden/JibbersAtmosphere/Shade"
 {
     SubShader

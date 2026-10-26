@@ -12,10 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jibbers.Sdk\Jibbers.Sdk.csproj" />
-    <!-- The C# mod ports, for their game-free logic (camera math, smoothing, ...). -->
-    <ProjectReference Include="..\..\..\mods\cs\Reshred\Reshred.csproj" />
-    <ProjectReference Include="..\..\..\mods\cs\Atmosphere\Atmosphere.csproj" />
-    <ProjectReference Include="..\..\..\mods\cs\FPV\FPV.csproj" />
   </ItemGroup>
 
 

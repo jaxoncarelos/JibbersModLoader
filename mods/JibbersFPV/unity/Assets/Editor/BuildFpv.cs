@@ -2,7 +2,7 @@
 // (Motor and Wind loops, Crash one-shot). The game strips AudioClip.Create and most AudioSource
 // setters, so everything except pitch and volume is set up here. Run headless:
 //   Unity.exe -batchmode -quit -projectPath mods/JibbersFPV/unity -executeMethod BuildFpv.Build
-// after `cargo run --release --offline --bin write_sounds` has written Assets/Audio/*.wav.
+// Assets/Audio/*.wav are rendered by FPV.Tests (set JIBBERS_WRITE_SOUNDS=1 to re-render them).
 // The bundle lands in mods/JibbersFPV/build/.
 using System.IO;
 using UnityEditor;
@@ -16,7 +16,7 @@ public static class BuildFpv
     {
         string path = $"Assets/Audio/{name}.wav";
         var importer = (AudioImporter)AssetImporter.GetAtPath(path);
-        if (importer == null) throw new System.Exception($"{path} missing: run the write_sounds asset tool first");
+        if (importer == null) throw new System.Exception($"{path} missing: render it with JIBBERS_WRITE_SOUNDS=1 dotnet run --project mods/cs/FPV.Tests");
         var settings = importer.defaultSampleSettings;
         settings.loadType = AudioClipLoadType.DecompressOnLoad; // seamless loops, cheap pitch changes
         settings.compressionFormat = AudioCompressionFormat.PCM;

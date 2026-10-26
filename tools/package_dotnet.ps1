@@ -37,7 +37,7 @@ try {
     Run cargo @('build', '--release', '-p', 'jibbers-hotload', '-p', 'jibbers-bootstrap', '--features', 'release', '--target-dir', 'target/mod-release/loader')
     Run cargo @('build', '--release', '-p', 'jibbers-dotnet-bridge') $sdk
     Run dotnet @('build', 'Jibbers.Sdk', '-c', 'Release', '-nologo', '-v', 'q') $dotnet
-    if (-not $SkipTests) { Run dotnet @('run', '--project', 'Jibbers.Sdk.Tests', '-c', 'Release', '-p:JibbersNoInstall=true') $dotnet; Run dotnet @('run','--project','mods/cs/AlpineVision.Tests','-c','Release','-p:JibbersNoInstall=true') $root }
+    if (-not $SkipTests) { Run dotnet @('run', '--project', 'Jibbers.Sdk.Tests', '-c', 'Release', '-p:JibbersNoInstall=true') $dotnet }
     # The template and the examples must build against the SDK (without installing into a game).
     foreach ($p in @('template/MyMod') + (Get-ChildItem (Join-Path $dotnet 'examples') -Directory | ForEach-Object { 'examples/' + $_.Name })) {
         Run dotnet @('build', $p, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true', "-p:JibbersSdk=$dotnet/Jibbers.Sdk/bin/Release/net8.0/Jibbers.Sdk.dll") $dotnet
@@ -47,6 +47,11 @@ try {
     $ports = @($publicNames | ForEach-Object { Get-Item -LiteralPath (Join-Path $root "mods/cs/$_") })
     foreach ($p in $ports) {
         Run dotnet @('build', $p.FullName, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true') $root
+    }
+    # Every public mod source, shipped or not, has its own test project.
+    $sourceNames = $publicNames + @('Atmosphere')
+    if (-not $SkipTests) {
+        foreach ($n in $sourceNames) { Run dotnet @('run', '--project', "mods/cs/$n.Tests", '-c', 'Release', '-p:JibbersNoInstall=true') $root }
     }
 
     $loader = Join-Path $root 'target/mod-release/loader/release/jibbers_bootstrap.dll'
@@ -96,21 +101,17 @@ try {
     Copy-Item -LiteralPath (Join-Path $sdkBin 'Jibbers.Sdk.dll'), (Join-Path $sdkBin 'Jibbers.Sdk.xml') -Destination (Join-Path $kit 'lib')
     Copy-Item -LiteralPath (Join-Path $sdk 'crates/jibbers-mod-sdk/symbols.json') -Destination (Join-Path $kit 'symbols.json')
     New-Item -ItemType Directory -Path (Join-Path $kit 'mods') -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $root 'mods/cs/Directory.Build.props') -Destination (Join-Path $kit 'mods')
-    foreach ($p in $ports) {
-        & robocopy $p.FullName (Join-Path $kit "mods/$($p.Name)") /E /XD bin obj /NFL /NDL /NJH /NJS /NP | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
+    Copy-Item -LiteralPath (Join-Path $root 'mods/cs/Directory.Build.props'), (Join-Path $root 'mods/cs/TestRunner.cs'), (Join-Path $root 'mods/cs/README.md') -Destination (Join-Path $kit 'mods')
+    foreach ($n in $sourceNames) {
+        foreach ($name in @($n, "$n.Tests")) {
+            & robocopy (Join-Path $root "mods/cs/$name") (Join-Path $kit "mods/$name") /E /XD bin obj /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
+        }
     }
     $global:LASTEXITCODE = 0
     # The kit's mods build against the kit's lib/ instead of the repo's SDK build.
     $props = Join-Path $kit 'mods/Directory.Build.props'
     (Get-Content -LiteralPath $props -Raw).Replace('..\..\sdk\dotnet\Jibbers.Sdk\bin\Release\net8.0\Jibbers.Sdk.dll', '..\lib\Jibbers.Sdk.dll') | Set-Content -LiteralPath $props -Encoding utf8
-
-    & robocopy (Join-Path $root 'mods/cs/Atmosphere') (Join-Path $kit 'mods/Atmosphere') /E /XD bin obj /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw 'Legacy feature test source copy failed' }
-    $global:LASTEXITCODE = 0
-    $tests = Join-Path $kit 'Jibbers.Sdk.Tests/Jibbers.Sdk.Tests.csproj'
-    (Get-Content -LiteralPath $tests -Raw).Replace('..\..\..\mods\cs\', '..\mods\') | Set-Content -LiteralPath $tests -Encoding utf8
 
     # Built mods. Atmosphere also needs its asset bundle beside the game executable.
     $built = Join-Path $stage 'JibbersCSharpMods'

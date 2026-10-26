@@ -1,5 +1,5 @@
 // Holds the replacement snow textures for the map terrain. Never drawn (its renderer is disabled):
-// the hotload core reads these textures off the material and puts them on the game's terrain
+// the Atmosphere mod reads these textures off the material and puts them on the game's terrain
 // material (Custom/PisteSnow), so they stay loaded after the bundle itself is unloaded.
 Shader "Hidden/JibbersAtmosphere/SnowSurface"
 {

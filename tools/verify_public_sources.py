@@ -1,8 +1,10 @@
 """Fail CI if local-only mods would enter GitHub's automatically generated source archives."""
 import subprocess
 
-public_roots = {"JibbersAlpineVision", "JibbersAtmosphere", "JibbersReshred", "JibbersFPV", "JibbersModLoader"}
-public_cs_ports = {"AlpineVision", "AlpineVision.Tests", "Atmosphere", "Reshred", "Rewind", "FPV"}
+# Unity asset projects of the public mods.
+public_roots = {"JibbersAlpineVision", "JibbersAtmosphere", "JibbersFPV"}
+public_cs_ports = {"AlpineVision", "Atmosphere", "Reshred", "FPV"}
+public_cs_ports |= {p + ".Tests" for p in public_cs_ports}
 paths = subprocess.check_output(["git", "ls-files", "-z"], text=True).split("\0")
 blocked = []
 for path in paths:
@@ -16,4 +18,4 @@ for path in paths:
         blocked.append(path)
 if blocked:
     raise SystemExit("Local-only mods must stay out of public source releases:\n" + "\n".join(blocked))
-print("Public mod sources: Alpine Vision, FPV, Rewind and legacy Atmosphere test adapter.")
+print("Public mod sources: Alpine Vision, Atmosphere, FPV and Rewind.")

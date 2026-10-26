@@ -1,7 +1,8 @@
 namespace Jibbers.Sdk;
 /// <summary>Completes every cleanup, even if an earlier resource fails. Cleanup is infrequent.</summary>
-internal static class Cleanup
+public static class Cleanup
 {
+    /// <summary>Runs every action, then throws an <see cref="AggregateException"/> if any failed.</summary>
     public static void Run(params Action[] actions)
     {
         List<Exception>? failures = null;

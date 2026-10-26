@@ -103,36 +103,4 @@ static class AuthoringTests
         Assert.True(!limiter.ShouldStep(true, 0.75));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiter.ShouldStep(true, double.NaN));
     }
-    public sealed class TestFeature : ModFeature
-    {
-        public override string Id => "feature_test";
-        public override string Name => "Feature test";
-        public override IEnumerable<Setting> Settings => new[] { Setting.Toggle("trail", "Trail", true) };
-        public int Loads, Changes, Unloads;
-        public override void OnLoad() { Assert.True(GetBool("trail")); Loads++; }
-        public override void OnSettingChanged(string key, JsonNode value) => Changes++;
-        public override void OnUnload() => Unloads++;
-        public override JsonNode? OnCommand(string command, JsonObject request) => JsonValue.Create(command);
-    }
-    sealed class TestFeatureMod : FeatureMod<TestFeature>
-    {
-        public TestFeature Controller => Feature;
-        public bool Configured;
-        protected override void Configure(TestFeature feature) => Configured = true;
-    }
-    [Test]
-    static void FeatureHostForwardsSettingsAndLifecycle()
-    {
-        var mod = new TestFeatureMod();
-        mod.Store = new SettingsStore(mod.Settings, mod.Name, null);
-        mod.OnLoad();
-        Assert.True(mod.Configured);
-        Assert.Equal("feature_test", mod.Id);
-        Assert.Equal(1, mod.Controller.Loads);
-        mod.SetSetting("trail", JsonValue.Create(false)!);
-        Assert.Equal(1, mod.Controller.Changes);
-        Assert.Equal("probe", mod.OnCommand("probe", new JsonObject())!.GetValue<string>());
-        mod.OnUnload();
-        Assert.Equal(1, mod.Controller.Unloads);
-    }
 }

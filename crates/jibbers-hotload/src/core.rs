@@ -4,7 +4,7 @@
 //! overwritten while the game runs:
 //! - the developer core `jibbers_hotload_core.dll` in the game folder, if it exists. `reload-core`
 //!   swaps it for the file's current contents.
-//! - plugins: every `*.dll` in `JibbersMods\` that exports the core ABI (the atmosphere, Reshred).
+//! - plugins: every `*.dll` in `JibbersMods\` that exports the core ABI (native plugins such as the .NET bridge).
 //!   They are loaded once, when the loader attaches. A plugin that fails to start is skipped.
 //!
 //! A third kind is registered, not loaded: a plugin DLL that hosts other plugins (the .NET bridge,

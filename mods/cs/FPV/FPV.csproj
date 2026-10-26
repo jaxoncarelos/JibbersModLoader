@@ -1,3 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><AssemblyName>FPV</AssemblyName><AllowUnsafeBlocks>false</AllowUnsafeBlocks></PropertyGroup>
+  <PropertyGroup><AssemblyName>FPV</AssemblyName><Version>0.2.0</Version></PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="fpv_symbols.json" LogicalName="Fpv.symbols.json" />
+  </ItemGroup>
+  <ItemGroup><InternalsVisibleTo Include="FPV.Tests" /></ItemGroup>
 </Project>

@@ -2,7 +2,7 @@
 // Space is cut into small world cells; a few cells hold a randomly tilted crystal facet, which
 // glints when its normal matches the half vector between view and sun. Cells never shrink below
 // the pixel footprint, so distant snow doesn't shimmer. Additive, drawn before the shade and fog
-// passes so cloud shadows and fog dim it. Globals come from the hotload core.
+// passes so cloud shadows and fog dim it. Globals come from the Atmosphere mod.
 Shader "Hidden/JibbersAtmosphere/Sparkle"
 {
     SubShader

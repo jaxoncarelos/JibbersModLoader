@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Jibbers.Sdk;
-using Jibbers.Sdk.Features.Atmosphere;
 
 static class InputBindingTests
 {
@@ -43,50 +42,13 @@ static class InputBindingTests
     }
 
     [Test]
-    static void AtmosphereToggleCanTurnDisabledEffectsBackOn()
+    static void VirtualKeysMapToUnityKeyCodes()
     {
-        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
-        try
-        {
-            var mod = LoadMod();
-            var configuration = new AtmosphereConfigurationStore(() => path, _ => { });
-            var binding = Binding(mod, () =>
-            {
-                configuration.ApplyCommand(new JsonObject { ["toggle"] = true });
-                mod.SetSetting("enabled", JsonValue.Create(configuration.Capture().Enabled)!);
-            });
-            using var handle = new Input.Handle { B = binding }.AllowWhenDisabled();
-            binding.Dispatch();
-            Assert.True(!mod.Enabled);
-            binding.Dispatch();
-            Assert.True(mod.Enabled);
-            Assert.True(configuration.Capture().Enabled);
-            handle.Dispose();
-            binding.Dispatch();
-            Assert.True(mod.Enabled, "disposed bindings cannot change settings");
-        }
-        finally { File.Delete(path); }
-    }
-
-    [Test]
-    static void AtmosphereCycleSelectsAnActiveModeFromOff()
-    {
-        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
-        try
-        {
-            var mod = LoadMod();
-            mod.SetSetting("enabled", JsonValue.Create(false)!);
-            var configuration = new AtmosphereConfigurationStore(() => path, _ => { });
-            configuration.ApplyCommand(new JsonObject { ["enabled"] = false });
-            var originalPreset = configuration.Capture().Values["preset"]?.ToJsonString();
-            var binding = Binding(mod, () => configuration.ApplyCommand(new JsonObject { ["nextPreset"] = true }));
-            using var handle = new Input.Handle { B = binding }.AllowWhenDisabled();
-            binding.Dispatch();
-            Assert.True(originalPreset != configuration.Capture().Values["preset"]?.ToJsonString());
-            Assert.True(configuration.Capture().Enabled);
-            Assert.True(!mod.Enabled);
-        }
-        finally { File.Delete(path); }
+        Assert.Equal(120, Input.UnityKeyCode(0x58));
+        Assert.Equal(97, Input.UnityKeyCode(0x41));
+        Assert.Equal(282, Input.UnityKeyCode(0x70));
+        Assert.Equal(null, Input.UnityKeyCode(0));
+        Assert.Equal(null, Input.UnityKeyCode(0x10000));
     }
 
     [Test]

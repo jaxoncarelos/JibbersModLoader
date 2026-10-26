@@ -49,6 +49,47 @@ public static unsafe class Input
     /// <summary>Whether a virtual-key code is held now.</summary>
     public static bool IsDown(int vk) => vk is > 0 and < 256 && (OperatingSystem.IsMacOS() ? PlatformInput.Down(vk) : (GetAsyncKeyState(vk) & 0x8000) != 0);
 
+    /// <summary>The Unity <c>KeyCode</c> for a virtual-key code (also Rewired's KeyboardKeyCode); null for keys with no safe mapping.</summary>
+    public static int? UnityKeyCode(int virtualKey) => virtualKey switch
+    {
+        >= 0x41 and <= 0x5a => virtualKey + 32,
+        >= 0x30 and <= 0x39 => virtualKey,
+        0x08 => 8,
+        0x09 => 9,
+        0x0d => 13,
+        0x1b => 27,
+        0x20 => 32,
+        0x2e => 127,
+        0x26 => 273,
+        0x28 => 274,
+        0x27 => 275,
+        0x25 => 276,
+        0x2d => 277,
+        0x24 => 278,
+        0x23 => 279,
+        0x21 => 280,
+        0x22 => 281,
+        >= 0x70 and <= 0x7e => virtualKey - 0x70 + 282,
+        >= 0x60 and <= 0x69 => virtualKey - 0x60 + 256,
+        0x6e => 266,
+        0x6f => 267,
+        0x6a => 268,
+        0x6d => 269,
+        0x6b => 270,
+        0xba => 59,
+        0xbb => 61,
+        0xbc => 44,
+        0xbd => 45,
+        0xbe => 46,
+        0xbf => 47,
+        0xc0 => 96,
+        0xdb => 91,
+        0xdc => 92,
+        0xdd => 93,
+        0xde => 39,
+        _ => null,
+    };
+
     /// <summary>Whether the game window is in the foreground.</summary>
     public static bool GameFocused
     {

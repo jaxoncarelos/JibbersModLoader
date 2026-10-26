@@ -1,15 +1,18 @@
 using Jibbers.Sdk.Interop;
 
 namespace Jibbers.Sdk;
-/// <summary>Backend ownership of a created Unity GameObject, including its rooted reference.</summary>
-internal sealed class OwnedGameObject : IDisposable
+/// <summary>Owns a GameObject the mod created, including its rooted reference. Disposing destroys it.</summary>
+public sealed class OwnedGameObject : IDisposable
 {
     GameRef? reference;
     bool destroyOnDispose = true;
+    /// <summary>The GameObject, or 0 once disposed.</summary>
     public nint Target => reference?.Target ?? 0;
+    /// <summary>The GameObject's Transform.</summary>
     public nint Transform => Unity.Transform(Target);
 
     OwnedGameObject(nint gameObject) => reference = new GameRef(gameObject);
+    /// <summary>Creates a named GameObject.</summary>
     public static OwnedGameObject Create(string name)
     {
         var gameObjectClass = Unity.Class("UnityEngine.GameObject");
@@ -27,7 +30,9 @@ internal sealed class OwnedGameObject : IDisposable
         }
     }
 
+    /// <summary>Adds a component by Unity type name and returns it.</summary>
     public nint AddComponent(string typeName) => Il2Cpp.ClassOf(Target).Method("AddComponent", "System.Type").Invoke(Target, Unity.Class(typeName).SystemType);
+    /// <summary>Parents this object under <paramref name="parent"/> (a Transform); the parent's owner then destroys it.</summary>
     public unsafe void AttachTo(nint parent)
     {
         var keepWorldPosition = (byte)0;
@@ -35,6 +40,7 @@ internal sealed class OwnedGameObject : IDisposable
         destroyOnDispose = false; // The parent's owner now destroys this child.
     }
 
+    /// <summary>Destroys the GameObject (unless attached to a parent) and releases the reference.</summary>
     public void Dispose()
     {
         var owned = reference;

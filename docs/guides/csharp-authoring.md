@@ -66,25 +66,22 @@ and releases every HUD automatically. Names must be unique within the owning mod
 
 ## Public gameplay features
 
-The public FPV, Atmosphere and Rewind entry points live in `mods/cs`. Their reusable controllers
-live in `Jibbers.Sdk/Features`. `FeatureMod<TFeature>` forwards settings, metadata, commands and
-lifecycle to a controller; `Configure` can customize a controller before startup. Controllers use
-the host's settings store and identity so hook ownership and enabled toggles keep working.
+FPV, Atmosphere and Rewind are ordinary mods in `mods/cs`, written against the same public SDK as
+any other mod. Each project holds its whole implementation; the SDK contains no gameplay code.
 
-| Mod entry point | SDK controller | Backend responsibilities |
+| Mod | Entry point | Responsibilities |
 | --- | --- | --- |
-| `FpvMod` | `DroneController` | Camera ownership, input, physics, sound and display |
-| `AtmosphereMod` | `AtmosphereEffects` | Bundles, shaders, presets and environment state |
-| `ReshredMod` | `RewindController` | Physics snapshots, rewind and replay restoration |
+| `mods/cs/FPV` | `FpvMod` | Camera ownership, input, physics, sound and display |
+| `mods/cs/Atmosphere` | `AtmosphereMod` | Bundles, shaders, presets and environment state |
+| `mods/cs/Reshred` | `ReshredMod` | Physics snapshots, rewind and replay restoration |
 
 These three DLLs require the matching SDK from the same build. Keep the runtime and mods packages
 together when testing. These are the three retained gameplay mods and the only mods included in
-the public source kit. Native loader, bridge and updater code remains Rust. The Rust starter was removed;
-the native FPV sound generator is an asset build utility under `src/bin`, not a mod starter.
+the public source kit. Native loader, bridge and updater code remains Rust; all mods are C#.
 
 For the complete implementations, start with the
-[public mod walkthrough](../../sdk/dotnet/Jibbers.Sdk/Features/README.md).
-Each controller connects settings and lifecycle to a runtime. Gameplay services depend on narrow
+[public mod walkthrough](../../mods/cs/README.md).
+Each entry point connects settings and lifecycle to a runtime. Gameplay services depend on narrow
 interfaces; native calls and object ownership stay in `Integration` adapters. For example, Rewind's
 hold interaction and history buffer can be read and tested without knowing MuJoCo or byte layouts.
 FPV separates its flight session from camera, targets and presentation. Atmosphere separates

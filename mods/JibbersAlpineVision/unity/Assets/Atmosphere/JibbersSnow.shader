@@ -1,7 +1,7 @@
 // Falling snow around the camera, entirely on the GPU. The mesh holds N camera-facing quads; each
 // quad's position (0..1 seed) is advanced by time, wind and fall speed and wrapped into a box that
 // travels with the camera, so flakes stay put in the world while the rider moves through them.
-// Globals are set by the hotload core; with _JA_Snow.x = 0 every quad collapses and nothing draws.
+// Globals are set by the mod; with _JA_Snow.x = 0 every quad collapses and nothing draws.
 Shader "Hidden/JibbersAtmosphere/Snow"
 {
     SubShader

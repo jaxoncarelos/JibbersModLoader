@@ -25,8 +25,10 @@ for filename in ("JibbersCSharp.zip", "JibbersCSharpMods.zip", "JibbersCSharpSDK
             assert not any(n.endswith(".json") for n in names), "Player settings must not be packaged"
         else:
             projects = {n.split("/")[1] for n in names if n.startswith("mods/") and n.endswith(".csproj")}
-            assert projects == public | {"Atmosphere"}, (filename, projects)
-            assert "Jibbers.Sdk/Features/FPV/fpv_symbols.json" in names
+            sources = public | {"Atmosphere"}
+            assert projects == sources | {p + ".Tests" for p in sources}, (filename, projects)
+            assert "mods/FPV/fpv_symbols.json" in names and "mods/TestRunner.cs" in names
+            assert not any(n.startswith("Jibbers.Sdk/Features/") for n in names), "Mod code belongs in mods/, not the SDK"
             assert not any(n.endswith("/bin/") or "/obj/" in n for n in names)
             assert not any(n.split("/")[-1] in {"ModPortTests.cs", "SkiSmoothTests.cs", "FastLoadTests.cs", "CollisionStreamTests.cs"} for n in names)
         print(f"Verified {filename}: layout, licenses and public mod allowlist")

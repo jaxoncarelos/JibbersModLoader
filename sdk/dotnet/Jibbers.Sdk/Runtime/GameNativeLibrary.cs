@@ -2,9 +2,11 @@ using System.Runtime.InteropServices;
 
 namespace Jibbers.Sdk.Runtime;
 
-internal static class GameNativeLibrary
+/// <summary>Loads one of the game's own native plugins (such as MuJoCo's <c>pcore</c>) on Windows or macOS.</summary>
+public static class GameNativeLibrary
 {
-    internal static bool TryLoad(string name, out nint library)
+    /// <summary>Loads <paramref name="name"/> (without extension) from the game; false if it is not present.</summary>
+    public static bool TryLoad(string name, out nint library)
     {
         if (!OperatingSystem.IsMacOS()) return NativeLibrary.TryLoad(name + ".dll", out library);
         var app = Environment.GetEnvironmentVariable("JIBBERS_GAME_APP");

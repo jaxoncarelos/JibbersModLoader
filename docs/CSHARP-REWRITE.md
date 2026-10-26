@@ -1,11 +1,12 @@
 # C# mod rewrite
 
-The C# SDK, native .NET bridge and three gameplay mods are implemented: FPV, Atmosphere and
-Rewind. Their controllers connect lifecycle and settings to focused gameplay services. Native
-calls, hardware polling and game-object ownership live in separate integration adapters. The
-other gameplay mod folders have been removed.
+The C# SDK, native .NET bridge and the gameplay mods are implemented: Alpine Vision, FPV, Rewind
+and Atmosphere. Each is a standalone project in `mods/cs`; the SDK contains no gameplay code. A
+mod's entry point connects lifecycle and settings to focused gameplay services. Native calls,
+hardware polling and game-object ownership live in separate integration adapters. The Rust mods
+have been removed.
 
-Read the [public mod walkthrough](../sdk/dotnet/Jibbers.Sdk/Features/README.md) for the complete
+Read the [public mod walkthrough](../mods/cs/README.md) for the complete
 source, responsibilities and learning paths.
 
 `docs/guides/` explains the SDK; `sdk/AGENTS.md` contains the game-thread and native-call rules.
@@ -18,10 +19,11 @@ From the repository root:
 
 ```powershell
 dotnet run --project sdk/dotnet/Jibbers.Sdk.Tests -c Release -p:JibbersNoInstall=true
+dotnet run --project mods/cs/FPV.Tests -c Release -p:JibbersNoInstall=true   # likewise AlpineVision, Atmosphere, Reshred
 tools/package_dotnet.ps1 -BundleRuntime
 ```
 
-The test suite covers settings/menu protocol, symbol rules, all three gameplay services, FPV flight,
+The SDK and mod test suites cover settings/menu protocol, symbol rules, all three gameplay services, FPV flight,
 collisions, follow pursuit, mode transitions, input focus/edges and synthesized sound. Optional
 real-game dump tests report a skip if the dump is absent; they are not gameplay acceptance.
 
@@ -62,8 +64,8 @@ settings, loader ownership and rollback after a locked native DLL. No game is st
 ## Authoring cleanup
 
 The starter and SlowMo use typed setting properties and high-level camera/physics APIs.
-Inspector delegates to the SDK diagnostics controller. The public FPV, Atmosphere and Rewind
-projects contain only feature entry points; their integration and pure logic live in the SDK's
-`Features` folders, with private implementation helpers. See [Writing C# mods](guides/csharp-authoring.md).
+Inspector delegates to the SDK diagnostics controller. Each public mod project contains its whole
+implementation: entry point, gameplay services and integration adapters, built against the same
+public SDK as any other mod. See [Writing C# mods](guides/csharp-authoring.md).
 Settings keys and public command identifiers are preserved for existing player configuration.
-The old Rust starter is removed; the native loader and asset build tools remain maintained.
+The Rust starter and Rust mods are removed; the native loader, bridge and updater remain Rust.

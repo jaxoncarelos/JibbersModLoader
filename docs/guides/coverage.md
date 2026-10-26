@@ -36,15 +36,15 @@ do it in C#.
 
 ## The mods, ported
 
-The retained gameplay mods are FPV, Atmosphere and Rewind. Their C# sources live in `mods/cs/`,
-and their reusable implementations and engine adapters live in `sdk/dotnet/Jibbers.Sdk/Features`.
+The retained gameplay mods are FPV, Atmosphere and Rewind (Alpine Vision extends Atmosphere). Each
+lives entirely in its own project under `mods/cs/` (gameplay, engine adapters and a `<Mod>.Tests` project).
 Gameplay, state and parameter calculations are tested without running the game.
 
-| Port | Rust original | Tests ported | Notes |
+| Project | Mod | Tests | Notes |
 | --- | --- | --- | --- |
-| `mods/cs/Atmosphere` | JibbersAtmosphere | cloud bank, presets, merge, fog slider, Mods-tab layout | needs `jibbers_atmosphere.bundle` beside `Jibbers.exe` |
-| `mods/cs/Reshred` | JibbersReshred | scrub, capacity, Rewired reservation | MuJoCo state through `pcore.dll` |
-| `mods/cs/FPV` | JibbersFPV | math, sound synthesis, flight model (Acro/Angle/Cine, collisions, follow), input ramps and deadzone, OSD | the Rust mod stays the reference for flight tuning; needs `jibbers_fpv.bundle` in `JibbersMods` |
+| `mods/cs/Atmosphere` | Atmosphere | cloud bank, presets, merge, fog slider, Mods-tab layout | needs `jibbers_atmosphere.bundle` beside `Jibbers.exe` |
+| `mods/cs/Reshred` | Rewind | scrub, capacity, Rewired reservation | MuJoCo state through `pcore.dll` |
+| `mods/cs/FPV` | FPV | math, sound synthesis, flight model (Acro/Angle/Cine, collisions, follow), input ramps and deadzone, OSD, bundled clips match the synth | needs `jibbers_fpv.bundle` in `JibbersMods` |
 
 The source and binary packages include only FPV, Atmosphere and Rewind. The other mod folders
 have been removed. See [rewrite status](../CSHARP-REWRITE.md) for packaging and the native-to-C# switch.

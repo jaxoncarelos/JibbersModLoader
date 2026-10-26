@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/jibbers-hotload", "crates/jibbers-hotload-core", "crates/jibbers-distribution", "crates/jibbers-bootstrap", "crates/jibbers-macos-ui"]
+members = ["crates/jibbers-hotload", "crates/jibbers-distribution", "crates/jibbers-bootstrap", "crates/jibbers-macos-ui"]
 # The mod SDK is its own workspace (it ships as a standalone zip).
 exclude = ["sdk"]
 

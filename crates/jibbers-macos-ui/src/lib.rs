@@ -8,8 +8,8 @@
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/inspect.rs"] mod inspect;
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/shape.rs"] mod shape;
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/symbols.rs"] mod symbols;
-#[path = "../../jibbers-hotload-core/src/host_shim.rs"] mod host;
-#[path = "../../jibbers-hotload-core/src/modmenu.rs"] mod modmenu;
+#[path = "../../jibbers-hotload/src/host_shim.rs"] mod host;
+#[path = "../../jibbers-hotload/src/modmenu.rs"] mod modmenu;
 use std::{ffi::{c_char, c_void, CStr}, path::PathBuf, sync::OnceLock};
 static HOST: OnceLock<usize> = OnceLock::new();
 static ROOT: OnceLock<PathBuf> = OnceLock::new();

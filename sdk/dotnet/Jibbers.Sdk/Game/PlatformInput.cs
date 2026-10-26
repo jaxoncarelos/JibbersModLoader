@@ -15,7 +15,7 @@ internal static class PlatformInput
     {
         0x10 => 304, 0x11 => 306, 0x12 => 308,
         0xA0 => 304, 0xA1 => 303, 0xA2 => 306, 0xA3 => 305, 0xA4 => 308, 0xA5 => 307,
-        _ => Features.Rewind.RewiredPolicy.KeyboardCode(key)
+        _ => Input.UnityKeyCode(key)
     };
     internal static unsafe void Sample()
     {

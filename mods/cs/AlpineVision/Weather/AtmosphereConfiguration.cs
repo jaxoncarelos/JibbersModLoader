@@ -1,6 +1,6 @@
 using Jibbers.Sdk;
 // Atmosphere's settings: a camelCase JSON document (jibbers_atmosphere.json beside the game, the same
-// file and format as the Rust mod), with named partial presets. Game-free, unit tested.
+// file and format the native mod used, so players' settings carry over), with named partial presets. Game-free, unit tested.
 using System.Text.Json;
 using System.Text.Json.Nodes;
 

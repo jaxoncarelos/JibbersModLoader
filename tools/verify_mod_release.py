@@ -2,7 +2,7 @@
 
 Also checks the game-build guard: the compatibility list (sdk/compat/compat.json) is valid, the
 loader carries exactly that list, and every archive's README names each validated game build.
-`--builds-block` prints the text package_mods.ps1 puts into the README for {{VALIDATED_BUILDS}}.
+`--builds-block` prints the validated-builds text; package_sdk.ps1 runs it to check sdk/compat/compat.json.
 """
 import hashlib
 import json

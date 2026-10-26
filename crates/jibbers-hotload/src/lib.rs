@@ -37,7 +37,7 @@ mod log;
 mod proxy;
 mod pump;
 #[cfg(feature = "release")]
-#[path = "../../jibbers-hotload-core/src/modmenu.rs"]
+#[path = "modmenu.rs"]
 mod modmenu;
 #[cfg(feature = "release")]
 mod release_menu;
@@ -47,7 +47,7 @@ mod unity;
 // The Mods tab reaches the game's menus through the SDK's symbols (shared by path).
 #[cfg(feature = "release")]
 #[allow(dead_code)]
-#[path = "../../jibbers-hotload-core/src/host_shim.rs"]
+#[path = "host_shim.rs"]
 mod host;
 #[cfg(feature = "release")]
 #[allow(dead_code)]

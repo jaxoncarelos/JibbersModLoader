@@ -1,11 +1,18 @@
-# Atmosphere C# source
+# Atmosphere
 
-`Atmosphere.cs` registers the reusable SDK feature. The complete C# implementation is in
-[`sdk/dotnet/Jibbers.Sdk/Features/Atmosphere`](../../../sdk/dotnet/Jibbers.Sdk/Features/Atmosphere).
+A standalone mod: `Atmosphere.cs` is the entry point (`AtmosphereMod`) and this folder holds the
+complete implementation.
 
-Read `AtmosphereEffects` and `AtmosphereRuntime` first. The configuration store owns presets and
-persistence; typed render settings and shader parameters describe each effect. Scene measurements,
-surface materials, quality settings, grading and prefab loading have separate engine adapters.
+`AtmosphereRuntime.ApplyFrame` coordinates the frame without packing shader channels or reading JSON.
 
-See the [source walkthrough](../../../sdk/dotnet/Jibbers.Sdk/Features/README.md).
-Build with `dotnet build mods/cs/Atmosphere -c Release -p:JibbersNoInstall=true`.
+- `AtmosphereConfigurationStore` owns persistence, presets, menu translation and snapshot caching.
+- `AtmosphereConfiguration` supplies document defaults and transformations. Saved keys are preserved.
+- `AtmosphereRenderSettings` takes an isolated, typed snapshot after configuration changes. Frames reuse it.
+- `AtmosphereShaderParameters` translates fog, snow, clouds, lighting and motion into shader vectors.
+- `Integration/AtmosphereColorGrading` restores and applies the game's lighting overrides.
+- `Integration/CharacterSparkleMask` tracks character bounds so glitter stays on terrain.
+- `Integration/AtmosphereShader` owns the native shader calls and property ID cache.
+
+Shader calculation tests cover the original 21-vector frame, camera fallbacks, clamps, frost blending,
+legacy array shapes, disable behavior and settings snapshot invalidation. The native integration still
+requires in-game acceptance after rendering changes; these tests do not replace gameplay checks.
