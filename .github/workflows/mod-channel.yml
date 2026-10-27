@@ -24,9 +24,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # Compiled Rust dependencies and NuGet packages survive between runs.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            sdk -> target
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
       - name: Check public source allowlist
         run: python tools/verify_public_sources.py
       - name: Test and build loader, FPV, Alpine Vision, Rewind and Slow Motion
@@ -59,6 +70,10 @@ jobs:
     needs: build
     runs-on: windows-2022
     environment: mod-channel-stable
+    # One catalog writer at a time: this job and publish-mod.yml both sign against the published catalog.
+    concurrency:
+      group: mod-channel-stable-publish
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -86,6 +101,9 @@ jobs:
             gh release download mod-channel-stable --pattern catalog.json --pattern catalog.json.sig --dir out/previous
             if ($LASTEXITCODE -ne 0) { throw 'Could not verify the previous published catalog.' }
             $previousArgs = @('--previous', 'out/previous/catalog.json')
+            # Unchanged packages keep their published version; changed ones go above it.
+            python tools/channel_versions.py --spec out/channel/spec.json --root out/channel/payload --previous out/previous/catalog.json
+            if ($LASTEXITCODE -ne 0) { throw 'Could not settle package versions against the published catalog.' }
           }
           $keyPath = Join-Path $env:RUNNER_TEMP 'jibbers-signing.key'
           try {

@@ -45,3 +45,4 @@
 /mods/JibbersAlpineVision/unity/Assets/Gen.meta
 /mods/JibbersAlpineVision/build/*
 !/mods/JibbersAlpineVision/build/jibbers_alpinevision.bundle
+__pycache__/

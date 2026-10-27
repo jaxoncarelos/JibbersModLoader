@@ -55,6 +55,17 @@ catalogs and release assets. The source allowlist check rejects accidentally tra
 pull requests and pushes to master. It uploads a reviewable unsigned build artifact. The manual workflow
 dispatch can additionally publish, exclusively from the default branch and through the `mod-channel-stable` environment.
 
+**Publishing one mod.** `.github/workflows/publish-mod.yml` ("Publish one mod") ships a single public mod in a few
+minutes: it downloads the published catalog and files, builds and tests the chosen mod against the SDK inside the
+published runtime (`tools/publish_mod.py`), and signs a catalog in which every other package is byte-for-byte
+unchanged; only the mod's new file is uploaded. Use it for changes confined to a mod. Changes to the loader, SDK or
+runtime, or a mod that needs a newer SDK, go through the full workflow. The public mods are listed once, in
+`tools/public-mods.json`, for both workflows. Before signing, both run `tools/channel_versions.py`: packages whose
+files match the published catalog keep their version, and changed ones get a version above it, so the publisher's
+"changed without a version bump" and downgrade checks cannot fail on a forgotten version. Both publish jobs share
+one concurrency group, so they never sign against the same catalog at once. The manual packages
+(`JibbersCSharpMods.zip` and the others) are refreshed only by the full workflow.
+
 1. Commit the intended source, including mod sources and prebuilt asset bundles. GitHub release source
    archives always point back to that commit; no game install or Unity installation is needed in CI.
 2. Configure the protected GitHub environment **mod-channel-stable**. Add **JIBBERS_SIGNING_KEY** as a

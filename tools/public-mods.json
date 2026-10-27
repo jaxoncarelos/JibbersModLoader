@@ -1,0 +1,42 @@
+{
+  "comment": "The mods in the public channel. Read by package_channel.ps1 (the full channel) and publish_mod.py (one mod). 'legacy' mods keep the historical JibbersMods/<id>.dll path that installed bootstraps migrate from native plugins; the others install as JibbersMods/cs/<id>.dll. 'version' pins a package version instead of the channel build number.",
+  "mods": [
+    {
+      "folder": "AlpineVision",
+      "id": "jibbers_atmosphere",
+      "name": "Alpine Vision",
+      "description": "Atmosphere extended: weather, alpine sky, lighting and a URP cinematic finish. Retains game shadows. Replaces Atmosphere.",
+      "legacy": true,
+      "version": "1.2.8",
+      "assets": [
+        { "path": "JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle", "zip": "jibbers_alpinevision.bundle", "repo": "mods/JibbersAlpineVision/build/jibbers_alpinevision.bundle" }
+      ]
+    },
+    {
+      "folder": "Reshred",
+      "id": "jibbers_reshred",
+      "name": "Rewind",
+      "description": "C# physics history, hold to rewind and resume.",
+      "legacy": true,
+      "assets": []
+    },
+    {
+      "folder": "FPV",
+      "id": "jibbers_fpv",
+      "name": "FPV Drone",
+      "description": "C# drone flight, camera, controls, HUD and audio.",
+      "legacy": true,
+      "assets": [
+        { "path": "JibbersMods/jibbers_fpv.bundle", "zip": "JibbersMods/jibbers_fpv.bundle", "repo": "mods/JibbersFPV/build/jibbers_fpv.bundle" }
+      ]
+    },
+    {
+      "folder": "SlowMo",
+      "id": "jibbers_slowmo",
+      "name": "Slow Motion",
+      "description": "Click the left stick or press V to slow the game down, with smooth easing.",
+      "legacy": false,
+      "assets": []
+    }
+  ]
+}

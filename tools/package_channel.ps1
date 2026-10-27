@@ -51,23 +51,19 @@ try {
     $packages.Add([ordered]@{id='jibbers_dotnet'; name='C# Runtime'; description='Required shared C# SDK and bundled .NET runtime.'; version=$Version; files=@('JibbersMods/packages/jibbers_dotnet/jibbers_dotnet.dll','JibbersMods/packages/jibbers_dotnet/runtime.zip')})
     $mods = [IO.Compression.ZipFile]::OpenRead((Join-Path $root 'dist/JibbersCSharpMods.zip'))
     try {
-        foreach ($entry in @(
-            @{folder='AlpineVision'; id='jibbers_atmosphere'; name='Alpine Vision'; description='Atmosphere extended: weather, alpine sky, lighting and a URP cinematic finish. Retains game shadows. Replaces Atmosphere.'; asset='jibbers_alpinevision.bundle'},
-            @{folder='Reshred'; id='jibbers_reshred'; name='Rewind'; description='C# physics history, hold to rewind and resume.'; asset=$null},
-            @{folder='FPV'; id='jibbers_fpv'; name='FPV Drone'; description='C# drone flight, camera, controls, HUD and audio.'; asset='JibbersMods/jibbers_fpv.bundle'},
-            @{folder='SlowMo'; id='jibbers_slowmo'; name='Slow Motion'; description='Click the left stick or press V to slow the game down, with smooth easing.'; asset=$null; managed=$true}
-        )) {
+        # tools/public-mods.json lists the public mods for this script and publish_mod.py alike.
+        foreach ($entry in (Get-Content -LiteralPath (Join-Path $root 'tools/public-mods.json') -Raw | ConvertFrom-Json).mods) {
             # Historical paths let the installed bootstrap replace native DLLs atomically.
             # The new loader routes these CLR assemblies to the C# host. Mods that never had a
             # native version install straight into the C# host's folder instead.
-            $dll = if ($entry.managed) { "JibbersMods/cs/$($entry.id).dll" } else { "JibbersMods/$($entry.id).dll" }
+            $dll = if ($entry.legacy) { "JibbersMods/$($entry.id).dll" } else { "JibbersMods/cs/$($entry.id).dll" }
             Extract-Entry $mods "JibbersMods/cs/$($entry.folder)/$($entry.folder).dll" "$payload/$dll"
             $files = @($dll)
-            if ($entry.asset) {
-                $assetPath = if ($entry.folder -eq 'AlpineVision') { 'JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle' } else { $entry.asset }
-                Extract-Entry $mods $entry.asset "$payload/$assetPath"; $files += $assetPath
+            foreach ($asset in @($entry.assets)) {
+                Extract-Entry $mods $asset.zip "$payload/$($asset.path)"; $files += $asset.path
             }
-            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.8' } else { $Version }
+            # The publish job raises versions above the published catalog where files changed.
+            $packageVersion = if ($entry.version) { $entry.version } else { $Version }
             $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }

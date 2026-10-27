@@ -1,0 +1,86 @@
+name: Publish one mod
+
+# Ships one public mod into the signed catalog in a few minutes, leaving the loader, SDK, runtime
+# and every other mod exactly as published. The mod is built and tested against the SDK players
+# already have. For loader or SDK changes, run "Build and publish public mods" instead.
+on:
+  workflow_dispatch:
+    inputs:
+      mod:
+        description: Mod to publish (its folder under mods/cs)
+        type: choice
+        options: [SlowMo, Reshred, FPV, AlpineVision]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: windows-2022
+    environment: mod-channel-stable
+    permissions:
+      contents: write
+    # One catalog writer at a time, shared with the full channel's publish job.
+    concurrency:
+      group: mod-channel-stable-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Build the catalog publisher
+        run: cargo build --release -p jibbers-distribution --bin jibbers-publish
+      - name: Build and test ${{ inputs.mod }} against the published SDK
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh release download mod-channel-stable --pattern catalog.json --pattern catalog.json.sig --dir out/previous
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download the published catalog.' }
+          python tools/publish_mod.py --mod '${{ inputs.mod }}' --previous out/previous/catalog.json --out out/mod-channel
+          if ($LASTEXITCODE -ne 0) { throw 'Staging the mod failed.' }
+      - name: Sign and verify
+        shell: pwsh
+        env:
+          JIBBERS_SIGNING_KEY: ${{ secrets.JIBBERS_SIGNING_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:JIBBERS_SIGNING_KEY) { throw 'Set JIBBERS_SIGNING_KEY in the protected mod-channel-stable environment.' }
+          $keyPath = Join-Path $env:RUNNER_TEMP 'jibbers-signing.key'
+          try {
+            [IO.File]::WriteAllText($keyPath, $env:JIBBERS_SIGNING_KEY.Trim(), [Text.UTF8Encoding]::new($false))
+            # --previous re-checks that the sequence advances and nothing else changed unversioned.
+            & target/release/jibbers-publish.exe --spec out/mod-channel/spec.json --root out/mod-channel/payload --out dist/channel --key $keyPath --previous out/previous/catalog.json
+            if ($LASTEXITCODE -ne 0) { throw 'Signing or verification failed.' }
+          } finally { Remove-Item -LiteralPath $keyPath -ErrorAction SilentlyContinue }
+          & target/release/jibbers-publish.exe verify dist/channel
+          if ($LASTEXITCODE -ne 0) { throw 'Signed catalog verification failed.' }
+      - name: Upload the new files, then the catalog
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Published assets are content-addressed: only files the old catalog lacks are new.
+          $published = @((Get-Content out/previous/catalog.json -Raw | ConvertFrom-Json).packages.files.url | ForEach-Object { $_.Split('/')[-1] })
+          foreach ($asset in Get-ChildItem dist/channel -Filter '*.bin') {
+            if ($asset.Name -in $published) { continue }
+            gh release upload mod-channel-stable $asset.FullName --clobber
+            if ($LASTEXITCODE -ne 0) { throw 'Asset upload failed; the catalog was not published.' }
+            Write-Host "Uploaded $($asset.Name)"
+          }
+          gh release upload mod-channel-stable dist/channel/catalog.json.sig dist/channel/catalog.json --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Catalog upload failed.' }
+          Write-Host 'Published ${{ inputs.mod }}. Players receive it on their next launch.'
