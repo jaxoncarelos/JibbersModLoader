@@ -35,6 +35,17 @@ static class SlowMotionTests
     }
 
     [Test]
+    static void FindsStickClicksByTheirNames()
+    {
+        foreach (var name in new[] { "Left Stick Button", "L3", "Left Stick Click", "LS Button", "Left Thumb", "Left Stick", "LSB", "Button L3", "left_stick_button" })
+            Assert.True(StickClicks.IsLeft(name) && !StickClicks.IsRight(name), name);
+        foreach (var name in new[] { "Right Stick Button", "R3", "Right Stick Click", "RS Button" })
+            Assert.True(StickClicks.IsRight(name) && !StickClicks.IsLeft(name), name);
+        foreach (var name in new[] { "Left Stick X", "Left Stick Y", "Left Bumper", "Left Trigger", "L1", "L2", "Cross", "Options", "Left Shoulder" })
+            Assert.True(!StickClicks.IsLeft(name) && !StickClicks.IsRight(name), name);
+    }
+
+    [Test]
     static void TogglesWhenTheButtonIsReleased()
     {
         var slow = new SlowMotion();

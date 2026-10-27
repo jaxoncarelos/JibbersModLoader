@@ -18,7 +18,7 @@ public sealed class SlowMoMod : JibbersMod
     [Choice("Activation", "Toggle", "Toggle", "Hold", Tooltip = "Toggle: click once to turn on, again to turn off. Hold: slow only while held.")]
     public string Activation { get; private set; } = "Toggle";
 
-    [Toggle("Left stick click", Key = "controller", Tooltip = "Use the left stick click (L3) on Xbox-compatible controllers. It counts when released, and not when both sticks are clicked (the FPV drone's toggle).")]
+    [Toggle("Left stick click", Key = "controller", Tooltip = "Use the left stick click (L3) on any controller. It counts when released, and not when both sticks are clicked (the FPV drone's toggle).")]
     public bool UseController { get; private set; }
 
     [KeyBinding("Keyboard key", Key.V, Key = "key", Tooltip = "Keyboard key that does the same as the left stick click.")]
@@ -43,12 +43,13 @@ public sealed class SlowMoMod : JibbersMod
     long previousFrame;
     bool active, indicatorFailed, wasEngaged;
     readonly bool[] connected = new bool[4];
+    RewiredSticks? rewired;
     uint frameNumber;
 
     SlowMotionOptions Options => new(Activation == "Hold" ? SlowMotionMode.Hold : SlowMotionMode.Toggle, Speed, EaseSeconds);
 
     /// <summary>The button, and whether the right stick is clicked too (the FPV drone's both-sticks toggle).</summary>
-    (bool Pressed, bool Chord) ReadInput()
+    (bool Pressed, bool Chord) ReadInput(float seconds)
     {
         if (!Input.GameFocused || Input.Typing)
             return (false, false);
@@ -56,6 +57,13 @@ public sealed class SlowMoMod : JibbersMod
         var chord = false;
         if (UseController)
         {
+            // Controllers the game reads through Rewired: PlayStation and others without Steam Input.
+            var (left, right) = rewired!.Read(seconds);
+            if (left)
+            {
+                pressed = true;
+                chord |= right;
+            }
             // Every connected controller, not just the first: Steam Input, DS4Windows and the like add
             // virtual controllers, and the one in your hands may not be in the first slot.
             var probeEmptySlots = ++frameNumber % 120 == 1;
@@ -82,6 +90,7 @@ public sealed class SlowMoMod : JibbersMod
     public override void OnLoad()
     {
         active = true;
+        rewired = new RewiredSticks(Log);
         hud = Hud.Register("Slow Motion", new HudOptions { SortingOrder = 940 });
         label = hud.AddText("Label", new HudTextOptions
         {
@@ -119,7 +128,7 @@ public sealed class SlowMoMod : JibbersMod
         var elapsed = previousFrame == 0 ? 0 : Math.Min(Stopwatch.GetElapsedTime(previousFrame, now).TotalSeconds, 0.25);
         previousFrame = now;
         var paused = Scene.IsPaused;
-        var (pressed, chord) = ReadInput();
+        var (pressed, chord) = ReadInput((float)elapsed);
         slowMotion.Update(pressed, elapsed, Options, paused, chord);
         if (slowMotion.Engaged != wasEngaged)
             Log(slowMotion.Engaged ? $"Slow Motion on ({Options.TargetSpeed:0.##}x)." : "Slow Motion off.");
@@ -190,6 +199,8 @@ public sealed class SlowMoMod : JibbersMod
             slowMotion.Reset();
             hud?.Dispose();
             hud = null;
+            rewired?.Dispose();
+            rewired = null;
         });
     }
 }
