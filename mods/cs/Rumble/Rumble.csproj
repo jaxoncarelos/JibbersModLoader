@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Rumble</AssemblyName>
+    <Version>0.2.0</Version>
+  </PropertyGroup>
+  <ItemGroup><InternalsVisibleTo Include="Rumble.Tests" /></ItemGroup>
+</Project>

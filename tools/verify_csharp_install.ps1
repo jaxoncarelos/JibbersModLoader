@@ -25,14 +25,14 @@ foreach ($file in @('jibbers_atmosphere','jibbers_reshred','jibbers_fpv')) {
 foreach ($relative in @('JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/RayTracing.dll')) {
     if (Test-Path -LiteralPath (Join-Path $success $relative)) { throw 'Conflicting manual mod survived migration' }
 }
-foreach ($relative in @('AlpineVision/AlpineVision.dll','Reshred/Reshred.dll','FPV/FPV.dll','jibbers_slowmo.dll')) {
+foreach ($relative in @('AlpineVision/AlpineVision.dll','Reshred/Reshred.dll','FPV/FPV.dll','jibbers_slowmo.dll','jibbers_rumble.dll')) {
     if (-not (Test-Path -LiteralPath "$success/JibbersMods/cs/$relative")) { throw "Managed mod missing: $relative" }
 }
 foreach ($file in @('version.dll','JibbersMods/cs/Filmer.dll','jibbers_atmosphere.json','JibbersMods/reshred.settings.json')) {
     if ([IO.File]::ReadAllText((Join-Path $success $file)) -ne "original $file") { throw 'Settings/local mods/loader changed' }
 }
 $config = Get-Content "$success/JibbersMods/system/distribution/preferences.json" -Raw | ConvertFrom-Json
-if ($config.autoUpdate -or @($config.wanted).Count -ne 5 -or 'local_mod' -notin $config.wanted -or 'jibbers_fpv' -notin $config.wanted -or 'jibbers_slowmo' -notin $config.wanted -or $config.catalogUrl -ne 'https://example.com/catalog.json') { throw 'Update selections or unrelated preferences changed' }
+if ($config.autoUpdate -or @($config.wanted).Count -ne 6 -or 'local_mod' -notin $config.wanted -or 'jibbers_fpv' -notin $config.wanted -or 'jibbers_slowmo' -notin $config.wanted -or 'jibbers_rumble' -notin $config.wanted -or $config.catalogUrl -ne 'https://example.com/catalog.json') { throw 'Update selections or unrelated preferences changed' }
 $record = Get-Content "$success/JibbersMods/system/distribution/installed.json" -Raw | ConvertFrom-Json
 if ($record.sequence -ne 100 -or $record.packages.loader.version -ne '0.2.1' -or $record.packages.local_mod.version -ne '1.0.0' -or $record.packages.jibbers_atmosphere.version -ne '0.0.0' -or @($record.packages.jibbers_atmosphere.files).Count -ne 1) { throw 'C# bundle adoption or unrelated package records were not preserved correctly' }
 if (@(Get-ChildItem "$success/JibbersMods/system" -Directory -Filter 'before-csharp-*').Count -ne 1) { throw 'Backup missing' }

@@ -3,7 +3,7 @@ import subprocess
 
 # Unity asset projects of the public mods.
 public_roots = {"JibbersAlpineVision", "JibbersAtmosphere", "JibbersFPV"}
-public_cs_ports = {"AlpineVision", "Atmosphere", "Reshred", "FPV", "SlowMo"}
+public_cs_ports = {"AlpineVision", "Atmosphere", "Reshred", "FPV", "SlowMo", "Rumble"}
 public_cs_ports |= {p + ".Tests" for p in public_cs_ports}
 paths = subprocess.check_output(["git", "ls-files", "-z"], text=True).split("\0")
 blocked = []
@@ -18,4 +18,4 @@ for path in paths:
         blocked.append(path)
 if blocked:
     raise SystemExit("Local-only mods must stay out of public source releases:\n" + "\n".join(blocked))
-print("Public mod sources: Alpine Vision, Atmosphere, FPV, Rewind and Slow Motion.")
+print("Public mod sources: Alpine Vision, Atmosphere, FPV, Rewind, Slow Motion and Rumble.")

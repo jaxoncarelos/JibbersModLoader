@@ -19,11 +19,11 @@ function Game-Path([string]$Relative) {
 $preferences = Game-Path 'JibbersMods/system/distribution/preferences.json'
 $installed = Game-Path 'JibbersMods/system/distribution/installed.json'
 if (Test-Path -LiteralPath (Game-Path 'JibbersMods/system/distribution/journal.json')) { throw 'Launch and close the game to finish its pending update before switching to C# mods.' }
-$publicIds = @('jibbers_atmosphere','jibbers_reshred','jibbers_fpv','jibbers_slowmo')
-$payloads = @('JibbersMods/cs/AlpineVision/AlpineVision.dll','JibbersMods/cs/Reshred/Reshred.dll','JibbersMods/cs/FPV/FPV.dll','JibbersMods/cs/SlowMo/SlowMo.dll',
+$publicIds = @('jibbers_atmosphere','jibbers_reshred','jibbers_fpv','jibbers_slowmo','jibbers_rumble')
+$payloads = @('JibbersMods/cs/AlpineVision/AlpineVision.dll','JibbersMods/cs/Reshred/Reshred.dll','JibbersMods/cs/FPV/FPV.dll','JibbersMods/cs/SlowMo/SlowMo.dll','JibbersMods/cs/Rumble/Rumble.dll',
     'jibbers_alpinevision.bundle','JibbersMods/jibbers_fpv.bundle')
 # Mods that never had a native version install where the catalog puts them, so updates replace them.
-$destinations = @{'JibbersMods/cs/SlowMo/SlowMo.dll'='JibbersMods/cs/jibbers_slowmo.dll'}
+$destinations = @{'JibbersMods/cs/SlowMo/SlowMo.dll'='JibbersMods/cs/jibbers_slowmo.dll';'JibbersMods/cs/Rumble/Rumble.dll'='JibbersMods/cs/jibbers_rumble.dll'}
 function Destination([string]$Relative) { if ($destinations.ContainsKey($Relative)) { $destinations[$Relative] } else { $Relative } }
 foreach ($relative in $payloads) {
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $relative) -PathType Leaf)) { throw "Package is incomplete: $relative" }
@@ -57,13 +57,13 @@ try {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $relative) -Destination $target -Force
     }
     foreach ($relative in @('JibbersMods/jibbers_atmosphere.dll','JibbersMods/jibbers_reshred.dll','JibbersMods/jibbers_fpv.dll',
-        'JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/Atmosphere/Atmosphere.dll','JibbersMods/cs/RayTracing.dll','JibbersMods/cs/RayTracing/RayTracing.dll','JibbersMods/cs/AlpineVision.dll','JibbersMods/cs/Reshred.dll','JibbersMods/cs/FPV.dll','JibbersMods/cs/SlowMo.dll','JibbersMods/cs/SlowMo/SlowMo.dll')) {
+        'JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/Atmosphere/Atmosphere.dll','JibbersMods/cs/RayTracing.dll','JibbersMods/cs/RayTracing/RayTracing.dll','JibbersMods/cs/AlpineVision.dll','JibbersMods/cs/Reshred.dll','JibbersMods/cs/FPV.dll','JibbersMods/cs/SlowMo.dll','JibbersMods/cs/SlowMo/SlowMo.dll','JibbersMods/cs/Rumble.dll','JibbersMods/cs/Rumble/Rumble.dll')) {
         $target = Game-Path $relative
         if (Test-Path -LiteralPath $target -PathType Leaf) { $target = Save-Before $relative; Remove-Item -LiteralPath $target }
     }
     # Adopt only the bundles this installer explicitly copied. The next catalog update can
     # replace them safely without treating them as unrelated, unmanaged local files.
-    $bundlePaths = @{jibbers_atmosphere=@('jibbers_alpinevision.bundle');jibbers_reshred=@();jibbers_fpv=@('JibbersMods/jibbers_fpv.bundle');jibbers_slowmo=@()}
+    $bundlePaths = @{jibbers_atmosphere=@('jibbers_alpinevision.bundle');jibbers_reshred=@();jibbers_fpv=@('JibbersMods/jibbers_fpv.bundle');jibbers_slowmo=@();jibbers_rumble=@()}
     foreach ($id in $publicIds) {
         $owned = @($bundlePaths[$id] | ForEach-Object {
             $path = Game-Path $_

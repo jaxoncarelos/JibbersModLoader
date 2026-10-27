@@ -4,7 +4,7 @@ import sys
 import zipfile
 
 dist = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "dist")
-public = {"AlpineVision", "Reshred", "FPV", "SlowMo"}
+public = {"AlpineVision", "Reshred", "FPV", "SlowMo", "Rumble"}
 for filename in ("JibbersCSharp.zip", "JibbersCSharpMods.zip", "JibbersCSharpSDK.zip"):
     with zipfile.ZipFile(dist / filename) as archive:
         names = {n.replace("\\", "/") for n in archive.namelist()}

@@ -37,6 +37,14 @@
       "description": "Click the left stick or press V to slow the game down, with smooth easing.",
       "legacy": false,
       "assets": []
+    },
+    {
+      "folder": "Rumble",
+      "id": "jibbers_rumble",
+      "name": "Rumble",
+      "description": "Controller vibration that follows the game's own sounds: landings, rails, crashes and hard carves. Xbox and PlayStation pads.",
+      "legacy": false,
+      "assets": []
     }
   ]
 }
