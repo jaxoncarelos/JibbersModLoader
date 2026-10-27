@@ -6,8 +6,9 @@ hold-to-slow, set the speed (0.25x by default) and the ease time, and turn off t
 
 `SlowMo.cs` is the entry point (`SlowMoMod`). Each rendered frame it reads the controller and the
 key and advances `SlowMotion`, which owns the toggle/hold state and eases the speed over real
-time. The physics slowdown is the SDK's `Simulation.SlowWhile`, which skips physics steps in
-proportion to the speed. Presses in the pause menu are ignored, and disabling the mod returns the
+time. The physics slows by skipping whole MuJoCo `FixedUpdate` calls in proportion to the speed
+(`StepLimiter`), the way the game's own pause stops them. Two seconds into each slow motion the log
+says how many physics steps actually ran. Presses in the pause menu are ignored, and disabling the mod returns the
 game to normal speed at once.
 
 The controller is read through XInput (Xbox and compatible pads, including PlayStation pads through

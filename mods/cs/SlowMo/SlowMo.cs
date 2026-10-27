@@ -34,6 +34,10 @@ public sealed class SlowMoMod : JibbersMod
     public bool Indicator { get; private set; }
 
     readonly SlowMotion slowMotion = new();
+    readonly StepLimiter limiter = new();
+    int stepsOffered, stepsRun;
+    double engagedSeconds;
+    bool reported;
     HudPanel? hud;
     HudLabel? label;
     long previousFrame;
@@ -66,7 +70,22 @@ public sealed class SlowMoMod : JibbersMod
             if (active)
                 Frame();
         });
-        Simulation.SlowWhile(() => active && slowMotion.Slowing, () => slowMotion.Speed);
+        // Slow the physics by skipping whole MuJoCo FixedUpdate calls, as the game's own pause does.
+        // (The SDK's Simulation.SlowWhile skips StepScene instead, which this build's FixedUpdate may
+        // have compiled inline, so skipping it changed nothing.)
+        Scene.FixedUpdateMethod.Around((_, original) =>
+        {
+            var slowing = active && slowMotion.Slowing && Input.GameFocused && !Input.Typing;
+            var step = limiter.ShouldStep(slowing, slowMotion.Speed);
+            if (slowing)
+            {
+                stepsOffered++;
+                if (step)
+                    stepsRun++;
+            }
+            if (step)
+                original();
+        });
     }
 
     void Frame()
@@ -78,6 +97,24 @@ public sealed class SlowMoMod : JibbersMod
         var (pressed, chord) = ReadInput();
         slowMotion.Update(pressed, elapsed, Options, paused, chord);
         ShowIndicator(Indicator && !indicatorFailed && slowMotion.Engaged && !paused);
+        ReportSteps(elapsed);
+    }
+
+    /// <summary>Two seconds into each slow motion, logs how many physics steps actually ran.</summary>
+    void ReportSteps(double elapsed)
+    {
+        if (!slowMotion.Engaged)
+        {
+            (engagedSeconds, stepsOffered, stepsRun, reported) = (0, 0, 0, false);
+            return;
+        }
+        engagedSeconds += elapsed;
+        if (reported || engagedSeconds < 2)
+            return;
+        reported = true;
+        Log(stepsOffered == 0
+            ? "Slow Motion: no physics steps reached the limiter; the game may not be stepping physics through MjScene.FixedUpdate."
+            : $"Slow Motion: ran {stepsRun} of {stepsOffered} physics steps ({(double)stepsRun / stepsOffered:P0}, target {slowMotion.Speed:P0}).");
     }
 
     void ShowIndicator(bool visible)

@@ -10,6 +10,26 @@ internal readonly record struct SlowMotionOptions(SlowMotionMode Mode, double Sp
     public double TargetSpeed => Math.Clamp(double.IsFinite(Speed) ? Speed : 1, MinSpeed, 1);
 }
 
+/// <summary>Decides which physics steps run so that, on average, <c>speed</c> of them do.</summary>
+internal sealed class StepLimiter
+{
+    double owed;
+
+    public bool ShouldStep(bool slowing, double speed)
+    {
+        if (!slowing)
+        {
+            owed = 0;
+            return true;
+        }
+        owed += Math.Clamp(double.IsFinite(speed) ? speed : 1, 0, 1);
+        if (owed < 1 - 1e-9)
+            return false;
+        owed = Math.Max(0, owed - 1);
+        return true;
+    }
+}
+
 /// <summary>Toggle/hold state and the eased physics speed (1 = normal).</summary>
 internal sealed class SlowMotion
 {

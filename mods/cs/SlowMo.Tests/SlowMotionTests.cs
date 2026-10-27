@@ -24,6 +24,17 @@ static class SlowMotionTests
     }
 
     [Test]
+    static void StepLimiterRunsTheRightShareOfSteps()
+    {
+        var limiter = new StepLimiter();
+        var ran = Enumerable.Range(0, 100).Count(_ => limiter.ShouldStep(true, 0.25));
+        Assert.Equal(25, ran);
+        Assert.True(Enumerable.Range(0, 10).All(_ => limiter.ShouldStep(false, 0.25)), "every step runs at normal speed");
+        Assert.Equal(100, Enumerable.Range(0, 100).Count(_ => limiter.ShouldStep(true, 1)));
+        Assert.Equal(0, Enumerable.Range(0, 100).Count(_ => limiter.ShouldStep(true, double.NaN) == false));
+    }
+
+    [Test]
     static void TogglesWhenTheButtonIsReleased()
     {
         var slow = new SlowMotion();
