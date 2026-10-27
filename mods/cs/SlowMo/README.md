@@ -11,8 +11,9 @@ time. The physics slows by skipping whole MuJoCo `FixedUpdate` calls in proporti
 says how many physics steps actually ran. Presses in the pause menu are ignored, and disabling the mod returns the
 game to normal speed at once.
 
-The controller is read through XInput (Xbox and compatible pads, including PlayStation pads through
-Steam Input). A click counts when you release it, and not when both sticks are clicked together
+Every connected XInput controller is read (Xbox and compatible pads, including PlayStation pads
+through Steam Input), since virtual controllers from Steam Input or DS4Windows can take the first
+slot. The log records controllers connecting and slow motion turning on and off. A click counts when you release it, and not when both sticks are clicked together
 (the FPV drone's toggle). The game still receives the stick click for whatever it binds there.
 
 Build with `dotnet build mods/cs/SlowMo -c Release -p:JibbersNoInstall=true`; test with

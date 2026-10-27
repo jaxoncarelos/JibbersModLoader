@@ -41,7 +41,9 @@ public sealed class SlowMoMod : JibbersMod
     HudPanel? hud;
     HudLabel? label;
     long previousFrame;
-    bool active, indicatorFailed;
+    bool active, indicatorFailed, wasEngaged;
+    readonly bool[] connected = new bool[4];
+    uint frameNumber;
 
     SlowMotionOptions Options => new(Activation == "Hold" ? SlowMotionMode.Hold : SlowMotionMode.Toggle, Speed, EaseSeconds);
 
@@ -50,8 +52,31 @@ public sealed class SlowMoMod : JibbersMod
     {
         if (!Input.GameFocused || Input.Typing)
             return (false, false);
-        var pad = UseController ? Gamepad.Read() : default;
-        return ((UseController && pad.Held(PadButton.LeftStick)) || Input.IsDown(KeyboardKey), pad.Held(PadButton.RightStick));
+        var pressed = Input.IsDown(KeyboardKey);
+        var chord = false;
+        if (UseController)
+        {
+            // Every connected controller, not just the first: Steam Input, DS4Windows and the like add
+            // virtual controllers, and the one in your hands may not be in the first slot.
+            var probeEmptySlots = ++frameNumber % 120 == 1;
+            for (var slot = 0; slot < connected.Length; slot++)
+            {
+                if (!connected[slot] && !probeEmptySlots)
+                    continue;
+                var pad = Gamepad.Read(slot);
+                if (pad.Connected != connected[slot])
+                {
+                    connected[slot] = pad.Connected;
+                    Log($"Slow Motion: controller {(pad.Connected ? "connected" : "disconnected")} in slot {slot + 1}.");
+                }
+                if (pad.Held(PadButton.LeftStick))
+                {
+                    pressed = true;
+                    chord |= pad.Held(PadButton.RightStick);
+                }
+            }
+        }
+        return (pressed, chord);
     }
 
     public override void OnLoad()
@@ -96,6 +121,9 @@ public sealed class SlowMoMod : JibbersMod
         var paused = Scene.IsPaused;
         var (pressed, chord) = ReadInput();
         slowMotion.Update(pressed, elapsed, Options, paused, chord);
+        if (slowMotion.Engaged != wasEngaged)
+            Log(slowMotion.Engaged ? $"Slow Motion on ({Options.TargetSpeed:0.##}x)." : "Slow Motion off.");
+        wasEngaged = slowMotion.Engaged;
         ShowIndicator(Indicator && !indicatorFailed && slowMotion.Engaged && !paused);
         ReportSteps(elapsed);
     }
