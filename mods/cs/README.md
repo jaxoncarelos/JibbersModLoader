@@ -1,6 +1,6 @@
 # Reading the public mods
 
-FPV, Atmosphere and Rewind are ordinary mods: each folder here is a complete project built against
+FPV, Atmosphere, Rewind and Slow Motion are ordinary mods: each folder here is a complete project built against
 the public SDK, with a `<Mod>.Tests` project beside it. Start with the mod's entry point, then its
 runtime. Those files describe gameplay using ordinary C#.
 The `Integration` directories contain the Unity, IL2CPP and native physics adapters.
@@ -11,6 +11,7 @@ You do not need to learn those adapters to change the gameplay flow.
 | FPV | [FpvMod](FPV/FPV.cs) | [DroneRuntime](FPV/DroneRuntime.cs), [DroneFlightSession](FPV/DroneFlightSession.cs), [Drone](FPV/Drone.cs) | [Integration](FPV/Integration) |
 | Atmosphere | [AtmosphereMod](Atmosphere/Atmosphere.cs) | [AtmosphereRuntime](Atmosphere/AtmosphereRuntime.cs), [settings store](Atmosphere/AtmosphereConfigurationStore.cs), [shader calculations](Atmosphere/AtmosphereShaderParameters.cs) | [Integration](Atmosphere/Integration) |
 | Rewind | [ReshredMod](Reshred/Reshred.cs) | [RewindRuntime](Reshred/RewindRuntime.cs), [RewindPlayback](Reshred/RewindPlayback.cs), [RewindHistory](Reshred/RewindHistory.cs) | [Integration](Reshred/Integration) |
+| Slow Motion | [SlowMoMod](SlowMo/SlowMo.cs) | [SlowMotion](SlowMo/SlowMotion.cs) | the SDK's `Simulation.SlowWhile` |
 
 ## Rewind: record, hold, restore, resume
 
@@ -71,7 +72,7 @@ Avoid adding native calls to a runtime or reimplementing bundle loading and obje
 Name values for their role (`fixedStepSeconds`, `desiredVelocity`, `surfaceNormal`), and keep saved
 setting keys unchanged when renaming a C# member.
 
-Each mod's tests (`FPV.Tests`, `Atmosphere.Tests`, `Reshred.Tests`) exercise these flows with fake
+Each mod's tests (`FPV.Tests`, `Atmosphere.Tests`, `Reshred.Tests`, `SlowMo.Tests`) exercise these flows with fake
 scenes, input, cameras and effect services. Run them with, for example,
 `dotnet run --project mods/cs/FPV.Tests -c Release -p:JibbersNoInstall=true` from the repository root.
 Engine integration still needs in-game testing.

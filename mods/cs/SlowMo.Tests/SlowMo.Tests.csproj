@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><EnableDynamicLoading>false</EnableDynamicLoading></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../TestRunner.cs" />
+    <ProjectReference Include="../SlowMo/SlowMo.csproj" />
+    <Reference Include="Jibbers.Sdk"><HintPath>$(JibbersSdk)</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>

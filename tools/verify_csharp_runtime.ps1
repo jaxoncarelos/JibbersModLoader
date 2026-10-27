@@ -54,9 +54,11 @@ foreach (var file in files)
         Console.WriteLine($"Loaded {type.FullName}: {settings.Count} settings validated");
     }
 }
-if (!ids.SetEquals(new[] { "alpinevision", "reshred", "fpv" })) throw new Exception("Wrong public mod set");
+// The migration fixture enrolls only the mods that once had native versions; packages hold all four.
+var expected = channel ? new[] { "alpinevision", "reshred", "fpv" } : new[] { "alpinevision", "reshred", "fpv", "slowmo" };
+if (!ids.SetEquals(expected)) throw new Exception("Wrong public mod set: " + string.Join(", ", ids));
 Console.WriteLine($"PASS: {RuntimeInformation.FrameworkDescription}, bundled CoreLib: {core}");
-Console.WriteLine("SDK and all three public C# mods loaded; no game process or game APIs used.");
+Console.WriteLine($"SDK and {ids.Count} public C# mods loaded; no game process or game APIs used.");
 '@
 [IO.File]::WriteAllText((Join-Path $stage 'RuntimeProbe.csproj'), $project)
 [IO.File]::WriteAllText((Join-Path $stage 'Program.cs'), $source)

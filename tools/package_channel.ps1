@@ -54,18 +54,20 @@ try {
         foreach ($entry in @(
             @{folder='AlpineVision'; id='jibbers_atmosphere'; name='Alpine Vision'; description='Atmosphere extended: weather, alpine sky, lighting and a URP cinematic finish. Retains game shadows. Replaces Atmosphere.'; asset='jibbers_alpinevision.bundle'},
             @{folder='Reshred'; id='jibbers_reshred'; name='Rewind'; description='C# physics history, hold to rewind and resume.'; asset=$null},
-            @{folder='FPV'; id='jibbers_fpv'; name='FPV Drone'; description='C# drone flight, camera, controls, HUD and audio.'; asset='JibbersMods/jibbers_fpv.bundle'}
+            @{folder='FPV'; id='jibbers_fpv'; name='FPV Drone'; description='C# drone flight, camera, controls, HUD and audio.'; asset='JibbersMods/jibbers_fpv.bundle'},
+            @{folder='SlowMo'; id='jibbers_slowmo'; name='Slow Motion'; description='Click the left stick or press V to slow the game down, with smooth easing.'; asset=$null; managed=$true}
         )) {
             # Historical paths let the installed bootstrap replace native DLLs atomically.
-            # The new loader routes these CLR assemblies to the C# host.
-            $dll = "JibbersMods/$($entry.id).dll"
+            # The new loader routes these CLR assemblies to the C# host. Mods that never had a
+            # native version install straight into the C# host's folder instead.
+            $dll = if ($entry.managed) { "JibbersMods/cs/$($entry.id).dll" } else { "JibbersMods/$($entry.id).dll" }
             Extract-Entry $mods "JibbersMods/cs/$($entry.folder)/$($entry.folder).dll" "$payload/$dll"
             $files = @($dll)
             if ($entry.asset) {
                 $assetPath = if ($entry.folder -eq 'AlpineVision') { 'JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle' } else { $entry.asset }
                 Extract-Entry $mods $entry.asset "$payload/$assetPath"; $files += $assetPath
             }
-            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.7' } else { $Version }
+            $packageVersion = if ($entry.folder -eq 'AlpineVision') { '1.2.8' } else { $Version }
             $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }

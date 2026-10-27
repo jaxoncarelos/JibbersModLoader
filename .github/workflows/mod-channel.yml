@@ -29,7 +29,7 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Check public source allowlist
         run: python tools/verify_public_sources.py
-      - name: Test and build loader, FPV, Alpine Vision and Rewind
+      - name: Test and build loader, FPV, Alpine Vision, Rewind and Slow Motion
         shell: pwsh
         run: ./tools/package_channel.ps1 -Sequence (1000 + ${{ github.run_number }}) -Version '0.3.${{ github.run_number }}'
       - name: Prepare backwards-compatible SDK loader upgrade
@@ -132,7 +132,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'C# package upload failed.' }
           gh release upload mod-channel-stable dist/channel/catalog.json.sig dist/channel/catalog.json --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Catalog upload failed.' }
-          [IO.File]::WriteAllText('dist/channel-notes.md', "C# FPV, Alpine Vision (Atmosphere upgrade) and Rewind with automatic loader, SDK and bundled .NET updates.`n`nSource: https://github.com/jaxoncarelos/JibbersModLoader/tree/${{ github.sha }}`n`nImmutable build: https://github.com/jaxoncarelos/JibbersModLoader/releases/tag/$tag`n`nExisting updater installations receive selected mods on their next launch. New users install JibbersModManager.zip once. Original source: GPL-3.0-only.")
+          [IO.File]::WriteAllText('dist/channel-notes.md', "C# FPV, Alpine Vision (Atmosphere upgrade), Rewind and Slow Motion with automatic loader, SDK and bundled .NET updates.`n`nSource: https://github.com/jaxoncarelos/JibbersModLoader/tree/${{ github.sha }}`n`nImmutable build: https://github.com/jaxoncarelos/JibbersModLoader/releases/tag/$tag`n`nExisting updater installations receive selected mods on their next launch. New users install JibbersModManager.zip once. Original source: GPL-3.0-only.")
           gh release edit mod-channel-stable --notes-file dist/channel-notes.md
           if ($LASTEXITCODE -ne 0) { throw 'Channel source notes update failed.' }
           # This remains latest so existing SDK installations fetch the bridge through the URL
