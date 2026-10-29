@@ -43,7 +43,7 @@ try {
         Run dotnet @('build', $p, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true', "-p:JibbersSdk=$dotnet/Jibbers.Sdk/bin/Release/net8.0/Jibbers.Sdk.dll") $dotnet
     }
     # The C# ports of the mods.
-    $publicNames = @('AlpineVision', 'Reshred', 'FPV', 'SlowMo', 'Rumble')
+    $publicNames = @('AlpineVision', 'Reshred', 'FPV', 'SlowMo', 'Rumble', 'Slvsh')
     $ports = @($publicNames | ForEach-Object { Get-Item -LiteralPath (Join-Path $root "mods/cs/$_") })
     foreach ($p in $ports) {
         Run dotnet @('build', $p.FullName, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true') $root

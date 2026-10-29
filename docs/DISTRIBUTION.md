@@ -12,7 +12,7 @@ Install **JibbersModManager.zip** from Releases once. Close the game and extract
 On first launch, the loader downloads the signed catalog and required runtime (internet required)
 and enrolls existing catalog mods without changing settings. License notices live inside `JibbersMods/licenses`.
 Subsequent loader and selected-mod updates download automatically at game startup.
-The channel contains C# FPV, Alpine Vision (the Atmosphere upgrade), Rewind, Slow Motion and Rumble. Existing native subscriptions migrate
+The channel contains C# FPV, Alpine Vision (the Atmosphere upgrade), Rewind, Slow Motion, Rumble and SLVSH. Existing native subscriptions migrate
 in place; saved settings are retained. The shared C# SDK and bundled .NET runtime update as
 required dependencies. No separate .NET installation is needed. The runtime cache is checked
 against signed file hashes on every launch and can recover offline after a failed later update.
@@ -46,9 +46,9 @@ and catalog mods; it does not change SDK trust keys or overwrite C# SDK files.
 
 ## Maintainers: GitHub Actions and Releases
 
-The public catalog contains **FPV Drone, Alpine Vision (the Atmosphere upgrade), Rewind, Slow Motion and Rumble** (Rewind keeps its existing internal
-`jibbers_reshred` id and DLL name for compatibility; Slow Motion and Rumble, which never had native versions, install as
-`JibbersMods/cs/jibbers_slowmo.dll` and `JibbersMods/cs/jibbers_rumble.dll`). Other local mods are excluded from public builds,
+The public catalog contains **FPV Drone, Alpine Vision (the Atmosphere upgrade), Rewind, Slow Motion, Rumble and SLVSH** (Rewind keeps its existing internal
+`jibbers_reshred` id and DLL name for compatibility; Slow Motion, Rumble and SLVSH, which have no native catalog versions, install as
+`JibbersMods/cs/jibbers_slowmo.dll`, `JibbersMods/cs/jibbers_rumble.dll` and `JibbersMods/cs/jibbers_slvsh.dll`). Other local mods are excluded from public builds,
 catalogs and release assets. The source allowlist check rejects accidentally tracked local mod directories.
 
 `.github/workflows/mod-channel.yml` tests and builds the loader and these public mods on Windows for

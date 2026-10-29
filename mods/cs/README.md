@@ -1,6 +1,6 @@
 # Reading the public mods
 
-FPV, Atmosphere, Rewind, Slow Motion and Rumble are ordinary mods: each folder here is a complete project built against
+FPV, Atmosphere, Rewind, Slow Motion, Rumble and SLVSH are ordinary mods: each folder here is a complete project built against
 the public SDK, with a `<Mod>.Tests` project beside it. Start with the mod's entry point, then its
 runtime. Those files describe gameplay using ordinary C#.
 The `Integration` directories contain the Unity, IL2CPP and native physics adapters.
@@ -13,6 +13,7 @@ You do not need to learn those adapters to change the gameplay flow.
 | Rewind | [ReshredMod](Reshred/Reshred.cs) | [RewindRuntime](Reshred/RewindRuntime.cs), [RewindPlayback](Reshred/RewindPlayback.cs), [RewindHistory](Reshred/RewindHistory.cs) | [Integration](Reshred/Integration) |
 | Slow Motion | [SlowMoMod](SlowMo/SlowMo.cs) | [SlowMotion](SlowMo/SlowMotion.cs) | the SDK's `Simulation.SlowWhile` |
 | Rumble | [RumbleMod](Rumble/Rumble.cs) | [RumbleDirector](Rumble/RumbleDirector.cs) | a typed `Detour` of `AudioManager.Play`; XInput, Rewired and USB HID motors |
+| SLVSH | [SlvshMod](Slvsh/SlvshMod.cs) | [SlvshHost](Slvsh/SlvshRules.cs), [TrickJudge](Slvsh/TrickJudge.cs), [Scoreboard](Slvsh/Scoreboard.cs) | the SDK's Steam `Party` and `Overlay`; [SpectateCamera](Slvsh/Integration/SpectateCamera.cs) retargets the follow camera |
 
 ## Rewind: record, hold, restore, resume
 

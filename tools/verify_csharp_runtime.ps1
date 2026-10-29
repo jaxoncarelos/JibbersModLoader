@@ -54,8 +54,8 @@ foreach (var file in files)
         Console.WriteLine($"Loaded {type.FullName}: {settings.Count} settings validated");
     }
 }
-// The migration fixture enrolls only the mods that once had native versions; packages hold all five.
-var expected = channel ? new[] { "alpinevision", "reshred", "fpv" } : new[] { "alpinevision", "reshred", "fpv", "slowmo", "rumble" };
+// The migration fixture enrolls only the mods that once had native versions; packages hold all six.
+var expected = channel ? new[] { "alpinevision", "reshred", "fpv" } : new[] { "alpinevision", "reshred", "fpv", "slowmo", "rumble", "slvsh" };
 if (!ids.SetEquals(expected)) throw new Exception("Wrong public mod set: " + string.Join(", ", ids));
 Console.WriteLine($"PASS: {RuntimeInformation.FrameworkDescription}, bundled CoreLib: {core}");
 Console.WriteLine($"SDK and {ids.Count} public C# mods loaded; no game process or game APIs used.");

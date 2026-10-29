@@ -45,6 +45,14 @@
       "description": "Controller vibration that follows the game's own sounds: landings, rails, crashes and hard carves. Xbox and PlayStation pads.",
       "legacy": false,
       "assets": []
+    },
+    {
+      "folder": "Slvsh",
+      "id": "jibbers_slvsh",
+      "name": "SLVSH",
+      "description": "S.K.A.T.E. on snow with your Steam party: set tricks, match them, watch each turn and vote on close calls.",
+      "legacy": false,
+      "assets": []
     }
   ]
 }

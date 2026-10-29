@@ -9,7 +9,7 @@ on:
       mod:
         description: Mod to publish (its folder under mods/cs)
         type: choice
-        options: [SlowMo, Rumble, Reshred, FPV, AlpineVision]
+        options: [SlowMo, Rumble, Slvsh, Reshred, FPV, AlpineVision]
 
 permissions:
   contents: read
