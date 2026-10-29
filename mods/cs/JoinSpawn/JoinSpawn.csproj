@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>JoinSpawn</AssemblyName>
+    <Version>0.6.0</Version>
+  </PropertyGroup>
+  <ItemGroup><InternalsVisibleTo Include="JoinSpawn.Tests" /></ItemGroup>
+</Project>
