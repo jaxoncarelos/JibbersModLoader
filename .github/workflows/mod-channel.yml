@@ -78,6 +78,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      # GitHub refuses (403) to let this job's token create the release tag at a commit whose
+      # workflow files differ from the default branch's. If workflows changed on master after this
+      # run started, stop here, before signing, rather than failing at the release step.
+      - name: Check the tag can be created
+        shell: pwsh
+        run: |
+          git fetch --depth=1 origin '${{ github.event.repository.default_branch }}'
+          git diff --quiet '${{ github.sha }}' FETCH_HEAD -- .github/workflows
+          if ($LASTEXITCODE -ne 0) { throw 'Workflow files changed on the default branch after this run started, so GitHub will not let it tag this commit. Run "Build and publish public mods" again from the latest commit.' }
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
