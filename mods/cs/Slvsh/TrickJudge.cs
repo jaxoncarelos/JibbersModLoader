@@ -67,6 +67,10 @@ internal sealed class TrickJudge
 
     /// <summary>The trick so far, once one has started.</summary>
     public string? Current => sequence is null ? null : name;
+    /// <summary>When the game first reported the trick (it reports on landing), once one has started.</summary>
+    public double? TrickAt { get; private set; }
+    /// <summary>When this attempt started.</summary>
+    public double Started => started;
 
     /// <summary>The outcome once it is decided, else null.</summary>
     public Outcome? Step(double now)
@@ -76,6 +80,7 @@ internal sealed class TrickJudge
         {
             if (sequence is null || sequence == t.Sequence)
             {
+                TrickAt ??= t.At;
                 (sequence, name, going, last) = (t.Sequence, t.Name, t.Going, t.At);
                 continue;
             }

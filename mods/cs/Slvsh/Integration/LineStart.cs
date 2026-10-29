@@ -1,0 +1,166 @@
+using System.IO.Compression;
+using System.Runtime.InteropServices;
+using Jibbers.Sdk;
+using Jibbers.Sdk.Game.Physics;
+using Jibbers.Sdk.Runtime;
+using Jibbers.Sdk.Symbols;
+
+namespace Slvsh.Integration;
+
+/// <summary>
+/// Where a line begins, and how fast: the physics state of your rider (MuJoCo's integration state:
+/// every body's position, orientation and velocity) a few seconds before the setter's trick. While
+/// you set, it keeps a short history; a matcher's game loads the setter's snapshot at the start of
+/// their turn, so they start at the same place and speed. Same calls as the Rewind mod.
+/// Other players aren't simulated on your PC, so the state is only ever your own rider's.
+/// </summary>
+internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
+{
+    const uint IntegrationState = ((1u << 13) - 1) & ~1u; // everything but time
+    /// <summary>Snapshots larger than this aren't sent (a party message holds 64 KB).</summary>
+    public const int MaxDoubles = 6000;
+    const double Every = 0.1, Keep = 15;
+    static readonly FieldRef SceneModel = new("physics.scene.model");
+    static readonly FieldRef SceneData = new("physics.scene.data");
+
+    delegate* unmanaged<nint, uint, int> stateSize;
+    delegate* unmanaged<nint, nint, double*, uint, void> getState;
+    delegate* unmanaged<nint, nint, double*, uint, void> setState;
+    delegate* unmanaged<nint, nint, void> forward;
+    readonly object gate = new();
+    readonly List<(double At, double[] State)> history = new();
+    double[]? pending;
+    double lastCapture;
+    bool hooked, failed;
+    volatile bool recording;
+
+    /// <summary>Keep a history of your rider (while you set).</summary>
+    public bool Recording
+    {
+        get => recording;
+        set
+        {
+            if (value == recording) return;
+            recording = value;
+            if (!value) lock (gate) history.Clear();
+        }
+    }
+
+    /// <summary>Hooks the physics step. Main thread (OnLoad).</summary>
+    public void Start()
+    {
+        if (hooked) return;
+        hooked = true;
+        Scene.FixedUpdateMethod.Before((scene, _) => Step(scene));
+    }
+
+    /// <summary>Loads a line at the next physics step.</summary>
+    public void Apply(double[] state)
+    {
+        lock (gate) pending = state;
+    }
+
+    /// <summary>The last snapshot at or before <paramref name="target"/> and not before <paramref name="notBefore"/>; else the first after it; null if none.</summary>
+    public double[]? Pick(double target, double notBefore)
+    {
+        lock (gate)
+        {
+            var usable = history.Where(h => h.At >= notBefore).ToList();
+            return (usable.LastOrDefault(h => h.At <= target).State ?? usable.FirstOrDefault().State)?.ToArray();
+        }
+    }
+
+    void Step(nint scene)
+    {
+        double[]? apply;
+        lock (gate) { apply = pending; pending = null; }
+        if (!recording && apply is null) return;
+        if (Scene.IsPaused)
+        {
+            if (apply is not null) lock (gate) pending ??= apply;
+            return;
+        }
+        if (!Open(scene, out var model, out var data, out var length)) return;
+        if (apply is not null)
+        {
+            if (apply.Length == length)
+            {
+                fixed (double* s = apply) setState(model, data, s, IntegrationState);
+                forward(model, data);
+                lock (gate) history.Clear();
+            }
+            else log($"SLVSH: can't start on that line: its physics state has {apply.Length} values, yours {length}");
+        }
+        var now = clock();
+        if (!recording || now - lastCapture < Every || length > MaxDoubles) return;
+        lastCapture = now;
+        var state = new double[length];
+        fixed (double* s = state) getState(model, data, s, IntegrationState);
+        lock (gate)
+        {
+            history.Add((now, state));
+            while (history.Count > 0 && now - history[0].At > Keep) history.RemoveAt(0);
+        }
+    }
+
+    bool Open(nint scene, out nint model, out nint data, out int length)
+    {
+        (model, data, length) = (0, 0, 0);
+        if (failed) return false;
+        if (stateSize == null)
+        {
+            try
+            {
+                if (!GameNativeLibrary.TryLoad("pcore", out var library)) return false;
+                stateSize = (delegate* unmanaged<nint, uint, int>)NativeLibrary.GetExport(library, "mj_stateSize");
+                getState = (delegate* unmanaged<nint, nint, double*, uint, void>)NativeLibrary.GetExport(library, "mj_getState");
+                setState = (delegate* unmanaged<nint, nint, double*, uint, void>)NativeLibrary.GetExport(library, "mj_setState");
+                forward = (delegate* unmanaged<nint, nint, void>)NativeLibrary.GetExport(library, "mj_forward");
+            }
+            catch (EntryPointNotFoundException e)
+            {
+                failed = true;
+                log($"SLVSH: line starts unavailable: {e.Message}");
+                return false;
+            }
+        }
+        model = SceneModel.Get<nint>(scene);
+        data = SceneData.Get<nint>(scene);
+        if (model == 0 || data == 0) return false;
+        length = stateSize(model, IntegrationState);
+        return length > 0;
+    }
+
+    /// <summary>A snapshot as text for a message: compressed doubles, base64.</summary>
+    public static string Pack(double[] state)
+    {
+        var bytes = MemoryMarshal.AsBytes(state.AsSpan()).ToArray();
+        using var output = new MemoryStream();
+        using (var deflate = new DeflateStream(output, CompressionLevel.Optimal)) deflate.Write(bytes);
+        return Convert.ToBase64String(output.ToArray());
+    }
+
+    /// <summary>Reads <see cref="Pack"/>'s text; null if malformed, oversized or not finite (it came over the network).</summary>
+    public static double[]? Unpack(string text)
+    {
+        try
+        {
+            using var input = new DeflateStream(new MemoryStream(Convert.FromBase64String(text)), CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            var buffer = new byte[8192];
+            int n;
+            while ((n = input.Read(buffer)) > 0)
+            {
+                output.Write(buffer, 0, n);
+                if (output.Length > MaxDoubles * 8L) return null;
+            }
+            if (output.Length == 0 || output.Length % 8 != 0) return null;
+            var state = MemoryMarshal.Cast<byte, double>(output.ToArray()).ToArray();
+            return state.All(double.IsFinite) ? state : null;
+        }
+        catch (Exception e) when (e is FormatException or InvalidDataException)
+        {
+            return null;
+        }
+    }
+}

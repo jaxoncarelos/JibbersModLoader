@@ -22,7 +22,7 @@ don't install both.
 4. **Watch every turn.** While someone takes their turn, your camera follows their rider, so you
    see the whole line and trick. It comes back to you for your own turn. This only works when
    they're on the same server as you; otherwise the scoreboard says "Not on your server".
-5. **Vote.** After each try, everyone else votes: **Ctrl+Y** it counted, **Ctrl+N** it didn't. The
+5. **Vote.** After each try, everyone else votes: **Y** it counted, **N** it didn't. The
    scoreboard shows what the game detected ("game's guess"). The majority decides; a tie, or
    nobody voting, goes with the game's guess. You can change your vote until time's up.
 6. **Ctrl+Q** leaves the game. If the starter ends it, it ends for everyone.
@@ -38,12 +38,15 @@ don't install both.
 
 ## Settings (Mods > SLVSH)
 
-- Keys, all pressed with Ctrl: start / join / begin (Enter), leave (Q), vote it counted (Y), vote
-  it didn't (N). They stay clear of the drone's and Alpine Vision's F-keys.
+- Keys: start / join / begin (Ctrl+Enter), leave (Ctrl+Q), vote it counted (Y) and it didn't (N),
+  which only work while a vote is open. No F-keys, so nothing clashes with the drone or Alpine Vision.
 - **A match counts when**: exact trick (default), same spins with any grab, or any landed trick.
 - **Time for each try**: 45 seconds by default.
 - **Vote on every try** and **time to vote** (12 seconds). Turn voting off to let trick detection
   decide everything.
+- **Start every try on the setter's line** (on by default) and **run-in before the trick** (6
+  seconds). When it's your turn to match, you start where the setter's run-in began, at their speed;
+  respawning before your trick puts you back there.
 - **Watch each player's turn**: turn off to keep your own camera.
 
 The starter's rules are used for the whole game; the camera setting is your own.
@@ -57,12 +60,19 @@ The starter's rules are used for the whole game; the camera setting is your own.
 | [TrickJudge.cs](TrickJudge.cs) | Detects an attempt from the game's trick and respawn events |
 | [Scoreboard.cs](Scoreboard.cs) | Draws the overlay with `Jibbers.Sdk.UI.Overlay` |
 | [Integration/SpectateCamera.cs](Integration/SpectateCamera.cs) | Points the game's follow camera at another rider and back |
+| [Integration/GamePlayers.cs](Integration/GamePlayers.cs) | The other riders in your session, from the game's player manager |
+| [Integration/LineStart.cs](Integration/LineStart.cs) | Records and loads where a line begins (physics state) |
 
-Spectating works like the game's own Spectator: it sets the follow camera's `target` and
-`targetRagdoll` to the other rider, following the same body part it follows on yours. It finds
-the rider by its nametag (the player's Steam name), or else as the rider nearest to the position
-the attempter reports about themselves over Steam. This reads other riders in your session, an
-exception to the SDK's usual scope; it only moves your own camera.
+Other players' riders are puppets on your PC (the game draws them from network snapshots), listed
+by the game's player manager. Spectating finds the attempter's puppet there (by Steam ID, the
+game's name for them, or as the one nearest to where they report they are) and points your follow
+camera's `target` at it. If it can't, the log says which riders it saw. This reads other riders in
+your session, an exception to the SDK's usual scope; it only moves your own camera.
+
+A line is your rider's MuJoCo integration state (every body's position, orientation and velocity),
+recorded every 0.1 s while you set, as the Rewind mod does. The snapshot from the run-in before your
+landed set goes to the others (compressed, at most 6000 values), who load it at the start of their
+turn. Only your own rider is simulated on your PC, so loading a line moves nobody else.
 
 `SLVSH_PREVIEW=<dir> dotnet run` in `Slvsh.Tests` saves every scoreboard state to `<dir>/slvsh.html`.
 The SDK side is described in the [multiplayer guide](../../../docs/guides/multiplayer.md).

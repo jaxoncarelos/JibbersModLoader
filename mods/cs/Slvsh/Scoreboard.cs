@@ -19,8 +19,8 @@ internal sealed record SlvshView
     public SpectateStatus Watching { get; init; }
     public string GoKey { get; init; } = "Ctrl+Enter";
     public string LeaveKey { get; init; } = "Ctrl+Q";
-    public string YesKey { get; init; } = "Ctrl+Y";
-    public string NoKey { get; init; } = "Ctrl+N";
+    public string YesKey { get; init; } = "Y";
+    public string NoKey { get; init; } = "N";
 }
 
 /// <summary>

@@ -213,12 +213,13 @@ static class SlvshTests
         {
             new RiderCandidate("<b>Ana</b> ", new Vector3(0, 0, 0)),
             new RiderCandidate("", new Vector3(100, 0, 0)),
-            new RiderCandidate("Someone Else", new Vector3(200, 0, 0)),
+            new RiderCandidate("Someone Else", new Vector3(200, 0, 0), new[] { "Cat", "76561198000000003" }),
         };
-        Assert.Equal(0, RiderMatch.Pick("ana", null, riders));
-        Assert.Equal(1, RiderMatch.Pick("Ben", new Vector3(104, 2, 0), riders)); // no nametag: nearest to where Ben says he is
-        Assert.Equal(-1, RiderMatch.Pick("Ben", new Vector3(150, 0, 0), riders)); // nobody near: not on this server
-        Assert.Equal(-1, RiderMatch.Pick("Ben", null, riders));
+        Assert.Equal(2, RiderMatch.Pick(76561198000000003, "Cat", null, riders)); // the game knows their Steam ID
+        Assert.Equal(0, RiderMatch.Pick(1, "ana", null, riders));
+        Assert.Equal(1, RiderMatch.Pick(2, "Ben", new Vector3(104, 2, 0), riders)); // no name: nearest to where Ben says he is
+        Assert.Equal(-1, RiderMatch.Pick(2, "Ben", new Vector3(150, 0, 0), riders)); // nobody near: not on this server
+        Assert.Equal(-1, RiderMatch.Pick(2, "Ben", null, riders));
     }
 
     static IEnumerable<(SlvshView View, string Name)> Views()
@@ -263,5 +264,24 @@ static class SlvshTests
         Assert.True(Scoreboard.Build(new SlvshView()) is null, "nothing to show");
         var dir = Environment.GetEnvironmentVariable("SLVSH_PREVIEW");
         if (!string.IsNullOrEmpty(dir)) OverlayPreview.Save(Views().Select(v => (Scoreboard.Build(v.View)!, v.Name)), Path.Combine(dir, "slvsh.html"));
+    }
+
+    [Test]
+    static void LinesTravelSafely()
+    {
+        var state = Enumerable.Range(0, 900).Select(i => Math.Sin(i) * 40).ToArray();
+        var packed = LineStart.Pack(state);
+        Assert.True(packed.Length < 60000, "a rider's state fits a message");
+        Assert.True(LineStart.Unpack(packed)!.SequenceEqual(state), "round trip");
+        Assert.True(LineStart.Unpack("not base64!") is null);
+        Assert.True(LineStart.Unpack(LineStart.Pack(new[] { 1.0, double.NaN })) is null, "no NaN positions");
+        Assert.True(LineStart.Unpack(LineStart.Pack(new double[LineStart.MaxDoubles + 1])) is null, "nothing oversized");
+
+        var host = new SlvshHost(1, "Ana", MatchRules.Exact, 45, 0, () => 0, sameLine: true, runIn: 8);
+        var copy = GameState.FromJson(host.Game.ToJson())!;
+        Assert.True(copy.SameLine && copy.RunIn == 8, "the host's line rule reaches everyone");
+        var junk = host.Game.ToJson();
+        junk["runin"] = 999;
+        Assert.Equal(15, GameState.FromJson(junk)!.RunIn);
     }
 }

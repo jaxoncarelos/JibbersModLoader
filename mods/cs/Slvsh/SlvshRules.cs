@@ -29,6 +29,10 @@ internal sealed record GameState
     public ulong Host { get; init; }
     public Phase Phase { get; init; }
     public string Rule { get; init; } = MatchRules.Exact;
+    /// <summary>Matchers start each try where the setter's line began, at the setter's speed.</summary>
+    public bool SameLine { get; init; }
+    /// <summary>How long before the set trick the line begins (seconds).</summary>
+    public int RunIn { get; init; } = 6;
     public IReadOnlyList<Player> Players { get; init; } = Array.Empty<Player>();
     public ulong Setter { get; init; }
     /// <summary>Who is trying (or being voted on) now; 0 = nobody.</summary>
@@ -74,7 +78,7 @@ internal sealed record GameState
         ["players"] = new JsonArray(Players.Select(p => (JsonNode)new JsonObject { ["id"] = p.Id.ToString(), ["name"] = p.Name, ["letters"] = p.Letters }).ToArray()),
         ["on"] = VotingOn.ToString().ToLowerInvariant(), ["tried"] = Tried, ["detected"] = Detected, ["voters"] = Ids(Voters),
         ["ballots"] = new JsonArray(Ballots.Select(b => (JsonNode)new JsonObject { ["v"] = b.Voter.ToString(), ["yes"] = b.Yes }).ToArray()),
-        ["vsecs"] = VoteSecondsLeft, ["vtotal"] = VoteSecondsTotal,
+        ["vsecs"] = VoteSecondsLeft, ["vtotal"] = VoteSecondsTotal, ["line"] = SameLine, ["runin"] = RunIn,
     };
 
     /// <summary>Reads a state message; null for anything malformed (it came over the network).</summary>
@@ -110,6 +114,8 @@ internal sealed record GameState
                 Ballots = (v["ballots"]?.AsArray() ?? new JsonArray()).Take(SlvshHost.MaxPlayers).Select(b => new Ballot(Id(b!["v"]), b["yes"]?.GetValue<bool>() == true)).Where(b => b.Voter != 0).ToList(),
                 VoteSecondsLeft = Math.Clamp(v["vsecs"]?.GetValue<int>() ?? 0, 0, 120),
                 VoteSecondsTotal = Math.Clamp(v["vtotal"]?.GetValue<int>() ?? 0, 0, 120),
+                SameLine = v["line"]?.GetValue<bool>() == true,
+                RunIn = Math.Clamp(v["runin"]?.GetValue<int>() ?? 6, 2, 15),
             };
         }
         catch (Exception e) when (e is InvalidOperationException or FormatException or NullReferenceException)
@@ -143,7 +149,8 @@ internal sealed class SlvshHost
     public double? OverAt { get; private set; }
 
     /// <param name="voteSeconds">How long a vote lasts; 0 turns voting off (trick detection decides).</param>
-    public SlvshHost(ulong me, string myName, string rule, int attemptSeconds, int voteSeconds, Func<double> clock)
+    /// <param name="sameLine">Matchers start on the setter's line (see <see cref="GameState.SameLine"/>).</param>
+    public SlvshHost(ulong me, string myName, string rule, int attemptSeconds, int voteSeconds, Func<double> clock, bool sameLine = false, int runIn = 6)
     {
         this.clock = clock;
         this.voteSeconds = voteSeconds;
@@ -151,6 +158,7 @@ internal sealed class SlvshHost
         Game = new GameState
         {
             Id = id, Host = me, Phase = Phase.Lobby, Rule = rule, SecondsTotal = attemptSeconds, VoteSecondsTotal = voteSeconds,
+            SameLine = sameLine, RunIn = Math.Clamp(runIn, 2, 15),
             Players = new[] { new Player(me, myName, 0) }, News = $"{myName} started SLVSH",
         };
     }

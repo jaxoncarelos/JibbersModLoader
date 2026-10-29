@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Jibbers.Sdk;
 using Jibbers.Sdk.Game.Event;
+using Jibbers.Sdk.Interop;
 using Jibbers.Sdk.Multiplayer;
 using Jibbers.Sdk.UI;
 using Slvsh.Integration;
@@ -25,17 +26,17 @@ public sealed class SlvshMod : JibbersMod
     /// <summary>The original native SLVSH mod uses the same keys and game.</summary>
     public override IReadOnlyList<string> Conflicts => new[] { "jibbers_slvsh" };
 
-    // Every key is pressed with Ctrl held, so none of them clash with the game or other mods' F-keys.
+    // Starting and leaving need Ctrl held; the votes are plain Y / N but only while a vote is open.
     [KeyBinding("Start, join or begin a game (with Ctrl)", Key.Enter, Key = "start_key", Section = "Keys")]
     public Key GoKey { get; private set; }
 
     [KeyBinding("Leave or end the game (with Ctrl)", Key.Q, Key = "quit_key", Section = "Keys")]
     public Key LeaveKey { get; private set; }
 
-    [KeyBinding("Vote: it counted (with Ctrl)", Key.Y, Key = "yes_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
+    [KeyBinding("Vote: it counted", Key.Y, Key = "yes_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
     public Key VoteYesKey { get; private set; }
 
-    [KeyBinding("Vote: it didn't count (with Ctrl)", Key.N, Key = "no_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
+    [KeyBinding("Vote: it didn't count", Key.N, Key = "no_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
     public Key VoteNoKey { get; private set; }
 
     [Choice("A match counts when (host decides)", MatchRules.Exact, MatchRules.Exact, MatchRules.Spins, MatchRules.Any, Key = "match_rule", Section = "Rules")]
@@ -50,6 +51,12 @@ public sealed class SlvshMod : JibbersMod
     [Slider("Time to vote (seconds)", 12, 5, 30, 1, Key = "vote_secs", Section = "Rules")]
     public double VoteSeconds { get; private set; }
 
+    [Toggle("Start every try on the setter's line (host decides)", Key = "same_line", Section = "Rules", Tooltip = "When it's your turn to match, you start where the setter's run-in began, at their speed.")]
+    public bool SameLine { get; private set; }
+
+    [Slider("Run-in before the trick (seconds)", 6, 2, 15, 1, Key = "run_in", Section = "Rules", Tooltip = "How far back from the setter's trick the line starts.")]
+    public double RunIn { get; private set; }
+
     [Toggle("Watch each player's turn", Key = "spectate", Section = "Camera", Tooltip = "Your camera follows whoever is taking their turn (when they're on your server), then comes back for yours.")]
     public bool Spectate { get; private set; }
 
@@ -58,7 +65,19 @@ public sealed class SlvshMod : JibbersMod
     const double PositionEvery = 0.2, CameraEvery = 0.2;
 
     readonly TrickLog tricks = new();
-    readonly SpectateCamera camera = new();
+    readonly SpectateCamera camera;
+
+    readonly LineStart line;
+    /// <summary>The setters' lines (setter → the trick and where its run-in began).</summary>
+    readonly Dictionary<ulong, (string Trick, double[] State)> lines = new();
+    uint lineFor;
+    double lineAppliedAt;
+
+    public SlvshMod()
+    {
+        camera = new SpectateCamera(text => Log(text));
+        line = new LineStart(() => Now, text => Log(text));
+    }
     readonly ConcurrentQueue<(PartyMember From, JsonNode? Message)> inbox = new();
     readonly ConcurrentQueue<ulong> departed = new();
     PartyChannel? channel;
@@ -70,6 +89,7 @@ public sealed class SlvshMod : JibbersMod
     {
         channel = Party.Channel(this);
         channel.Received += message => inbox.Enqueue((message.From, message.Json()));
+        line.Start();
         Party.MemberChanged += OnMemberChanged;
         overlay = Overlay.Register("slvsh", new OverlayOptions { Anchor = HudAnchor.TopRight, Offset = new Vector2(-12, -12) });
         TrickPerformed.Subscribe(t => tricks.AddTrick(Now, t.Name ?? "", t.SequenceId));
@@ -77,8 +97,8 @@ public sealed class SlvshMod : JibbersMod
         Reset.Subscribe(_ => tricks.AddReset(Now));
         Input.OnPressed(() => GoKey, () => pressedGo = true, Key.Control);
         Input.OnPressed(() => LeaveKey, () => pressedLeave = true, Key.Control);
-        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true, Key.Control);
-        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true, Key.Control);
+        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true);
+        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true);
         thread = new Thread(Run) { IsBackground = true, Name = "SLVSH" };
         thread.Start();
     }
@@ -86,6 +106,7 @@ public sealed class SlvshMod : JibbersMod
     public override void OnUnload()
     {
         stopping = true;
+        line.Recording = false;
         Party.MemberChanged -= OnMemberChanged;
         thread?.Join(500);
         try { MainThread.Run(camera.Restore); }
@@ -146,6 +167,7 @@ public sealed class SlvshMod : JibbersMod
         {
             host?.Remove(gone);
             reported.Remove(gone);
+            lines.Remove(gone);
             if (host is null && game?.Host == gone)
             {
                 game = null;
@@ -192,6 +214,7 @@ public sealed class SlvshMod : JibbersMod
         }
 
         Judge(me, now);
+        Lines(me, now);
         ReportPosition(me, now);
         Camera(me, now);
         Show(me);
@@ -228,6 +251,11 @@ public sealed class SlvshMod : JibbersMod
                         var at = new Vector3(p[0]!.GetValue<float>(), p[1]!.GetValue<float>(), p[2]!.GetValue<float>());
                         if (float.IsFinite(at.X) && float.IsFinite(at.Y) && float.IsFinite(at.Z)) reported[sender] = (at, now);
                     }
+                    break;
+                case "line" when game?.Id == id && sender != me && game.SameLine:
+                    var lineTrick = m["trick"]?.GetValue<string>() ?? "";
+                    if (lineTrick.Length is > 0 and <= 80 && m["s"]?.GetValue<string>() is { Length: <= 65536 } packed && LineStart.Unpack(packed) is { } state)
+                        lines[sender] = (lineTrick, state);
                     break;
                 case "state" when host is null:
                     if (GameState.FromJson(m) is not { } s || s.Host != sender) return;
@@ -276,7 +304,9 @@ public sealed class SlvshMod : JibbersMod
             else if (game is { Phase: Phase.Over } || (host is null && game is null && invite is null && joining is null))
             {
                 // Start a new game (or the next one, once this one is over).
-                host = new SlvshHost(me, Party.Local?.Name ?? "You", Rule, (int)Math.Clamp(AttemptSeconds, 15, 180), Voting ? (int)Math.Clamp(VoteSeconds, 5, 30) : 0, () => Now);
+                host = new SlvshHost(me, Party.Local?.Name ?? "You", Rule, (int)Math.Clamp(AttemptSeconds, 15, 180), Voting ? (int)Math.Clamp(VoteSeconds, 5, 30) : 0, () => Now,
+                    SameLine, (int)Math.Clamp(RunIn, 2, 15));
+                lines.Clear();
                 game = host.Game;
                 lastInvite = -10;
                 if (channel!.Peers.Count == 0) Hint("Nobody else in your party has SLVSH yet: they need the mod to join");
@@ -318,6 +348,7 @@ public sealed class SlvshMod : JibbersMod
         if (judge is not { } current || current.Attempt != g.Attempt) judge = current = (g.Attempt, new TrickJudge(tricks, now));
         if (current.Judge.Step(now) is not { } outcome) return;
         Log($"SLVSH: attempt {g.Attempt}: {outcome}");
+        if (g.Phase == Phase.Set && g.SameLine && outcome.Landed) ShareLine(g, me, current.Judge, outcome.Trick);
         sentResult = g.Attempt;
         judge = null;
         if (host is not null) host.Result(me, g.Attempt, outcome);
@@ -326,6 +357,48 @@ public sealed class SlvshMod : JibbersMod
             {
                 ["t"] = "result", ["id"] = g.Id, ["attempt"] = g.Attempt, ["landed"] = outcome.Landed, ["trick"] = outcome.Trick,
             });
+    }
+
+    /// <summary>
+    /// Your set landed: send the others where its run-in began (your rider's physics state from
+    /// <see cref="GameState.RunIn"/> seconds before the trick, after your last respawn), so their tries start there.
+    /// </summary>
+    void ShareLine(GameState g, ulong me, TrickJudge judged, string trick)
+    {
+        if (judged.TrickAt is not { } at) return;
+        var resets = tricks.Since(judged.Started).Resets.Where(r => r < at).ToList();
+        var since = resets.Count > 0 ? resets.Max() + 0.5 : judged.Started;
+        if (line.Pick(at - g.RunIn, since) is not { } state) return;
+        var packed = LineStart.Pack(state);
+        if (packed.Length > 60000) { Log($"SLVSH: your line is too big to send ({state.Length} values)"); return; }
+        var message = new JsonObject { ["t"] = "line", ["id"] = g.Id, ["trick"] = trick, ["s"] = packed };
+        foreach (var p in g.Players.Where(p => p.Id != me)) channel!.Send(new SteamId(p.Id), message);
+    }
+
+    /// <summary>
+    /// Records your rider while you set; on your turn to match, starts you on the setter's line, and
+    /// again if you respawn before your trick (respawning is how you get back up to the jump).
+    /// </summary>
+    void Lines(ulong me, double now)
+    {
+        var g = game;
+        line.Recording = g is { SameLine: true, Phase: Phase.Set } && g.Attempter == me;
+        if (g is not { SameLine: true, Phase: Phase.Match } || g.Attempter != me) return;
+        if (!lines.TryGetValue(g.Setter, out var set) || set.Trick != g.Trick) return;
+        if (lineFor != g.Attempt)
+        {
+            lineFor = g.Attempt;
+            lineAppliedAt = now;
+            line.Apply(set.State);
+            Log($"SLVSH: starting on {g.NameOf(g.Setter)}'s line");
+            return;
+        }
+        var respawned = tricks.Since(lineAppliedAt).Resets;
+        if (respawned.Count > 0 && now - respawned[^1] > 0.4 && judge is { } j && j.Judge.Current is null)
+        {
+            lineAppliedAt = now;
+            line.Apply(set.State);
+        }
     }
 
     /// <summary>During your turn and its vote, tell the others where you are, so their cameras can find your rider.</summary>
@@ -355,9 +428,9 @@ public sealed class SlvshMod : JibbersMod
         lastCamera = now;
         var name = target == 0 ? null : g!.NameOf(target);
         Vector3? at = target != 0 && reported.TryGetValue(target, out var r) && now - r.When < 3 ? r.At : null;
-        try { watching = MainThread.Run(() => camera.Update(name, at, now)); }
+        try { watching = MainThread.Run(() => camera.Update(target, name, at)); }
         catch (TimeoutException) { }
-        catch (Exception e) when (e is InvalidOperationException or MissingMethodException)
+        catch (Exception e) when (e is InvalidOperationException or MissingMethodException or Il2CppException)
         {
             if (watching != SpectateStatus.NotHere) Log($"SLVSH: can't watch {name}: {e.Message}");
             watching = SpectateStatus.NotHere;
@@ -383,8 +456,8 @@ public sealed class SlvshMod : JibbersMod
             Watching = g is not null && g.Attempter != me && g.Watching(g.Attempter) ? watching : SpectateStatus.Off,
             GoKey = $"Ctrl+{GoKey}",
             LeaveKey = $"Ctrl+{LeaveKey}",
-            YesKey = $"Ctrl+{VoteYesKey}",
-            NoKey = $"Ctrl+{VoteNoKey}",
+            YesKey = VoteYesKey.ToString(),
+            NoKey = VoteNoKey.ToString(),
         };
         if (view == shown) return;
         shown = view;
