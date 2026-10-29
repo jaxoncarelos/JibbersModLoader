@@ -14,18 +14,18 @@ don't install both.
 
 ## How to play
 
-1. Get everyone into a **party**: press **F7** for the Party panel, make a party, and share its
+1. Get everyone into a **party**: press **Ctrl+M** for the Party panel, make a party, and share its
    code (or invite friends from the panel).
-2. One rider presses **F9** to start a game. Everyone else in the party sees an invite and presses
-   **F9** to join.
-3. When everyone's in, the starter presses **F9** again to begin (2 to 8 players).
+2. One rider presses **Ctrl+Enter** to start a game. Everyone else in the party sees an invite and
+   presses **Ctrl+Enter** to join.
+3. When everyone's in, the starter presses **Ctrl+Enter** again to begin (2 to 8 players).
 4. **Watch every turn.** While someone takes their turn, your camera follows their rider, so you
    see the whole line and trick. It comes back to you for your own turn. This only works when
    they're on the same server as you; otherwise the scoreboard says "Not on your server".
-5. **Vote.** After each try, everyone else votes: **F9** it counted, **F8** it didn't. The
+5. **Vote.** After each try, everyone else votes: **Ctrl+Y** it counted, **Ctrl+N** it didn't. The
    scoreboard shows what the game detected ("game's guess"). The majority decides; a tie, or
    nobody voting, goes with the game's guess. You can change your vote until time's up.
-6. **F10** leaves the game. If the starter ends it, it ends for everyone.
+6. **Ctrl+Q** leaves the game. If the starter ends it, it ends for everyone.
 
 ## How a try is detected
 
@@ -38,8 +38,8 @@ don't install both.
 
 ## Settings (Mods > SLVSH)
 
-- Keys: start / join / begin (F9), leave (F10), vote it counted (F9, during votes only), vote it
-  didn't (F8).
+- Keys, all pressed with Ctrl: start / join / begin (Enter), leave (Q), vote it counted (Y), vote
+  it didn't (N). They stay clear of the drone's and Alpine Vision's F-keys.
 - **A match counts when**: exact trick (default), same spins with any grab, or any landed trick.
 - **Time for each try**: 45 seconds by default.
 - **Vote on every try** and **time to vote** (12 seconds). Turn voting off to let trick detection

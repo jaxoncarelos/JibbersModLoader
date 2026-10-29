@@ -22,7 +22,7 @@ public override void OnLoad()
 A party is a Steam lobby that the SDK keeps for the player. Every multiplayer mod shares it:
 players join once, and every mod they have works with everyone else in it.
 
-- The player opens the **Party panel** (default **F7**, rebindable under Mods > Party). From there
+- The player opens the **Party panel** (default **Ctrl+M**, rebindable under Mods > Party). From there
   they can make a party, join one with its 6-character code, join a friend's party, invite friends
   through the Steam overlay, lock the party, or leave it. Toasts appear when people join or leave.
 - Every player has the panel, because the SDK's built-in Play together (below) uses the party.
@@ -33,7 +33,7 @@ players join once, and every mod they have works with everyone else in it.
   who runs your mod. `channel.Peers` lists the others who have it, and `channel.Players` includes you.
 - Mods may also drive the party themselves: `Party.Create()`, `Party.Join(code)`,
   `Party.JoinFriend(id)`, `Party.Leave()`, `Party.Invite(friend)`, `Party.OpenInviteOverlay()`.
-  `Party.PanelKey` is the panel's key, for your own hints ("press F7 to make a party").
+  `Party.PanelKey` is the panel's key, for your own hints ("press Ctrl+M to make a party").
 
 ## Messages
 
@@ -79,7 +79,7 @@ port forwarding to play on someone's server:
 
 1. Host as usual (the console's `host`, or the game's own host option).
 2. The Party panel offers **Invite friends to your server**: it makes a party if you aren't in one
-   and opens Steam's invite dialog. Party members see "Ana is hosting: press F7 to join" and a
+   and opens Steam's invite dialog. Party members see "Ana is hosting: press Ctrl+M to join" and a
    **Join Ana's server** row in the panel.
 3. A friend who accepts the Steam invite (or uses **Join game** on you in their friends list) joins
    the party and, unless they turned it off, the server straight away. If the game wasn't running,

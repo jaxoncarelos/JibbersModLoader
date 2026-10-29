@@ -18,7 +18,8 @@ internal sealed class PartyMod : JibbersMod
     public override string Description => "Make or join a party to play multiplayer mods with friends over Steam.";
     public override bool EnabledToggle => false;
 
-    [KeyBinding("Open the Party panel", Key.F7, Key = "panel_key")]
+    // Pressed with Ctrl held, so it can't clash with the game or other mods' F-keys.
+    [KeyBinding("Open the Party panel (with Ctrl)", Key.M, Key = "open_key")]
     public Key PanelKey { get; private set; }
 
     [Toggle("Show party messages", Key = "toasts", Tooltip = "Short notes at the top of the screen when people join or leave.")]
@@ -38,7 +39,7 @@ internal sealed class PartyMod : JibbersMod
     {
         panel = Overlay.Register("party", new OverlayOptions { Anchor = HudAnchor.MiddleRight, Offset = new Vector2(-36, 0) });
         toastPanel = Overlay.Register("party_toasts", new OverlayOptions { Anchor = HudAnchor.TopCenter, Offset = new Vector2(0, -14), SortingOrder = 930 });
-        Input.OnPressed(() => PanelKey, Toggle);
+        Input.OnPressed(() => PanelKey, Toggle, Key.Control);
         // The panel's own keys exist only while it is open (and letters only while typing a code),
         // so the game keeps every key to itself the rest of the time.
         Key WhenOpen(Key key) => open ? key : 0;
@@ -54,10 +55,10 @@ internal sealed class PartyMod : JibbersMod
         Party.Changed += Redraw;
         Party.Notice += Toast;
         if (PlayTogether.Current is { } server) server.Changed += Redraw;
-        Party.PanelKeySource = () => PanelKey.ToString();
+        Party.PanelKeySource = () => $"Ctrl+{PanelKey}";
         ticker = new Thread(Tick) { IsBackground = true, Name = "Jibbers Party panel" };
         ticker.Start();
-        Log($"press {PanelKey} for the Party panel");
+        Log($"press Ctrl+{PanelKey} for the Party panel");
     }
 
     public override void OnUnload()
@@ -93,7 +94,8 @@ internal sealed class PartyMod : JibbersMod
 
     void Choose()
     {
-        if (!open) return;
+        // Ctrl+Enter belongs to mods (SLVSH starts a game with it), not to the panel.
+        if (!open || Input.IsDown(Key.Control)) return;
         Action? run = null;
         lock (gate)
         {
@@ -162,7 +164,7 @@ internal sealed class PartyMod : JibbersMod
             var server = PlayTogether.Current;
             actions = PartyPanel.Actions(snapshot, ui, server?.PanelActions());
             if (ui.Selected >= actions.Count) ui.Selected = Math.Max(0, actions.Count - 1);
-            frame = PartyPanel.Build(snapshot, ui, actions, PanelKey.ToString(), clock.Elapsed.TotalSeconds, server?.Status ?? "");
+            frame = PartyPanel.Build(snapshot, ui, actions, $"Ctrl+{PanelKey}", clock.Elapsed.TotalSeconds, server?.Status ?? "");
         }
         panel.Draw(frame);
         panel.Show();

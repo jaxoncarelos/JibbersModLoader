@@ -17,10 +17,10 @@ internal sealed record SlvshView
     public string Hint { get; init; } = "";
     /// <summary>Whether your camera is following the player taking their turn.</summary>
     public SpectateStatus Watching { get; init; }
-    public string GoKey { get; init; } = "F9";
-    public string LeaveKey { get; init; } = "F10";
-    public string YesKey { get; init; } = "F9";
-    public string NoKey { get; init; } = "F8";
+    public string GoKey { get; init; } = "Ctrl+Enter";
+    public string LeaveKey { get; init; } = "Ctrl+Q";
+    public string YesKey { get; init; } = "Ctrl+Y";
+    public string NoKey { get; init; } = "Ctrl+N";
 }
 
 /// <summary>
@@ -136,7 +136,7 @@ internal static class Scoreboard
         var hints = g.Phase switch
         {
             Phase.Lobby when g.Host == v.Me => new[] { (v.GoKey, g.Players.Count >= 2 ? "Begin" : "Begin (2+ players)"), (v.LeaveKey, "End") },
-            Phase.Vote when canVote => new[] { (v.YesKey, "Counted"), (v.NoKey, "Didn't"), (v.LeaveKey, "Leave") },
+            Phase.Vote when canVote => new[] { (v.YesKey, "Yes"), (v.NoKey, "No"), (v.LeaveKey, "Leave") },
             Phase.Over => new[] { (v.GoKey, "New game"), (v.LeaveKey, "Close") },
             _ => new[] { (v.LeaveKey, g.Host == v.Me ? "End game" : "Leave") },
         };
@@ -196,9 +196,9 @@ internal static class Scoreboard
             Key(f, key, tx, y + 11);
             tx += kw + 8;
         }
-        f.Text(label, tx, y + (detected ? 7 : 14), w - (tx - x) - 40, 16, 12, chosen ? Look.Text : Look.Caption, bold: true, spacing: Look.Tracked);
-        if (detected) f.Text("game's guess", tx, y + 24, w - (tx - x) - 40, 14, 10, Look.Dim);
-        f.Text(count.ToString(), x + w - 40, y + 6, 30, 32, 26, count > 0 || chosen ? color : Look.Dim, HudTextAlignment.Right);
+        f.Text(label, tx, y + (detected ? 7 : 14), w - (tx - x) - 28, 16, 12, chosen ? Look.Text : Look.Caption, bold: true, spacing: 6);
+        if (detected) f.Text("game's guess", tx, y + 24, w - (tx - x) - 28, 14, 10, Look.Dim);
+        f.Text(count.ToString(), x + w - 30, y + 6, 22, 32, 26, count > 0 || chosen ? color : Look.Dim, HudTextAlignment.Right);
     }
 
     static (string Title, string Sub, Color Color) Headline(SlvshView v, GameState g, bool mine)
@@ -258,14 +258,14 @@ internal static class Scoreboard
         }
     }
 
-    static float KeyWidth(string key) => Math.Max(22, 10 + key.Length * 8f);
+    static float KeyWidth(string key) => Math.Max(22, 10 + key.Length * (key.Length > 3 ? 6.4f : 8f));
 
-    /// <summary>A key cap like the HUD's "1 2 3 4".</summary>
+    /// <summary>A key cap like the HUD's "1 2 3 4" (combos like "Ctrl+Y" in a smaller size).</summary>
     static void Key(OverlayFrame f, string key, float x, float y)
     {
         var kw = KeyWidth(key);
         f.Rect(x, y, kw, 22, Look.ChipCorner, Look.InsetLit);
-        f.Text(key, x, y + 4, kw, 14, 11, Look.Text, HudTextAlignment.Center, bold: true);
+        f.Text(key, x, y + (key.Length > 3 ? 5 : 4), kw, 14, key.Length > 3 ? 10 : 11, Look.Text, HudTextAlignment.Center, bold: true);
     }
 
     /// <summary>Key caps with their action in tracked capitals, along the bottom edge.</summary>

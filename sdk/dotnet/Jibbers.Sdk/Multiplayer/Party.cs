@@ -14,7 +14,7 @@ namespace Jibbers.Sdk.Multiplayer;
 /// Messages go peer to peer through Valve's relays (no ports, no IP addresses shared), only between
 /// party members. Party messages are separate from the game's own networking (the SDK's built-in
 /// Play together uses the party to tunnel game servers, see docs/guides/multiplayer.md).
-/// Players get a Party panel (Mods tab > Party, default key F7) to make, join and leave parties, so
+/// Players get a Party panel (Mods tab > Party, default Ctrl+M) to make, join and leave parties, so
 /// your mod usually only needs <see cref="Channel"/>. Everything here is safe from any thread.
 /// </remarks>
 /// <example>
@@ -53,8 +53,8 @@ public static class Party
     public static IReadOnlyList<FriendParty> Friends => current.Friends;
     /// <summary>The last problem or progress line ("No party found with code ..."), or "".</summary>
     public static string Status => current.Status;
-    /// <summary>The key that opens the Party panel ("F7" unless the player rebound it), for your own hints.</summary>
-    public static string PanelKey => PanelKeySource?.Invoke() ?? "F7";
+    /// <summary>The keys that open the Party panel ("Ctrl+M" unless the player rebound it), for your own hints.</summary>
+    public static string PanelKey => PanelKeySource?.Invoke() ?? "Ctrl+M";
     internal static Func<string>? PanelKeySource;
 
     /// <summary>The party changed: state, members, host, lock, friends. Called on the SDK's party thread.</summary>

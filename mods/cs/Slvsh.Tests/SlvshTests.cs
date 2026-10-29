@@ -249,7 +249,7 @@ static class SlvshTests
         }
         yield return (new SlvshView { Me = 3, Game = h.Game }, "Game over");
         yield return (new SlvshView { Me = 2, Invite = ("Ana", 3) }, "Invite");
-        yield return (new SlvshView { Me = 2, Hint = "Make or join a party first: press F7 for the Party panel" }, "Hint");
+        yield return (new SlvshView { Me = 2, Hint = "Make or join a party first: press Ctrl+M for the Party panel" }, "Hint");
     }
 
     [Test]

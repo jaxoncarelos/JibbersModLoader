@@ -25,16 +25,17 @@ public sealed class SlvshMod : JibbersMod
     /// <summary>The original native SLVSH mod uses the same keys and game.</summary>
     public override IReadOnlyList<string> Conflicts => new[] { "jibbers_slvsh" };
 
-    [KeyBinding("Start, join or begin a game", Key.F9, Key = "go_key", Section = "Keys")]
+    // Every key is pressed with Ctrl held, so none of them clash with the game or other mods' F-keys.
+    [KeyBinding("Start, join or begin a game (with Ctrl)", Key.Enter, Key = "start_key", Section = "Keys")]
     public Key GoKey { get; private set; }
 
-    [KeyBinding("Leave or end the game", Key.F10, Key = "leave_key", Section = "Keys")]
+    [KeyBinding("Leave or end the game (with Ctrl)", Key.Q, Key = "quit_key", Section = "Keys")]
     public Key LeaveKey { get; private set; }
 
-    [KeyBinding("Vote: it counted", Key.F9, Key = "vote_yes_key", Section = "Keys", Tooltip = "During a vote only, so it can share the start key.")]
+    [KeyBinding("Vote: it counted (with Ctrl)", Key.Y, Key = "yes_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
     public Key VoteYesKey { get; private set; }
 
-    [KeyBinding("Vote: it didn't count", Key.F8, Key = "vote_no_key", Section = "Keys")]
+    [KeyBinding("Vote: it didn't count (with Ctrl)", Key.N, Key = "no_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
     public Key VoteNoKey { get; private set; }
 
     [Choice("A match counts when (host decides)", MatchRules.Exact, MatchRules.Exact, MatchRules.Spins, MatchRules.Any, Key = "match_rule", Section = "Rules")]
@@ -74,10 +75,10 @@ public sealed class SlvshMod : JibbersMod
         TrickPerformed.Subscribe(t => tricks.AddTrick(Now, t.Name ?? "", t.SequenceId));
         Respawn.Subscribe(_ => tricks.AddReset(Now));
         Reset.Subscribe(_ => tricks.AddReset(Now));
-        Input.OnPressed(() => GoKey, () => pressedGo = true);
-        Input.OnPressed(() => LeaveKey, () => pressedLeave = true);
-        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true);
-        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true);
+        Input.OnPressed(() => GoKey, () => pressedGo = true, Key.Control);
+        Input.OnPressed(() => LeaveKey, () => pressedLeave = true, Key.Control);
+        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true, Key.Control);
+        Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true, Key.Control);
         thread = new Thread(Run) { IsBackground = true, Name = "SLVSH" };
         thread.Start();
     }
@@ -380,10 +381,10 @@ public sealed class SlvshMod : JibbersMod
             Trying = judge?.Judge.Current,
             Hint = Now < hintUntil ? hint : joining is not null ? "Joining the game…" : "",
             Watching = g is not null && g.Attempter != me && g.Watching(g.Attempter) ? watching : SpectateStatus.Off,
-            GoKey = GoKey.ToString(),
-            LeaveKey = LeaveKey.ToString(),
-            YesKey = VoteYesKey.ToString(),
-            NoKey = VoteNoKey.ToString(),
+            GoKey = $"Ctrl+{GoKey}",
+            LeaveKey = $"Ctrl+{LeaveKey}",
+            YesKey = $"Ctrl+{VoteYesKey}",
+            NoKey = $"Ctrl+{VoteNoKey}",
         };
         if (view == shown) return;
         shown = view;
