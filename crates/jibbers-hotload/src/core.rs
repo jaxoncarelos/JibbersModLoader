@@ -110,6 +110,24 @@ static CORES: RwLock<Vec<Core>> = RwLock::new(Vec::new());
 static GENERATION: AtomicU32 = AtomicU32::new(0);
 /// Set once the JibbersMods folder has been read, so plugins load only once.
 static PLUGINS_SCANNED: AtomicBool = AtomicBool::new(false);
+/// Mod DLLs that aren't from the signed catalog (see `manager::unverified_mods`), found when the
+/// plugins load. Only a warning: nothing here can stop a native DLL that is already in the folder.
+static UNVERIFIED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Unverified mod DLL paths, relative to the game folder.
+#[cfg(feature = "release")]
+pub fn unverified() -> Vec<String> {
+    UNVERIFIED.lock().unwrap().clone()
+}
+
+/// Whether a plugin listed as `file` (see `list_plugins`) came from an unverified DLL. A C# file
+/// with several mods registers each as `<stem>.<mod id>`.
+#[cfg(feature = "release")]
+pub fn is_unverified(file: &str) -> bool {
+    UNVERIFIED.lock().unwrap().iter().filter_map(|p| Path::new(p).file_stem()?.to_str()).any(|stem| {
+        file.eq_ignore_ascii_case(stem) || file.len() > stem.len() && file.is_char_boundary(stem.len()) && file[..stem.len()].eq_ignore_ascii_case(stem) && file[stem.len()..].starts_with('.')
+    })
+}
 
 fn temp_dir() -> PathBuf {
     std::env::temp_dir().join("jibbers-hotload")
@@ -223,6 +241,11 @@ fn load_plugins(cores: &mut Vec<Core>, only: Option<&str>) {
         .filter(|p| only.is_none_or(|stem| p.file_stem().is_some_and(|s| s.eq_ignore_ascii_case(stem))))
         .collect();
     if only.is_none() {
+        let unverified = jibbers_distribution::manager::unverified_mods(&game_dir());
+        for path in &unverified {
+            log::info(format!("WARNING: {path} is not from the signed mod catalog. It runs with full access to your PC; keep it only if you trust where it came from"));
+        }
+        *UNVERIFIED.lock().unwrap() = unverified;
         match crate::managed_runtime::prepare(&game_dir()) {
             Ok(Some(bridge)) => {
                 // The signed channel bridge takes precedence over a manually installed copy.
@@ -393,6 +416,19 @@ pub fn clean_temp() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(feature = "release")]
+    fn unverified_files_match_their_plugins_and_multi_mod_entries_only() {
+        *UNVERIFIED.lock().unwrap() = vec!["JibbersMods/cs/Local.dll".into(), "JibbersMods/cs/Sub/Sub.dll".into()];
+        for file in ["Local", "local", "Local.second_mod", "Sub"] {
+            assert!(is_unverified(file), "{file}");
+        }
+        for file in ["LocalExtra", "Loc", "Signed", "Signed.local"] {
+            assert!(!is_unverified(file), "{file}");
+        }
+        UNVERIFIED.lock().unwrap().clear();
+    }
 
     #[test]
     fn matching_abi_is_accepted() {

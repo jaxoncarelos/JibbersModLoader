@@ -142,8 +142,9 @@ fn plugins() -> Vec<(u32, Value)> {
         let mut out = vec![];
         for e in list.as_array().cloned().unwrap_or_default() {
             let Some(id) = e.get("id").and_then(Value::as_u64) else { continue };
-            let info = call(id as u32, &json!({"cmd": "plugin.info"}));
+            let mut info = call(id as u32, &json!({"cmd": "plugin.info"}));
             if has_menu_section(&info) {
+                info["unverified"] = Value::Bool(e.get("file").and_then(Value::as_str).is_some_and(crate::core::is_unverified));
                 out.push((id as u32, info));
             }
         }
@@ -1130,6 +1131,13 @@ mod tests {
     }
 
     #[test]
+    fn store_warns_about_unverified_mods_by_file_name() {
+        assert_eq!(store_text("Up to date".into(), &[]), "Up to date");
+        let text = store_text("Up to date".into(), &["JibbersMods/a.dll".into(), "JibbersMods/cs/B/B.dll".into()]);
+        assert!(text.starts_with("Up to date\n\nWarning: not from the signed mod catalog: a.dll, B.dll."), "{text}");
+    }
+
+    #[test]
     fn builds_when_any_part_is_missing() {
         assert!(!needs_build(true, true, true));
         assert!(needs_build(false, false, false));
@@ -1223,7 +1231,10 @@ unsafe fn fill_form(parent: *mut Object) -> R<(*mut Object, usize)> {
         sections.clear();
         for (pid, info) in plugins() {
             let id = info["id"].as_str().unwrap_or("mod").to_string();
-            let name = info["name"].as_str().unwrap_or("Mod").to_string();
+            let mut name = info["name"].as_str().unwrap_or("Mod").to_string();
+            if info["unverified"] == true {
+                name.push_str(" (unverified)");
+            }
             let values = call(pid, &json!({"cmd": "plugin.get"}))["values"].clone();
             for e in info["settings"].as_array().cloned().unwrap_or_default() {
                 let key = e["key"].as_str().unwrap_or_default().to_string();
@@ -1297,7 +1308,13 @@ unsafe fn fill_store() -> R<()> {
 }
 
 unsafe extern "C" fn store_message(_id: usize, _m: *const c_void) -> *mut Object {
-    std::panic::catch_unwind(|| il2cpp::string(&jibbers_distribution::manager::message(&crate::game_dir()))).unwrap_or(null_mut())
+    std::panic::catch_unwind(|| il2cpp::string(&store_text(jibbers_distribution::manager::message(&crate::game_dir()), &crate::core::unverified()))).unwrap_or(null_mut())
+}
+/// The catalog status, then a warning naming every mod DLL that isn't from the signed catalog.
+fn store_text(message: String, unverified: &[String]) -> String {
+    if unverified.is_empty() { return message; }
+    let names: Vec<&str> = unverified.iter().map(|p| p.rsplit('/').next().unwrap_or(p)).collect();
+    format!("{message}\n\nWarning: not from the signed mod catalog: {}. These run with full access to your PC; keep them only if you trust where they came from.", names.join(", "))
 }
 unsafe extern "C" fn store_check(_id: usize, _m: *const c_void) {
     let _ = std::panic::catch_unwind(|| jibbers_distribution::manager::check(&crate::game_dir()));

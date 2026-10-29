@@ -2,7 +2,7 @@
 //! subscriptions or refresh catalog metadata; installation/removal happens on the next launch.
 use crate::{catalog::{self, Catalog}, install::{self, Fetch, Installed}, STATE_DIR};
 use serde::{Deserialize, Serialize};
-use std::{path::Path, sync::{Mutex, OnceLock}};
+use std::{collections::HashSet, path::Path, sync::{Mutex, OnceLock}};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -98,6 +98,31 @@ fn enroll_legacy(root: &Path, cat: &Catalog) -> Result<(), String> {
     install::write_json(&prefs, &cfg)
 }
 
+/// Mod DLLs the loader or the C# SDK would load (`JibbersMods\*.dll`, `JibbersMods\cs\*.dll`,
+/// `JibbersMods\cs\<name>\<name>.dll`) whose bytes match no file from the signed catalog: installed
+/// by hand or modified since. Legacy-enrolled records (version 0.0.0) hashed whatever was on disk,
+/// so only the catalog vouches for those. Paths are relative to `root`, with `/`.
+pub fn unverified_mods(root: &Path) -> Vec<String> {
+    let mut known: HashSet<(String, String)> = HashSet::new();
+    let installed: Installed = path(root, "installed.json").and_then(|p| install::read_json(&p)).unwrap_or_default();
+    let recorded = installed.packages.into_values().filter(|p| p.version != "0.0.0").flat_map(|p| p.files);
+    let signed = cached(root).map(|c| c.packages.into_iter().flat_map(|p| p.files).collect()).unwrap_or_else(|_| vec![]);
+    for f in recorded.chain(signed) { known.insert((f.path.to_ascii_lowercase(), f.sha256)); }
+    let entries = |rel: &str, dirs: bool| -> Vec<String> {
+        let Ok(rd) = std::fs::read_dir(root.join(rel)) else { return vec![] };
+        let mut out: Vec<String> = rd.flatten().filter(|e| e.path().is_dir() == dirs).filter_map(|e| e.file_name().to_str().map(String::from)).collect();
+        out.sort(); out
+    };
+    let mut candidates: Vec<String> = ["JibbersMods", "JibbersMods/cs"].iter()
+        .flat_map(|rel| entries(rel, false).into_iter().filter(|n| n.to_ascii_lowercase().ends_with(".dll")).map(move |n| format!("{rel}/{n}")))
+        .collect();
+    candidates.extend(entries("JibbersMods/cs", true).into_iter().map(|d| format!("JibbersMods/cs/{d}/{d}.dll")).filter(|rel| root.join(rel).is_file()));
+    candidates.into_iter().filter(|rel| {
+        let Ok(bytes) = std::fs::read(root.join(rel)) else { return true };
+        !known.contains(&(rel.to_ascii_lowercase(), catalog::hash(&bytes)))
+    }).collect()
+}
+
 fn session(root: &Path) -> &'static Mutex<Snapshot> {
     SESSION.get_or_init(|| Mutex::new(Snapshot {
         catalog: cached(root).ok(), config: config(root).unwrap_or_default(),
@@ -172,6 +197,32 @@ mod tests {
         assert_eq!(record.packages["example"].files[0].sha256, catalog::hash(b"existing public mod"));
         assert!(!record.packages.contains_key("local_only"));
         assert_eq!(std::fs::read(root.join("JibbersMods/local_only.dll")).unwrap(), b"private mod");
+        assert!(root.starts_with(std::env::temp_dir())); std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn only_dlls_matching_signed_catalog_files_are_verified() {
+        let root = std::env::temp_dir().join(format!("jibbers-unverified-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        for dir in ["JibbersMods/cs/Sub", "JibbersMods/cs/Empty"] { std::fs::create_dir_all(root.join(dir)).unwrap(); }
+        let write = |rel: &str, bytes: &[u8]| std::fs::write(root.join(rel), bytes).unwrap();
+        write("JibbersMods/example.dll", b"catalog mod");
+        write("JibbersMods/old.dll", b"old catalog mod");
+        write("JibbersMods/legacy.dll", b"enrolled from disk");
+        write("JibbersMods/tampered.dll", b"edited");
+        write("JibbersMods/local.dll", b"hand installed");
+        write("JibbersMods/notes.txt", b"not a dll");
+        write("JibbersMods/cs/Loose.dll", b"loose C# mod");
+        write("JibbersMods/cs/Sub/Sub.dll", b"folder C# mod");
+        write("JibbersMods/cs/Sub/Dependency.dll", b"loaded by Sub, not by the SDK");
+        let file = |path: &str, bytes: &[u8]| catalog::File { path: path.into(), url: "https://example.com/x".into(), size: bytes.len() as u64, sha256: catalog::hash(bytes) };
+        let mut installed = Installed::default();
+        installed.packages.insert("old".into(), install::InstalledPackage { version: "1.0.0".into(), files: vec![file("JibbersMods/old.dll", b"old catalog mod")] });
+        installed.packages.insert("legacy".into(), install::InstalledPackage { version: "0.0.0".into(), files: vec![file("JibbersMods/legacy.dll", b"enrolled from disk")] });
+        installed.packages.insert("tampered".into(), install::InstalledPackage { version: "1.0.0".into(), files: vec![file("JibbersMods/tampered.dll", b"original")] });
+        installed.packages.insert("loose".into(), install::InstalledPackage { version: "1.0.0".into(), files: vec![file("JibbersMods/cs/Loose.dll", b"loose C# mod")] });
+        install::write_json(&path(&root, "installed.json").unwrap(), &installed).unwrap();
+        // No signed catalog is cached here, so example.dll has nothing vouching for it.
+        assert_eq!(unverified_mods(&root), ["JibbersMods/example.dll", "JibbersMods/legacy.dll", "JibbersMods/local.dll", "JibbersMods/tampered.dll", "JibbersMods/cs/Sub/Sub.dll"]);
         assert!(root.starts_with(std::env::temp_dir())); std::fs::remove_dir_all(root).unwrap();
     }
 }
