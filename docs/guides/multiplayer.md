@@ -77,7 +77,7 @@ See [coverage](coverage.md).
 
 `Jibbers.Sdk.UI.Overlay` draws cards with anti-aliased shapes (rounded rectangles, gradients,
 soft shadows, circles, progress arcs) and text in the game's font. It is what the Party panel and
-SLVSH's scoreboard use. `Theme` keeps mods visually consistent.
+SLVSH's scoreboard use. `Theme` and `Card()` follow the game's own HUD (flat translucent grey panels, tracked grey captions, mint accent), so mod UI looks like part of Jibbers.
 
 ```csharp
 var panel = Overlay.Register("scoreboard", new OverlayOptions { Anchor = HudAnchor.TopRight });

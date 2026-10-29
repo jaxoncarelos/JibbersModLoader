@@ -19,10 +19,10 @@ internal sealed record PanelAction(string Label, string Detail, Action Run, bool
 /// </summary>
 internal static class PartyPanel
 {
-    public const float Width = 460;
-    /// <summary>Room around the card for its shadow.</summary>
-    public const float Margin = 24;
-    const float Pad = 24, RowMember = 54, RowAction = 48;
+    public const float Width = 380;
+    /// <summary>Room around the panel.</summary>
+    public const float Margin = 8;
+    const float Pad = 16, RowMember = 40, RowAction = 34;
     const int MaxActionRows = 6;
 
     public static List<PanelAction> Actions(PartySnapshot s, PanelUi ui)
@@ -54,20 +54,22 @@ internal static class PartyPanel
         var busy = s.State is PartyState.Creating or PartyState.Joining or PartyState.Unavailable;
         var shownActions = Math.Min(actions.Count, MaxActionRows);
         var status = s.State == PartyState.None && s.Status.Length > 0;
+        var showCode = s.State == PartyState.InParty && s.Code.Length > 0;
 
-        var height = 112f;
-        if (members.Count > 0) height += 30 + members.Count * RowMember + 14;
-        if (busy) height += 76;
-        else if (ui.EnteringCode) height += 30 + 70 + 34;
-        else height += (status ? 30 : 0) + (shownActions > 0 ? 14 + shownActions * RowAction : 0);
-        height += 46;
+        var height = 92f;
+        if (members.Count > 0) height += 18 + members.Count * RowMember + 8;
+        if (busy) height += 52;
+        else if (ui.EnteringCode) height += 18 + 58 + 26;
+        else height += (status ? 24 : 0) + (shownActions > 0 ? 6 + shownActions * RowAction : 0);
+        height += 40;
 
         var f = new OverlayFrame(Width + Margin * 2, height + Margin * 2).Origin(Margin, Margin);
-        f.Card(0, 0, Width, height, 20);
-        f.Gradient(20, 0, Width - 40, 3, 1.5f, Theme.Ice, Theme.Violet, horizontal: true);
+        f.Card(0, 0, Width, height);
 
-        // Header: what you're in, and the code to share.
-        f.Text("PARTY", Pad, 22, 200, 18, 13, Theme.Muted, bold: true, spacing: 6);
+        // Caption, what you're in, and the code to share.
+        f.Text("PARTY", Pad, 12, 70, 14, 11, Theme.Text, bold: true, spacing: Theme.Tracked);
+        var role = s.State == PartyState.InParty && s.Host?.IsLocal == true ? (s.Locked ? "HOST · LOCKED" : "HOST") : "";
+        if (role.Length > 0) f.Text(role, Pad + 62, 12, 140, 14, 11, Theme.Mint, spacing: Theme.Tracked);
         var title = s.State switch
         {
             PartyState.InParty => members.Count == 1 ? "Just you so far" : $"{members.Count} players",
@@ -76,165 +78,137 @@ internal static class PartyPanel
             PartyState.Unavailable => "Waiting for Steam",
             _ => "Not in a party",
         };
-        f.Text(title, Pad, 44, 260, 36, 27, Theme.Text, bold: true);
+        f.Text(title, Pad, 34, 220, 30, 23, Theme.Text);
         var sub = s.State switch
         {
-            PartyState.InParty when s.Host?.IsLocal == true => s.Locked ? "You're the host · locked" : "You're the host",
+            PartyState.InParty when s.Host?.IsLocal == true => "Share the code or invite friends",
             PartyState.InParty => $"Hosted by {s.Host?.Name ?? "someone"}",
             PartyState.Unavailable => "Steam is starting with the game",
             _ => "Play with friends who have the same mods",
         };
-        f.Text(sub, Pad, 80, 280, 20, 14, Theme.Muted);
-        if (s.State == PartyState.InParty && s.Code.Length > 0)
+        f.Text(sub, Pad, 64, showCode ? 220 : Width - Pad * 2, 18, 13, Theme.Caption);
+        if (showCode)
         {
-            const float w = 156, x = Width - Pad - w;
-            f.Rect(x, 26, w, 62, 16, Theme.Raised);
-            f.Border(x, 26, w, 62, 16, 1, Theme.Ice.WithAlpha(0.35f));
-            f.Text("CODE", x, 33, w, 14, 11, Theme.Muted, HudTextAlignment.Center, bold: true, spacing: 5);
-            f.Text(s.Code, x, 48, w, 34, 27, Theme.Ice, HudTextAlignment.Center, bold: true, spacing: 7);
+            const float w = 120, x = Width - Pad - w;
+            f.Rect(x, 14, w, 60, Theme.ChipCorner, Theme.Inset);
+            f.Text("CODE", x, 20, w, 14, 10, Theme.Caption, HudTextAlignment.Center, spacing: Theme.Tracked);
+            f.Text(s.Code, x, 36, w, 32, 24, Theme.Mint, HudTextAlignment.Center, spacing: 12);
         }
-        var y = 112f;
+        var y = 92f;
 
         if (members.Count > 0)
         {
-            f.Text("PLAYERS", Pad, y + 4, 200, 16, 12, Theme.Faint, bold: true, spacing: 4);
-            y += 30;
+            f.Text("PLAYERS", Pad, y, 120, 14, 10, Theme.Caption, spacing: Theme.Tracked);
+            y += 18;
             foreach (var m in members)
             {
-                var color = Theme.ForId(m.Id.Value);
-                f.Circle(Pad + 19, y + RowMember / 2, 19, color);
-                if (m.IsLocal) f.Arc(Pad + 19, y + RowMember / 2, 23, 2, 0, 360, color.WithAlpha(0.5f));
-                f.Text(Initials(m.Name), Pad, y + RowMember / 2 - 12, 38, 24, 16, Theme.CardBottom with { A = 1 }, HudTextAlignment.Center, bold: true);
-                var nameWidth = Width - Pad * 2 - 54 - 120;
-                f.Text(m.IsLocal ? $"{m.Name} (you)" : m.Name, Pad + 54, y + 8, nameWidth, 24, 18, Theme.Text, bold: m.IsLocal);
+                var nameWidth = Width - Pad * 2 - 110;
+                f.Text(m.Name, Pad, y + 2, nameWidth, 20, 15, Theme.Text, bold: m.IsLocal);
                 var mods = m.Mods.Keys.Select(Pretty).ToList();
-                f.Text(mods.Count == 0 ? "No multiplayer mods" : string.Join(" · ", mods), Pad + 54, y + 31, nameWidth, 18, 13, Theme.Muted);
-                var right = Width - Pad;
-                if (m.IsHost)
-                {
-                    f.Rect(right - 54, y + 15, 54, 24, 12, Theme.Warn.WithAlpha(0.16f));
-                    f.Text("HOST", right - 54, y + 18, 54, 18, 11, Theme.Warn, HudTextAlignment.Center, bold: true, spacing: 3);
-                    right -= 64;
-                }
+                f.Text(mods.Count == 0 ? "No multiplayer mods" : string.Join(" · ", mods), Pad, y + 21, nameWidth, 14, 11, Theme.Dim);
                 if (!m.IsLocal)
                 {
-                    var (text, c) = m.PingMs switch { < 0 => ("…", Theme.Faint), < 80 => ($"{m.PingMs} ms", Theme.Good), < 160 => ($"{m.PingMs} ms", Theme.Warn), _ => ($"{m.PingMs} ms", Theme.Bad) };
-                    f.Text(text, right - 70, y + 17, 70, 20, 14, c, HudTextAlignment.Right);
+                    var (text, c) = m.PingMs switch { < 0 => ("…", Theme.Dim), < 80 => ($"{m.PingMs} ms", Theme.Good), < 160 => ($"{m.PingMs} ms", Theme.Warn), _ => ($"{m.PingMs} ms", Theme.Bad) };
+                    f.Text(text, Width - Pad - 60, y + 3, 60, 18, 13, c, HudTextAlignment.Right);
                 }
+                var tag = m.IsLocal ? (m.IsHost ? "YOU · HOST" : "YOU") : m.IsHost ? "HOST" : "";
+                if (tag.Length > 0) f.Text(tag, Width - Pad - 110, y + (m.IsLocal ? 5 : 22), 110, 14, 10, m.IsHost ? Theme.Mint : Theme.Caption, HudTextAlignment.Right, spacing: Theme.Tracked);
                 y += RowMember;
             }
-            y += 14;
+            y += 8;
         }
 
         if (busy)
         {
-            f.Rect(Pad, y, Width - Pad * 2, 1, 0, Theme.Hairline);
-            var spin = (float)(time * 300 % 360);
-            f.Arc(Pad + 16, y + 38, 12, 3, 0, 360, Theme.Raised);
-            f.Arc(Pad + 16, y + 38, 12, 3, spin, 100, Theme.Ice);
-            f.Text(s.Status.Length > 0 ? s.Status : title, Pad + 44, y + 26, Width - Pad * 2 - 44, 24, 17, Theme.Text);
-            y += 76;
+            // A segment sliding along a thin track, in place of a spinner.
+            var track = Width - Pad * 2 - 80;
+            f.Rect(Pad, y + 8, Width - Pad * 2, 2, 0, Theme.Inset);
+            f.Rect(Pad + (float)(time * 0.8 % 1) * track, y + 8, 80, 2, 0, Theme.Mint);
+            f.Text(s.Status.Length > 0 ? s.Status : title, Pad, y + 18, Width - Pad * 2, 20, 14, Theme.Text);
+            y += 52;
         }
         else if (ui.EnteringCode)
         {
-            f.Rect(Pad, y, Width - Pad * 2, 1, 0, Theme.Hairline);
-            f.Text("ENTER PARTY CODE", Pad, y + 14, 300, 16, 12, Theme.Faint, bold: true, spacing: 4);
-            y += 30;
-            const float box = 56, gap = 10;
-            var x0 = (Width - (6 * box + 5 * gap)) / 2;
+            f.Text("ENTER PARTY CODE", Pad, y, 300, 14, 10, Theme.Caption, spacing: Theme.Tracked);
+            y += 18;
+            const float box = 44, gap = 8;
             for (var i = 0; i < 6; i++)
             {
-                var x = x0 + i * (box + gap);
+                var x = Pad + i * (box + gap);
                 var next = i == ui.Code.Length;
-                f.Rect(x, y + 6, box, 62, 14, next ? Theme.Ice.WithAlpha(0.12f) : Theme.Raised);
-                f.Border(x, y + 6, box, 62, 14, next ? 2 : 1, next ? Theme.Ice : Theme.Hairline);
-                if (i < ui.Code.Length) f.Text(ui.Code[i].ToString(), x, y + 17, box, 40, 30, Theme.Text, HudTextAlignment.Center, bold: true);
+                f.Rect(x, y, box, 50, Theme.ChipCorner, next ? Theme.InsetLit : Theme.Inset);
+                if (next) f.Rect(x, y + 48, box, 2, 0, Theme.Mint);
+                if (i < ui.Code.Length) f.Text(ui.Code[i].ToString(), x, y + 9, box, 32, 26, Theme.Text, HudTextAlignment.Center);
             }
-            y += 70;
-            f.Text(ui.Code.Length == 6 ? "Enter to join · Backspace to fix" : "Type the code · Backspace to go back", Pad, y + 10, Width - Pad * 2, 20, 14, Theme.Muted, HudTextAlignment.Center);
-            y += 34;
+            y += 58;
+            f.Text(ui.Code.Length == 6 ? "Enter to join, Backspace to fix" : "Type the code, Backspace to go back", Pad, y + 4, Width - Pad * 2, 16, 12, Theme.Caption);
+            y += 26;
         }
         else
         {
             if (status)
             {
-                f.Text(s.Status, Pad, y + 4, Width - Pad * 2, 20, 14, Theme.Warn);
-                y += 30;
+                f.Text(s.Status, Pad, y, Width - Pad * 2, 18, 13, Theme.Warn);
+                y += 24;
             }
             if (shownActions > 0)
             {
-                f.Rect(Pad, y, Width - Pad * 2, 1, 0, Theme.Hairline);
-                y += 14;
+                y += 6;
                 var selected = Math.Clamp(ui.Selected, 0, actions.Count - 1);
                 var first = Math.Clamp(selected - MaxActionRows + 1, 0, Math.Max(0, actions.Count - MaxActionRows));
                 for (var i = first; i < first + shownActions; i++)
                 {
                     var a = actions[i];
                     var on = i == selected;
-                    var accent = a.Danger ? Theme.Bad : Theme.Ice;
                     if (on)
                     {
-                        f.Rect(14, y, Width - 28, RowAction - 6, 13, accent.WithAlpha(0.13f));
-                        f.Rect(14, y + 11, 3, RowAction - 28, 1.5f, accent);
+                        f.Rect(Pad - 8, y, Width - Pad * 2 + 16, RowAction - 4, Theme.ChipCorner, Theme.Inset);
+                        f.Rect(Pad - 8, y, 3, RowAction - 4, 0, a.Danger ? Theme.Bad : Theme.Mint);
                     }
-                    f.Text(a.Label, Pad + 6, y + 10, 250, 24, 17, a.Danger ? Theme.Bad : on ? Theme.Text : Theme.Text.WithAlpha(0.85f), bold: on);
-                    if (a.Detail.Length > 0) f.Text(a.Detail, Width - Pad - 170, y + 12, 170, 20, 13, Theme.Muted, HudTextAlignment.Right);
+                    f.Text(a.Label, Pad, y + 6, 210, 20, 15, a.Danger ? Theme.Bad : on ? Theme.Text : Theme.Text.WithAlpha(0.8f), bold: on);
+                    if (a.Detail.Length > 0) f.Text(a.Detail, Width - Pad - 150, y + 9, 150, 16, 12, Theme.Caption, HudTextAlignment.Right);
                     y += RowAction;
                 }
-                if (actions.Count > MaxActionRows) f.Text($"{selected + 1} / {actions.Count}", Width - Pad - 80, y - 4, 80, 16, 11, Theme.Faint, HudTextAlignment.Right);
+                if (actions.Count > MaxActionRows) f.Text($"{selected + 1} / {actions.Count}", Width - Pad - 80, y - 2, 80, 14, 10, Theme.Dim, HudTextAlignment.Right);
             }
         }
 
-        f.Rect(0, height - 42, Width, 1, 0, Theme.Hairline);
-        Hints(f, height - 32, ui.EnteringCode ? new[] { ("Enter", "join"), ("Back", "fix"), (closeKey, "close") } : new[] { ("Up/Down", "select"), ("Enter", "choose"), (closeKey, "close") });
+        Hints(f, height - 32, ui.EnteringCode ? new[] { ("Enter", "Join"), ("Back", "Fix"), (closeKey, "Close") } : new[] { ("Up/Down", "Select"), ("Enter", "Choose"), (closeKey, "Close") });
         return f;
     }
 
-    /// <summary>Key caps with what they do, centred on one line.</summary>
+    /// <summary>Key caps (like the HUD's "1 2 3 4") with their action in tracked capitals.</summary>
     static void Hints(OverlayFrame f, float y, (string Key, string What)[] hints)
     {
-        static float KeyWidth(string key) => 14 + key.Length * 7.5f;
-        static float WhatWidth(string what) => 8 + what.Length * 7f;
-        const float gap = 18;
-        var total = hints.Sum(h => KeyWidth(h.Key) + WhatWidth(h.What)) + gap * (hints.Length - 1);
-        var x = (Width - total) / 2;
+        static float KeyWidth(string key) => Math.Max(22, 10 + key.Length * 8f);
+        static float WhatWidth(string what) => 10 + what.Length * 8.2f;
+        var x = Pad;
         foreach (var (key, what) in hints)
         {
             var kw = KeyWidth(key);
-            f.Rect(x, y, kw, 20, 6, Theme.Raised);
-            f.Border(x, y, kw, 20, 6, 1, Theme.Hairline);
-            f.Text(key, x, y + 1, kw, 18, 11, Theme.Muted, HudTextAlignment.Center, bold: true);
-            f.Text(what, x + kw + 6, y + 1, WhatWidth(what), 18, 13, Theme.Faint);
-            x += kw + WhatWidth(what) + gap;
+            f.Rect(x, y, kw, 22, Theme.ChipCorner, Theme.InsetLit);
+            f.Text(key, x, y + 4, kw, 14, 11, Theme.Text, HudTextAlignment.Center, bold: true);
+            f.Text(what.ToUpperInvariant(), x + kw + 7, y + 4, WhatWidth(what), 14, 11, Theme.Caption, spacing: Theme.Tracked);
+            x += kw + 7 + WhatWidth(what) + 12;
         }
     }
 
     /// <summary>Stacked notices, newest first; each fades out over its last half second.</summary>
     public static OverlayFrame Toasts(IReadOnlyList<(string Text, double Age)> toasts, double life)
     {
-        const float w = 440, h = 50, gap = 10;
-        var f = new OverlayFrame(w + 40, Math.Max(1, toasts.Count) * (h + gap) + 30);
-        var y = 10f;
+        const float w = 360, h = 38, gap = 6;
+        var f = new OverlayFrame(w + 16, Math.Max(1, toasts.Count) * (h + gap) + 16);
+        var y = 8f;
         foreach (var (text, age) in toasts)
         {
             var alpha = (float)Math.Clamp(Math.Min(age / 0.2, (life - age) / 0.5), 0, 1);
             if (alpha <= 0) continue;
-            f.Shadow(20, y, w, h, h / 2, 16, 5, new Color(0, 0, 0, 0.45f * alpha));
-            f.Gradient(20, y, w, h, h / 2, Theme.CardTop.WithAlpha(0.96f * alpha), Theme.CardBottom.WithAlpha(0.96f * alpha));
-            f.Border(20, y, w, h, h / 2, 1, Theme.Hairline.WithAlpha(Theme.Hairline.A * alpha));
-            f.Circle(20 + 26, y + h / 2, 7, Theme.Ice.WithAlpha(alpha));
-            f.Arc(20 + 26, y + h / 2, 12, 2, 0, 360, Theme.Ice.WithAlpha(0.3f * alpha));
-            f.Text(text, 20 + 50, y + 13, w - 70, 24, 17, Theme.Text.WithAlpha(alpha));
+            f.Rect(8, y, w, h, Theme.Corner, Theme.Panel.WithAlpha(Theme.Panel.A * alpha));
+            f.Rect(8, y, 3, h, 0, Theme.Mint.WithAlpha(alpha));
+            f.Text(text, 24, y + 9, w - 28, 20, 15, Theme.Text.WithAlpha(alpha));
             y += h + gap;
         }
         return f;
-    }
-
-    static string Initials(string name)
-    {
-        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var letters = parts.Length >= 2 ? $"{parts[0][0]}{parts[1][0]}" : name.Length > 0 ? name[..Math.Min(2, name.Length)] : "?";
-        return letters.ToUpperInvariant();
     }
 
     /// <summary>"slvsh" → "SLVSH", "my_mod" → "My Mod": short ids read as names.</summary>

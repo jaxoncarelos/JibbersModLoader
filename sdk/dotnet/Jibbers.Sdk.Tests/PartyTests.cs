@@ -162,20 +162,20 @@ static class PartyTests
     static void ModsAreAdvertisedAndMessagesRoutedToTheSameMod()
     {
         var (net, a, b) = Pair();
-        a.Engine.SetLocalMods(new Dictionary<string, string> { ["horse"] = "1.0.0" });
-        b.Engine.SetLocalMods(new Dictionary<string, string> { ["horse"] = "1.0.1", ["other"] = "2.0.0" });
+        a.Engine.SetLocalMods(new Dictionary<string, string> { ["slvsh"] = "1.0.0" });
+        b.Engine.SetLocalMods(new Dictionary<string, string> { ["slvsh"] = "1.0.1", ["other"] = "2.0.0" });
         Run(net, a, b);
         var ben = a.S.Members.Single(m => m.Name == "Ben");
-        Assert.True(ben.HasMod("horse") && ben.HasMod("other"));
-        Assert.Equal("1.0.1", ben.ModVersion("horse"));
+        Assert.True(ben.HasMod("slvsh") && ben.HasMod("other"));
+        Assert.Equal("1.0.1", ben.ModVersion("slvsh"));
         Assert.Equal(42, ben.PingMs);
-        Assert.True(a.S.Local!.HasMod("horse"));
+        Assert.True(a.S.Local!.HasMod("slvsh"));
 
-        Assert.True(a.Engine.Send(b.Steam.Id, "horse", "hi ben"u8.ToArray(), true));
-        Assert.True(a.Engine.Send(a.Steam.Id, "horse", "note to self"u8.ToArray(), true));
+        Assert.True(a.Engine.Send(b.Steam.Id, "slvsh", "hi ben"u8.ToArray(), true));
+        Assert.True(a.Engine.Send(a.Steam.Id, "slvsh", "note to self"u8.ToArray(), true));
         Run(net, a, b);
-        Assert.Equal(("Ana", "horse", "hi ben"), b.Got.Single());
-        Assert.Equal(("Ana", "horse", "note to self"), a.Got.Single());
+        Assert.Equal(("Ana", "slvsh", "hi ben"), b.Got.Single());
+        Assert.Equal(("Ana", "slvsh", "note to self"), a.Got.Single());
     }
 
     [Test]
@@ -183,12 +183,12 @@ static class PartyTests
     {
         var (net, a, b) = Pair();
         var stranger = new FakeSteam(net, 99, "Eve");
-        stranger.Send(a.Steam.Id, Wire.Frame(Wire.KindMod, "horse", "boo"u8), true);
+        stranger.Send(a.Steam.Id, Wire.Frame(Wire.KindMod, "slvsh", "boo"u8), true);
         b.Steam.Send(a.Steam.Id, "JB\u0001\u0000ÿbroken"u8, true);
         b.Steam.Send(a.Steam.Id, "not a frame"u8, true);
         Run(net, a, b);
         Assert.Equal(0, a.Got.Count);
-        Assert.True(!a.Engine.Send(stranger.Id, "horse", "x"u8.ToArray(), true), "can't send outside the party");
+        Assert.True(!a.Engine.Send(stranger.Id, "slvsh", "x"u8.ToArray(), true), "can't send outside the party");
     }
 
     [Test]
@@ -266,14 +266,14 @@ static class PartyTests
     [Test]
     static void WireAndModListParsing()
     {
-        var frame = Wire.Frame(Wire.KindMod, "horse", "payload"u8);
+        var frame = Wire.Frame(Wire.KindMod, "slvsh", "payload"u8);
         Assert.True(Wire.TryParse(frame, out var kind, out var id, out var payload));
-        Assert.Equal((Wire.KindMod, "horse", "payload"), (kind, id, Encoding.UTF8.GetString(payload.Span)));
+        Assert.Equal((Wire.KindMod, "slvsh", "payload"), (kind, id, Encoding.UTF8.GetString(payload.Span)));
         Assert.True(!Wire.TryParse(frame[..6], out _, out _, out _));
         Assert.Throws<ArgumentException>(() => Wire.Frame(Wire.KindMod, "x", new byte[Wire.MaxPayload + 1]));
-        var mods = PartyEngine.ParseMods("horse=1.0.0, slvsh ,=bad,");
-        Assert.Equal("1.0.0", mods["horse"]);
-        Assert.Equal("", mods["slvsh"]);
+        var mods = PartyEngine.ParseMods("slvsh=1.0.0, rumble ,=bad,");
+        Assert.Equal("1.0.0", mods["slvsh"]);
+        Assert.Equal("", mods["rumble"]);
         Assert.Equal(2, mods.Count);
         Assert.Equal("K7Q2MX", PartyEngine.NormalizeCode(" k7q-2mx "));
         Assert.True(PartyEngine.NewCode().All(c => "ABCDEFGHJKMNPQRSTUVWXYZ23456789".Contains(c)));

@@ -68,7 +68,7 @@ static class OverlayTests
             foreach (var t in frame.Texts)
                 Assert.True(t.X >= PartyPanel.Margin && t.Y >= PartyPanel.Margin && t.X + t.W <= frame.Width - PartyPanel.Margin + 0.01f && t.Y + t.H <= frame.Height - PartyPanel.Margin + 0.01f, $"{name}: text '{t.Text}' inside the card");
         }
-        Assert.Equal("HORSE", PartyPanel.Pretty("horse"));
+        Assert.Equal("SLVSH", PartyPanel.Pretty("slvsh"));
         Assert.Equal("Slow Mo", PartyPanel.Pretty("slow_mo"));
     }
 
@@ -77,9 +77,9 @@ static class OverlayTests
         IReadOnlyDictionary<string, string> Mods(params string[] ids) => ids.ToDictionary(i => i, _ => "1.0.0");
         var members = new List<PartyMember>
         {
-            new(new SteamId(76561198000000001), "Scott", true, true, Mods("horse"), 0),
-            new(new SteamId(76561198000000002), "Ben Carver", false, false, Mods("horse", "slvsh"), 38),
-            new(new SteamId(76561198000000003), "mira", false, false, Mods("horse"), 121),
+            new(new SteamId(76561198000000001), "Scott", true, true, Mods("slvsh"), 0),
+            new(new SteamId(76561198000000002), "Ben Carver", false, false, Mods("slvsh", "rumble"), 38),
+            new(new SteamId(76561198000000003), "mira", false, false, Mods("slvsh"), 121),
             new(new SteamId(76561198000000004), "Hugo with a very long Steam name", false, false, Mods(), 240),
         };
         var friends = new List<FriendParty>

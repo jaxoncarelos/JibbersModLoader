@@ -73,13 +73,8 @@ public sealed class OverlayFrame
     /// <summary>A ring segment with round ends, from 12 o'clock clockwise (a progress ring is 0 to 360 * progress).</summary>
     public OverlayFrame Arc(float cx, float cy, float radius, float thickness, float startDegrees, float sweepDegrees, Color color) => Add(new ArcShape(ox + cx, oy + cy, radius, thickness, startDegrees, sweepDegrees, color));
 
-    /// <summary>The standard card: shadow, dark glass fill and a hairline border (see <see cref="Theme"/>).</summary>
-    public OverlayFrame Card(float x, float y, float w, float h, float radius = 18)
-    {
-        Shadow(x, y, w, h, radius);
-        Gradient(x, y, w, h, radius, Theme.CardTop, Theme.CardBottom);
-        return Border(x, y, w, h, radius, 1, Theme.Hairline);
-    }
+    /// <summary>The standard panel, like the game's own HUD boxes: flat translucent grey, nearly square corners (see <see cref="Theme"/>).</summary>
+    public OverlayFrame Card(float x, float y, float w, float h, float radius = Theme.Corner) => Rect(x, y, w, h, Math.Min(radius, Theme.Corner), Theme.Panel);
 
     /// <summary>
     /// Text in a box. Long text is cut with "…" unless <paramref name="wrap"/>. Text is shown as
@@ -130,29 +125,50 @@ public sealed class OverlayFrame
 
 internal sealed record OverlayText(string Text, float X, float Y, float W, float H, float Size, Color Color, HudTextAlignment Align, bool Bold, bool Wrap, float Spacing);
 
-/// <summary>The SDK's palette, so overlays from different mods look like one family.</summary>
+/// <summary>
+/// The SDK's palette, taken from the game's own HUD (the spawn point box, trick buttons and
+/// speedometer): flat translucent grey panels, lighter inset chips, small tracked grey captions over
+/// white values, and mint as the one accent. Using it keeps mod overlays looking like part of the game.
+/// </summary>
 public static class Theme
 {
     static Color Rgb(int r, int g, int b, float a = 1) => new(r / 255f, g / 255f, b / 255f, a);
-    public static readonly Color CardTop = Rgb(22, 25, 36, 0.94f);
-    public static readonly Color CardBottom = Rgb(12, 14, 21, 0.94f);
-    public static readonly Color Hairline = Rgb(255, 255, 255, 0.09f);
-    public static readonly Color Raised = Rgb(255, 255, 255, 0.06f);
-    public static readonly Color Text = Rgb(244, 246, 252);
-    public static readonly Color Muted = Rgb(150, 158, 178);
-    public static readonly Color Faint = Rgb(96, 104, 124);
-    public static readonly Color Ice = Rgb(108, 203, 255);
-    public static readonly Color Violet = Rgb(150, 122, 255);
-    public static readonly Color Good = Rgb(88, 224, 140);
-    public static readonly Color Bad = Rgb(255, 92, 92);
-    public static readonly Color Warn = Rgb(255, 196, 77);
+    /// <summary>Panel fill (<see cref="OverlayFrame.Card"/>).</summary>
+    public static readonly Color Panel = Rgb(30, 30, 33, 0.78f);
+    /// <summary>Chips, key caps and selected rows inside a panel.</summary>
+    public static readonly Color Inset = Rgb(255, 255, 255, 0.11f);
+    /// <summary>A lit chip: key caps, the chosen option.</summary>
+    public static readonly Color InsetLit = Rgb(255, 255, 255, 0.2f);
+    public static readonly Color Text = Rgb(242, 242, 242);
+    /// <summary>Captions and secondary text.</summary>
+    public static readonly Color Caption = Rgb(168, 168, 172);
+    public static readonly Color Dim = Rgb(112, 112, 118);
+    /// <summary>The accent (the game's tuck rings).</summary>
+    public static readonly Color Mint = Rgb(142, 226, 206);
+    public static readonly Color Good = Rgb(98, 222, 142);
+    public static readonly Color Bad = Rgb(228, 88, 74);
+    public static readonly Color Warn = Rgb(236, 198, 96);
+    /// <summary>Corner radius of panels; chips use <see cref="ChipCorner"/>.</summary>
+    public const float Corner = 3, ChipCorner = 2;
+    /// <summary>Letter spacing for captions, like the HUD's "SPAWNPOINT".</summary>
+    public const float Tracked = 10;
+
+    // Earlier names, kept so existing overlays still build; they map onto the palette above.
+    public static readonly Color CardTop = Panel;
+    public static readonly Color CardBottom = Panel;
+    public static readonly Color Hairline = Rgb(255, 255, 255, 0.08f);
+    public static readonly Color Raised = Inset;
+    public static readonly Color Muted = Caption;
+    public static readonly Color Faint = Dim;
+    public static readonly Color Ice = Mint;
+    public static readonly Color Violet = Rgb(160, 176, 230);
     /// <summary>A color with a new alpha.</summary>
     public static Color WithAlpha(this Color c, float a) => c with { A = a };
-    /// <summary>A stable, pleasant color for a player (avatars, name accents), picked from their id.</summary>
+    /// <summary>A stable color for a player, picked from their id.</summary>
     public static Color ForId(ulong id)
     {
-        Color[] avatars = { Rgb(108, 203, 255), Rgb(150, 122, 255), Rgb(255, 138, 101), Rgb(88, 224, 140), Rgb(255, 196, 77), Rgb(255, 111, 175), Rgb(84, 214, 214), Rgb(196, 160, 255) };
-        return avatars[(int)((id * 0x9E3779B97F4A7C15UL) >> 61)];
+        Color[] colors = { Mint, Rgb(160, 176, 230), Rgb(236, 170, 130), Good, Warn, Rgb(226, 150, 190), Rgb(130, 206, 226), Rgb(200, 186, 236) };
+        return colors[(int)((id * 0x9E3779B97F4A7C15UL) >> 61)];
     }
 }
 
