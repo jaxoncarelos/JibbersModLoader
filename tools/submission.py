@@ -8,7 +8,8 @@
 `parse` reads the issue form. `stage` (untrusted job: read-only token, no secrets) fetches the source
 at the pinned commit or the attached zip, enforces the file rules, regenerates both project files from
 the repository's template so nothing runs at build time, and writes the staged files, the registry
-entry and a review report. `sdk` extracts the SDK players run from the published catalog, to build
+entry and a review report, which lists likely clashes with the catalog's other mods
+(tools/conflicts.py). `sdk` extracts the SDK players run from the published catalog, to build
 against. `apply` (trusted job, never runs submitted code) re-validates the staged files completely,
 copies them into mods/cs and adds or updates the entry in tools/public-mods.json.
 """
@@ -28,6 +29,9 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import conflicts  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "tools/public-mods.json"
@@ -193,6 +197,7 @@ def cmd_parse(args):
     fields = parse_issue(issue.get("body") or "")
     fields["issue"] = int(issue["number"])
     fields["author"] = issue["user"]["login"]
+    pathlib.Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     pathlib.Path(args.out).write_text(json.dumps(fields, indent=2), encoding="utf-8")
 
 
@@ -587,6 +592,8 @@ def stage(fields, registry, out, source_dir=None, repo_root=ROOT):
         lines += [f"- {h}" for h in hits[:60]] or ["- Nothing flagged."]
         if len(hits) > 60:
             lines.append(f"- …and {len(hits) - 60} more.")
+        mine = conflicts.footprint(mod_dir, mod_files, label=f"mods/cs/{folder}")
+        lines += [""] + conflicts.report(entry["name"], mine, conflicts.catalog_footprints(registry, repo_root, skip={folder}))
         return lines, entry, update
     finally:
         shutil.rmtree(work, ignore_errors=True)

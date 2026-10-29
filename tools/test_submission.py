@@ -1,4 +1,4 @@
-"""Tests for tools/submission.py and tools/changed_mods.py. Run: python tools/test_submission.py"""
+"""Tests for tools/submission.py, tools/conflicts.py and tools/changed_mods.py. Run: python tools/test_submission.py"""
 import io
 import json
 import pathlib
@@ -11,6 +11,7 @@ import zipfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import changed_mods  # noqa: E402
+import conflicts  # noqa: E402
 import submission as s  # noqa: E402
 
 MOD = '''using Jibbers.Sdk;
@@ -132,6 +133,17 @@ class ParseTests(unittest.TestCase):
                          "https://github.com/user-attachments/files/123/mod.zip")
         self.assertIsNone(s.zip_link("https://evil.example/files/1/mod.zip"))
 
+    def test_parse_creates_the_output_folder(self):
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        try:
+            event = tmp / "event.json"
+            event.write_text(json.dumps({"issue": {"number": 3, "body": ISSUE, "user": {"login": "skier"}}}), encoding="utf-8")
+            s.main(["parse", "--event", str(event), "--out", str(tmp / "out/fields.json")])
+            parsed = json.loads((tmp / "out/fields.json").read_text(encoding="utf-8"))
+            self.assertEqual((parsed["issue"], parsed["author"], parsed["folder"]), (3, "skier", "NightLights"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_registry_round_trips(self):
         text = s.REGISTRY.read_text(encoding="utf-8").replace("\r\n", "\n")
         self.assertEqual(s.dump_registry(s.load_registry()), text)
@@ -247,6 +259,21 @@ class StageTests(Workspace):
     def test_update_of_a_missing_mod_is_rejected(self):
         self.rejected("no mod in", update=True)
 
+    def test_report_lists_clashes_with_catalog_mods(self):
+        rumble = self.repo / "mods/cs/Rumble"
+        rumble.mkdir()
+        (rumble / "Rumble.cs").write_text('class R : JibbersMod { public override string Id => "rumble";\n'
+                                          '  [KeyBinding("Buzz", Key.N, Key = "k")] public int K { get; set; } }', encoding="utf-8")
+        self.write("NightLights/Keys.cs", 'class K { void A() { Setting.KeyBinding("toggle", "Toggle lights", (int)Key.N); } }')
+        _, lines, *_ = self.stage()
+        report = "\n".join(lines)
+        self.assertIn("**Rumble** (`Rumble`)", report)
+        self.assertIn("`N`: `mods/cs/NightLights/Keys.cs:1`", report)
+
+    def test_report_says_when_nothing_clashes(self):
+        _, lines, *_ = self.stage()
+        self.assertIn("None found against", "\n".join(lines))
+
 
 class ZipTests(unittest.TestCase):
     def setUp(self):
@@ -350,6 +377,74 @@ class ApplyTests(Workspace):
         out = self.staged(update=True)
         s.apply(out, self.registry_path, "skier", self.repo)
         self.assertFalse((self.repo / "mods/cs/NightLights/README.md").exists())
+
+
+class ConflictsTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def mod(self, name, source):
+        folder = self.tmp / name
+        folder.mkdir()
+        (folder / f"{name}.cs").write_text(source, encoding="utf-8")
+        return conflicts.footprint(folder, label=name)
+
+    def test_keys_hooks_vars_and_declared_conflicts(self):
+        a = self.mod("A", '''class A : JibbersMod {
+    public override string Id => "a";
+    public override IReadOnlyList<string> Conflicts => new[] { "b" };
+    void Load() {
+        Input.OnPressed(Key.L, Toggle, Key.Control);
+        Scene.FixedUpdateMethod.Around((_, original) => { });
+        GameVars.Set("gravity", 2f);
+    }
+}''')
+        b = self.mod("B", '''class B : JibbersMod {
+    public override string Id => "b";
+    [KeyBinding("Light", Key.L, Key = "light")] public int Light { get; set; }
+    void Load() {
+        Input.OnPressed(Key.L, Other, Key.Control);
+        Scene.FixedUpdateMethod.Around(original => original());
+        Manager.UpdateMethod.Before((_, _) => { });
+        GameVars.Set("gravity", 1f);
+    }
+}''')
+        found = conflicts.compare(a, b)
+        categories = [c for c, _ in found]
+        self.assertEqual(categories.count("declared"), 1)
+        self.assertIn(("keys", "`Control+L`: `A/A.cs:5` and `B/B.cs:5` (both read the key directly; it does both things at once)"), found)
+        self.assertNotIn("`L`:", " ".join(m for _, m in found))  # Ctrl+L doesn't clash with plain L
+        self.assertTrue(any(c == "hooks" and "Scene.FixedUpdateMethod" in m for c, m in found))
+        self.assertFalse(any("Manager.UpdateMethod" in m for _, m in found))  # Before hooks only add work
+        self.assertTrue(any(c == "vars" and "gravity" in m for c, m in found))
+
+    def test_raw_detours_name_the_class_and_method(self):
+        f = self.mod("C", '''class C {
+    void Hook() {
+        var audio = Il2Cpp.RequireClass("Assembly-CSharp.dll", "AudioManager");
+        var method = audio.Method("Play", "System.String");
+        play = Detour<PlayFunction>.Create(method.NativeCode, OnPlay);
+    }
+}''')
+        self.assertEqual([h["target"] for h in f["hooks"]], ["AudioManager.Play"])
+
+    def test_comments_are_ignored_but_strings_are_kept(self):
+        f = self.mod("D", '''class D {
+    // Input.OnPressed(Key.X, Nope);
+    /* Scene.FixedUpdateMethod.Around(o => {}); */
+    string url = "https://example.com"; void A() { Input.OnPressed(Key.Y, Yes); }
+}''')
+        self.assertEqual([k["key"] for k in f["keys"]], ["Y"])
+        self.assertEqual(f["hooks"], [])
+
+    def test_every_catalog_mod_is_read(self):
+        mods = conflicts.catalog_footprints(s.load_registry(), s.ROOT)
+        self.assertTrue(mods)
+        for _, footprint in mods:
+            self.assertTrue(footprint["id"])
 
 
 class ChangedModsTests(unittest.TestCase):
