@@ -42,6 +42,8 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/publish-mod.yml
+    # The signing key is a mod-channel-stable environment secret; a called workflow only gets it when passed on.
+    secrets: inherit
     with:
       mod: ${{ matrix.mod }}
       skip_unchanged: true
