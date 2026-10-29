@@ -1,10 +1,13 @@
 """Check the managed release layout and public allowlist without loading game code."""
+import json
 import pathlib
 import sys
 import zipfile
 
 dist = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "dist")
-public = {"AlpineVision", "Reshred", "FPV", "SlowMo", "Rumble", "Slvsh"}
+registry = json.loads((pathlib.Path(__file__).resolve().parent / "public-mods.json").read_text(encoding="utf-8"))
+public = {m["folder"] for m in registry["mods"]}
+bundles = {a["zip"] for m in registry["mods"] for a in m["assets"]}
 for filename in ("JibbersCSharp.zip", "JibbersCSharpMods.zip", "JibbersCSharpSDK.zip"):
     with zipfile.ZipFile(dist / filename) as archive:
         names = {n.replace("\\", "/") for n in archive.namelist()}
@@ -21,11 +24,12 @@ for filename in ("JibbersCSharp.zip", "JibbersCSharpMods.zip", "JibbersCSharpSDK
         elif filename == "JibbersCSharpMods.zip":
             assert "install.ps1" in names
             assert {n for n in names if n.endswith(".dll")} == {f"JibbersMods/cs/{p}/{p}.dll" for p in public}
-            assert {n for n in names if n.endswith(".bundle")} == {"jibbers_alpinevision.bundle", "JibbersMods/jibbers_fpv.bundle"}
-            assert not any(n.endswith(".json") for n in names), "Player settings must not be packaged"
+            assert {n for n in names if n.endswith(".bundle")} == bundles
+            assert "mods.json" in names, "install.ps1 reads the mod list from mods.json"
+            assert not any(n.endswith(".json") and n != "mods.json" for n in names), "Player settings must not be packaged"
         else:
             projects = {n.split("/")[1] for n in names if n.startswith("mods/") and n.endswith(".csproj")}
-            sources = public | {"Atmosphere"}
+            sources = public | set(registry.get("sourceOnly", []))
             assert projects == sources | {p + ".Tests" for p in sources}, (filename, projects)
             assert "mods/FPV/fpv_symbols.json" in names and "mods/TestRunner.cs" in names
             assert not any(n.startswith("Jibbers.Sdk/Features/") for n in names), "Mod code belongs in mods/, not the SDK"

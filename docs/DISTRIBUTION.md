@@ -12,7 +12,7 @@ Install **JibbersModManager.zip** from Releases once. Close the game and extract
 On first launch, the loader downloads the signed catalog and required runtime (internet required)
 and enrolls existing catalog mods without changing settings. License notices live inside `JibbersMods/licenses`.
 Subsequent loader and selected-mod updates download automatically at game startup.
-The channel contains C# FPV, Alpine Vision (the Atmosphere upgrade), Rewind, Slow Motion, Rumble and SLVSH. Existing native subscriptions migrate
+The channel contains the public mods listed in [`tools/public-mods.json`](../tools/public-mods.json). Existing native subscriptions migrate
 in place; saved settings are retained. The shared C# SDK and bundled .NET runtime update as
 required dependencies. No separate .NET installation is needed. The runtime cache is checked
 against signed file hashes on every launch and can recover offline after a failed later update.
@@ -46,9 +46,11 @@ and catalog mods; it does not change SDK trust keys or overwrite C# SDK files.
 
 ## Maintainers: GitHub Actions and Releases
 
-The public catalog contains **FPV Drone, Alpine Vision (the Atmosphere upgrade), Rewind, Slow Motion, Rumble and SLVSH** (Rewind keeps its existing internal
-`jibbers_reshred` id and DLL name for compatibility; Slow Motion, Rumble and SLVSH, which have no native catalog versions, install as
-`JibbersMods/cs/jibbers_slowmo.dll`, `JibbersMods/cs/jibbers_rumble.dll` and `JibbersMods/cs/jibbers_slvsh.dll`). Other local mods are excluded from public builds,
+The public catalog contains the mods listed in **`tools/public-mods.json`**, the one list every build,
+packaging, verification and publishing script reads. Each entry names the project folder under `mods/cs`, the mod's
+in-game id, its catalog package id, asset files and the GitHub accounts allowed to submit updates. `legacy` mods
+(FPV, Alpine Vision and Rewind) keep the historical `JibbersMods/<id>.dll` path that bootstraps migrate from native
+plugins; the others install as `JibbersMods/cs/<id>.dll`. Other local mods are excluded from public builds,
 catalogs and release assets. The source allowlist check rejects accidentally tracked local mod directories.
 
 `.github/workflows/mod-channel.yml` tests and builds the loader and these public mods on Windows for
@@ -58,7 +60,9 @@ dispatch can additionally publish, exclusively from the default branch and throu
 **Publishing one mod.** `.github/workflows/publish-mod.yml` ("Publish one mod") ships a single public mod in a few
 minutes: it downloads the published catalog and files, builds and tests the chosen mod against the SDK inside the
 published runtime (`tools/publish_mod.py`), and signs a catalog in which every other package is byte-for-byte
-unchanged; only the mod's new file is uploaded. Use it for changes confined to a mod. Changes to the loader, SDK or
+unchanged; only the mod's new file is uploaded. Use it for changes confined to a mod. Merging a change to a public
+mod runs it automatically (`publish-merged.yml`, one mod at a time); a merge that also touches the SDK or loader is
+skipped there and needs the full workflow. Changes to the loader, SDK or
 runtime, or a mod that needs a newer SDK, go through the full workflow. The public mods are listed once, in
 `tools/public-mods.json`, for both workflows. Before signing, both run `tools/channel_versions.py`: packages whose
 files match the published catalog keep their version, and changed ones get a version above it, so the publisher's
@@ -117,3 +121,22 @@ records live under `JibbersMods/system/distribution/`. Deleting player settings 
 Alpine Vision retains the Atmosphere package ID `jibbers_atmosphere` for automatic replacement. Do not add a second Atmosphere package. Runtime conflict checks skip legacy `atmosphere`/`raytracing` mods before OnLoad. Alpine Vision has no hardware ray-tracing feature or hotkey. F10 cycles weather.
 
 The player catalog shows optional mods only. The loader and all of its required dependencies (including the C# runtime) are hidden from optional selections, installed automatically even with no mods selected, and cannot be deselected. Runtime payloads remain in the signed update manifest so the loader can authenticate and update them.
+
+## Mod submissions
+
+Anyone can submit a mod from the project site's **Submit a mod** page, which opens a prefilled
+"Submit a mod" issue. Every public mod lives in this repository, so players install only code that was
+reviewed here, and updates arrive as reviewable diffs.
+
+1. **Check** (`mod-submission.yml`, job `stage`, read-only token, no secrets): `tools/submission.py` fetches the
+   source at the pinned commit (or the attached zip), rejects binaries, build scripts, NuGet packages, oversized
+   files and hidden folders, regenerates both project files from the repository's template so nothing runs at
+   build time, derives the mod id, and checks names against the registry. Updates are accepted only from the
+   mod's `authors` or the registry's `maintainers`. The staged files are uploaded before the mod is built and
+   tested against the published SDK; that build result is a convenience, not a security signal.
+2. **Pull request** (job `open-pr`): re-validates the staged files without running them, copies them to
+   `mods/cs/<Folder>` and `mods/cs/<Folder>.Tests`, adds or updates the registry entry, and opens a pull request
+   with the report (including spots that use native calls, processes, networking, file deletion or reflection).
+3. **Review and merge.** Read the code. Merging publishes the mod through `publish-merged.yml`.
+
+The site lives in `site/` and deploys with `pages.yml` (GitHub Pages, source: GitHub Actions).

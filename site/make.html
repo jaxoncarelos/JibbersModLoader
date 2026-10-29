@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Make a Mod</title>
+  <meta name="description" content="Write a Jibbers mod in C# with the Jibbers SDK, then submit it to the catalog.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="./"><span class="mark" aria-hidden="true"></span>Jibbers Mod Loader</a>
+      <nav class="nav" aria-label="Site">
+        <a href="./">Mods</a>
+        <a href="make.html" aria-current="page">Make a mod</a>
+        <a href="submit.html">Submit</a>
+        <a href="https://github.com/jaxoncarelos/JibbersModLoader">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap prose">
+    <span class="caption mint">Make a mod</span>
+    <h1 style="font-size:clamp(32px,5vw,46px)">Write it in C#, play it in Jibbers.</h1>
+    <p class="lede">Mods are ordinary C# projects built against the Jibbers SDK. It gives you the game's camera, input, physics events, settings menus, overlays and even Steam parties, without touching the game's files.</p>
+
+    <section class="panel">
+      <span class="caption">1 · Get the SDK</span>
+      <p>Download <a href="https://github.com/jaxoncarelos/JibbersModLoader/releases/download/mod-channel-stable/JibbersCSharpSDK.zip">JibbersCSharpSDK.zip</a>: the SDK, a project template, examples and the source of every public mod. You need the <a href="https://dotnet.microsoft.com/download/dotnet/8.0">.NET 8 SDK</a>.</p>
+    </section>
+
+    <section class="panel">
+      <span class="caption">2 · Start from the template</span>
+      <p>Copy <code>template/MyMod</code>, rename it, and give your mod a unique <code>Id</code>. A whole mod can be this small:</p>
+      <pre>public sealed class NightLightsMod : JibbersMod
+{
+    public override string Id => "night_lights";
+    public override string Name => "Night Lights";
+
+    [KeyBinding("Toggle lights", Key.F6)]
+    public Key ToggleKey { get; private set; }
+
+    public override void OnLoad() =>
+        Input.OnPressed(() => ToggleKey, () => Log("Lights!"));
+}</pre>
+      <p>Build in Release and the DLL installs into the game's <code>JibbersMods/cs</code> folder for testing.</p>
+    </section>
+
+    <section class="panel">
+      <span class="caption">3 · Test it</span>
+      <p>Put tests in a <code>&lt;Folder&gt;.Tests</code> project beside your mod: static methods marked <code>[Test]</code>, using <code>Assert</code>, like the public mods under <code>mods/cs</code>. Keep game calls behind small adapters so the rules of your mod run without the game.</p>
+    </section>
+
+    <section class="panel">
+      <span class="caption">4 · Submit</span>
+      <p>Push it to a public GitHub repository (or zip the source) and use <a href="submit.html">Submit a mod</a>. Keep to plain C# source: no DLLs, NuGet packages or build scripts. Everything that runs in players' games must be reviewable in the submission.</p>
+    </section>
+
+    <section class="panel">
+      <span class="caption">Guides</span>
+      <ul class="list">
+        <li><a href="https://github.com/jaxoncarelos/JibbersModLoader/blob/master/docs/guides/getting-started.md">Getting started</a></li>
+        <li><a href="https://github.com/jaxoncarelos/JibbersModLoader/blob/master/docs/guides/csharp-authoring.md">Writing C# mods</a>: settings, input, events and overlays</li>
+        <li><a href="https://github.com/jaxoncarelos/JibbersModLoader/blob/master/docs/guides/multiplayer.md">Multiplayer</a>: Steam parties and messages between players</li>
+        <li><a href="https://github.com/jaxoncarelos/JibbersModLoader/blob/master/docs/guides/coverage.md">What the SDK covers</a></li>
+        <li><a href="https://github.com/jaxoncarelos/JibbersModLoader/tree/master/mods/cs">The public mods' source</a>, to read and learn from</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Jibbers Mod Loader is a community project, GPL-3.0-only.</span>
+      <a href="https://github.com/jaxoncarelos/JibbersModLoader">github.com/jaxoncarelos/JibbersModLoader</a>
+    </div>
+  </footer>
+</body>
+</html>

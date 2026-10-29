@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Submit a Mod</title>
+  <meta name="description" content="Submit your Jibbers mod for review. A bot checks the source and opens a pull request; once merged, players can install it in game.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="./"><span class="mark" aria-hidden="true"></span>Jibbers Mod Loader</a>
+      <nav class="nav" aria-label="Site">
+        <a href="./">Mods</a>
+        <a href="make.html">Make a mod</a>
+        <a href="submit.html" aria-current="page">Submit</a>
+        <a href="https://github.com/jaxoncarelos/JibbersModLoader">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap layout">
+    <section class="panel">
+      <span class="caption mint">Submit a mod</span>
+      <h2 style="margin:6px 0 8px">Send your mod for review</h2>
+      <p class="lede" style="font-size:16px;margin-bottom:22px">Fill this in and press the button. GitHub opens a prefilled submission; press <strong>Create</strong> there. A bot checks your source and opens a pull request, and you'll get a comment either way.</p>
+
+      <form id="form" novalidate>
+        <div class="two">
+          <div class="field">
+            <label for="name">Mod name</label>
+            <input id="name" type="text" maxlength="40" autocomplete="off" placeholder="Night Lights" required>
+            <span class="error" id="name-error"></span>
+          </div>
+          <div class="field">
+            <label for="folder">Folder</label>
+            <input id="folder" type="text" maxlength="40" autocomplete="off" placeholder="NightLights" spellcheck="false" required>
+            <span class="hint">Your project's name, PascalCase.</span>
+            <span class="error" id="folder-error"></span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="description">Description</label>
+          <textarea id="description" maxlength="300" placeholder="Floodlights along every run after dark, with a toggle per lift." required></textarea>
+          <span class="counter" id="description-count">0 / 300</span>
+          <span class="error" id="description-error"></span>
+        </div>
+
+        <div class="field">
+          <label>Source</label>
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" id="tab-repo" aria-selected="true" aria-controls="source-repo">GitHub repository</button>
+            <button type="button" role="tab" id="tab-zip" aria-selected="false" aria-controls="source-zip">Zip file</button>
+          </div>
+        </div>
+
+        <div id="source-repo" role="tabpanel" style="display:grid;gap:18px">
+          <div class="field">
+            <label for="repo">Repository</label>
+            <input id="repo" type="url" autocomplete="off" spellcheck="false" placeholder="https://github.com/you/night-lights">
+            <span class="error" id="repo-error"></span>
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="commit">Commit</label>
+              <input id="commit" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="40-character hash">
+              <span class="hint">Exactly this commit is reviewed and shipped.</span>
+              <span class="error" id="commit-error"></span>
+            </div>
+            <div class="field">
+              <label for="path">Path (optional)</label>
+              <input id="path" type="text" autocomplete="off" spellcheck="false" placeholder="src">
+              <span class="hint">Folder holding your .csproj.</span>
+              <span class="error" id="path-error"></span>
+            </div>
+          </div>
+        </div>
+
+        <div id="source-zip" role="tabpanel" hidden>
+          <div class="panel" style="background:var(--inset);padding:16px">
+            <p style="color:var(--caption)">Zip your mod's source folder (and its <code>.Tests</code> folder, if you have one). On GitHub, drag the zip into the <strong>Source zip</strong> box before pressing Create.</p>
+          </div>
+        </div>
+
+        <label class="check"><input id="update" type="checkbox"> This updates a mod I submitted before.</label>
+        <label class="check"><input id="license" type="checkbox"> I wrote this mod (or may submit it) and release it under GPL-3.0-only.</label>
+        <span class="error" id="license-error"></span>
+
+        <div class="field">
+          <label for="notes">Notes for reviewers (optional)</label>
+          <textarea id="notes" placeholder="What changed, or why the mod needs a native call."></textarea>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <button class="button primary" type="submit">Open submission on GitHub</button>
+          <span class="hint" style="color:var(--dim);font-size:13px">Needs a GitHub account.</span>
+        </div>
+        <div class="field" id="fallback" hidden>
+          <label>If no tab opened, use this link</label>
+          <a class="preview" id="link" target="_blank" rel="noopener"></a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <span class="caption">What to send</span>
+        <ul class="list" style="margin-top:12px">
+          <li>One C# project made from the SDK template, with one class deriving from <code>JibbersMod</code> and a constant <code>Id</code>.</li>
+          <li>Plain source: <code>.cs</code>, docs, JSON and images. Unity asset bundles are allowed and reviewed.</li>
+          <li>A <code>&lt;Folder&gt;.Tests</code> project beside it, if you can. The bot writes a basic one if not.</li>
+        </ul>
+      </section>
+      <section class="panel">
+        <span class="caption">Not accepted</span>
+        <ul class="list bad" style="margin-top:12px">
+          <li>DLLs, executables, scripts or other binaries.</li>
+          <li>NuGet packages or references besides the Jibbers SDK: include the code you need.</li>
+          <li>Custom build steps. Your project file is replaced by the repository's template.</li>
+        </ul>
+      </section>
+      <section class="panel">
+        <span class="caption">What happens next</span>
+        <ul class="list" style="margin-top:12px">
+          <li>The bot builds and tests your mod against the SDK players run, then opens a pull request with a report.</li>
+          <li>A maintainer reads the code. Native calls, processes, networking and file deletion get a closer look.</li>
+          <li>Once merged, your mod is published and appears in <strong>Options&nbsp;&gt;&nbsp;Mods</strong>.</li>
+          <li>Updates work the same way. Only you (and maintainers) can update your mod.</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Jibbers Mod Loader is a community project, GPL-3.0-only.</span>
+      <a href="https://github.com/jaxoncarelos/JibbersModLoader">github.com/jaxoncarelos/JibbersModLoader</a>
+    </div>
+  </footer>
+
+  <script>
+    const issueUrl = "https://github.com/jaxoncarelos/JibbersModLoader/issues/new";
+    const $ = (id) => document.getElementById(id);
+    let source = "repo";
+    let folderEdited = false;
+
+    const pascal = (text) => text.normalize("NFKD").replace(/[^A-Za-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean)
+      .map((w) => w[0].toUpperCase() + w.slice(1)).join("").replace(/^[0-9]+/, "").slice(0, 40);
+
+    $("name").addEventListener("input", () => { if (!folderEdited) $("folder").value = pascal($("name").value); });
+    $("folder").addEventListener("input", () => { folderEdited = $("folder").value.length > 0; });
+    $("description").addEventListener("input", () => { $("description-count").textContent = `${$("description").value.length} / 300`; });
+
+    for (const tab of ["repo", "zip"]) {
+      $(`tab-${tab}`).addEventListener("click", () => {
+        source = tab;
+        $("tab-repo").setAttribute("aria-selected", tab === "repo");
+        $("tab-zip").setAttribute("aria-selected", tab === "zip");
+        $("source-repo").hidden = tab !== "repo";
+        $("source-repo").style.display = tab === "repo" ? "grid" : "none";
+        $("source-zip").hidden = tab !== "zip";
+      });
+    }
+
+    // The same rules the bot enforces, so mistakes show up here first.
+    function check() {
+      const errors = {};
+      const name = $("name").value.trim();
+      const folder = $("folder").value.trim();
+      const description = $("description").value.trim();
+      if (!name) errors.name = "Give your mod a name.";
+      else if (/[<>]/.test(name)) errors.name = "No angle brackets, please.";
+      if (!/^[A-Z][A-Za-z0-9]{1,39}$/.test(folder) || folder.endsWith("Tests")) errors.folder = "2-40 letters and digits, starting with a capital.";
+      if (!description) errors.description = "Describe what it does in a sentence or two.";
+      else if (/[<>]/.test(description)) errors.description = "No angle brackets, please.";
+      if (source === "repo") {
+        if (!/^https:\/\/github\.com\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}?(\.git)?\/?$/.test($("repo").value.trim())) errors.repo = "A public GitHub repository URL.";
+        if (!/^[0-9a-f]{40}$/i.test($("commit").value.trim())) errors.commit = "The full 40-character commit hash.";
+        const path = $("path").value.trim();
+        if (path && (/(^|\/)\.\.(\/|$)/.test(path) || path.startsWith("/") || !/^[A-Za-z0-9._ \/-]+$/.test(path))) errors.path = "A folder inside the repository.";
+      }
+      if (!$("license").checked) errors.license = "Required: everything in the repository is GPL-3.0-only.";
+      for (const key of ["name", "folder", "description", "repo", "commit", "path", "license"]) {
+        $(`${key}-error`).textContent = errors[key] || "";
+        const input = $(key);
+        if (input && input.type !== "checkbox") input.setAttribute("aria-invalid", errors[key] ? "true" : "false");
+      }
+      return Object.keys(errors).length === 0;
+    }
+
+    $("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!check()) { document.querySelector('[aria-invalid="true"]')?.focus(); return; }
+      const update = $("update").checked;
+      const params = new URLSearchParams({
+        template: "submit-mod.yml",
+        title: `${update ? "Update" : "Submit"} mod: ${$("name").value.trim()}`,
+        name: $("name").value.trim(),
+        folder: $("folder").value.trim(),
+        description: $("description").value.trim().replace(/\s+/g, " "),
+      });
+      if (source === "repo") {
+        params.set("repo", $("repo").value.trim());
+        params.set("commit", $("commit").value.trim().toLowerCase());
+        if ($("path").value.trim()) params.set("path", $("path").value.trim());
+      }
+      const notes = [$("notes").value.trim(), update ? "(Remember to tick **Update** above.)" : ""].filter(Boolean).join("\n\n");
+      if (notes) params.set("notes", notes);
+      const url = `${issueUrl}?${params}`;
+      $("link").href = url;
+      $("link").textContent = url;
+      $("fallback").hidden = false;
+      window.open(url, "_blank", "noopener");
+    });
+  </script>
+</body>
+</html>

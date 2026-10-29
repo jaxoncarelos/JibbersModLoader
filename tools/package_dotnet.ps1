@@ -42,14 +42,15 @@ try {
     foreach ($p in @('template/MyMod') + (Get-ChildItem (Join-Path $dotnet 'examples') -Directory | ForEach-Object { 'examples/' + $_.Name })) {
         Run dotnet @('build', $p, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true', "-p:JibbersSdk=$dotnet/Jibbers.Sdk/bin/Release/net8.0/Jibbers.Sdk.dll") $dotnet
     }
-    # The C# ports of the mods.
-    $publicNames = @('AlpineVision', 'Reshred', 'FPV', 'SlowMo', 'Rumble', 'Slvsh')
+    # The public mods, from the one list every script reads.
+    $registry = Get-Content -LiteralPath (Join-Path $root 'tools/public-mods.json') -Raw | ConvertFrom-Json
+    $publicNames = @($registry.mods | ForEach-Object { $_.folder })
     $ports = @($publicNames | ForEach-Object { Get-Item -LiteralPath (Join-Path $root "mods/cs/$_") })
     foreach ($p in $ports) {
         Run dotnet @('build', $p.FullName, '-c', 'Release', '-nologo', '-v', 'q', '-p:JibbersNoInstall=true') $root
     }
     # Every public mod source, shipped or not, has its own test project.
-    $sourceNames = $publicNames + @('Atmosphere')
+    $sourceNames = $publicNames + @($registry.sourceOnly)
     if (-not $SkipTests) {
         foreach ($n in $sourceNames) { Run dotnet @('run', '--project', "mods/cs/$n.Tests", '-c', 'Release', '-p:JibbersNoInstall=true') $root }
     }
@@ -122,8 +123,11 @@ try {
         New-Item -ItemType Directory -Path $dst -Force | Out-Null
         Copy-Item -LiteralPath $dll -Destination $dst
     }
-    Copy-Item -LiteralPath (Join-Path $root 'mods/JibbersAlpineVision/build/jibbers_alpinevision.bundle') -Destination $built
-    Copy-Item -LiteralPath (Join-Path $root 'mods/JibbersFPV/build/jibbers_fpv.bundle') -Destination (Join-Path $built 'JibbersMods')
+    foreach ($asset in @($registry.mods | ForEach-Object { $_.assets })) {
+        $dst = Join-Path $built $asset.zip
+        New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $root $asset.repo) -Destination $dst
+    }
     foreach ($folder in @($game, $kit, $built)) {
         Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $folder
         Copy-Item -LiteralPath (Join-Path $root 'mods/JibbersAtmosphere/unity/Assets/Atmosphere/Snow/LICENSE.txt') -Destination (Join-Path $folder 'SNOW-TEXTURES-LICENSE.txt')
@@ -132,6 +136,7 @@ try {
     foreach ($folder in @($kit, $built)) { Copy-Item -LiteralPath (Join-Path $game 'THIRD-PARTY-NOTICES.txt') -Destination $folder }
     Copy-Item -LiteralPath (Join-Path $root 'docs/CSHARP-REWRITE.md') -Destination (Join-Path $kit 'README.md')
     Copy-Item -LiteralPath (Join-Path $root 'tools/install_csharp_mods.ps1') -Destination (Join-Path $built 'install.ps1')
+    Copy-Item -LiteralPath (Join-Path $root 'tools/public-mods.json') -Destination (Join-Path $built 'mods.json')
     Copy-Item -LiteralPath (Join-Path $root 'docs/CSHARP-MODS-INSTALL.txt') -Destination (Join-Path $built 'README.txt')
     Copy-Item -LiteralPath (Join-Path $root 'docs/CSHARP-RUNTIME-INSTALL.txt') -Destination (Join-Path $game 'README.txt')
 

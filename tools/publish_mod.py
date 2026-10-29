@@ -53,6 +53,8 @@ def main():
     parser.add_argument("--previous", type=pathlib.Path, required=True, help="the published catalog.json")
     parser.add_argument("--out", type=pathlib.Path, required=True)
     parser.add_argument("--skip-tests", action="store_true")
+    parser.add_argument("--skip-unchanged", action="store_true",
+                        help="exit successfully without a spec when the built mod matches the published one")
     args = parser.parse_args()
 
     mods = json.loads((ROOT / "tools/public-mods.json").read_text(encoding="utf-8"))["mods"]
@@ -121,6 +123,9 @@ def main():
     if others_changed:
         raise SystemExit(f"only {entry['id']} may change, but {others_changed} differ from the published files")
     if not report[entry["id"]][2]:
+        if args.skip_unchanged:
+            print(f"{entry['name']} is identical to the published version; nothing to publish")
+            return
         raise SystemExit(f"{entry['name']} is identical to the published version; nothing to publish")
     (out / "spec.json").write_text(json.dumps(spec, indent=2), encoding="utf-8")
     print(f"Staged {entry['name']} for catalog sequence {spec['sequence']}:")

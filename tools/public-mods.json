@@ -1,8 +1,12 @@
 {
-  "comment": "The mods in the public channel. Read by package_channel.ps1 (the full channel) and publish_mod.py (one mod). 'legacy' mods keep the historical JibbersMods/<id>.dll path that installed bootstraps migrate from native plugins; the others install as JibbersMods/cs/<id>.dll. 'version' pins a package version instead of the channel build number.",
+  "comment": "The single list of public mods: every build, packaging, verification and publishing script reads it, and mod submissions add to it. 'folder' is the project under mods/cs, 'modId' the mod's Id in game, 'id' its catalog package. 'legacy' mods keep the historical JibbersMods/<id>.dll path that installed bootstraps migrate from native plugins; the others install as JibbersMods/cs/<id>.dll. 'version' pins a package version instead of the channel build number. 'authors' are the GitHub accounts that may submit updates to a mod (maintainers always can).",
+  "maintainers": ["jaxoncarelos"],
+  "sourceOnly": ["Atmosphere"],
   "mods": [
     {
       "folder": "AlpineVision",
+      "modId": "alpinevision",
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_atmosphere",
       "name": "Alpine Vision",
       "description": "Atmosphere extended: weather, alpine sky, lighting and a URP cinematic finish. Retains game shadows. Replaces Atmosphere.",
@@ -14,6 +18,8 @@
     },
     {
       "folder": "Reshred",
+      "modId": "reshred",
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_reshred",
       "name": "Rewind",
       "description": "C# physics history, hold to rewind and resume.",
@@ -22,6 +28,8 @@
     },
     {
       "folder": "FPV",
+      "modId": "fpv",
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_fpv",
       "name": "FPV Drone",
       "description": "C# drone flight, camera, controls, HUD and audio.",
@@ -32,6 +40,8 @@
     },
     {
       "folder": "SlowMo",
+      "modId": "slowmo",
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_slowmo",
       "name": "Slow Motion",
       "description": "Click the left stick or press V to slow the game down, with smooth easing.",
@@ -40,6 +50,8 @@
     },
     {
       "folder": "Rumble",
+      "modId": "rumble",
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_rumble",
       "name": "Rumble",
       "description": "Controller vibration that follows the game's own sounds: landings, rails, crashes and hard carves. Xbox and PlayStation pads.",
@@ -48,6 +60,8 @@
     },
     {
       "folder": "Slvsh",
+      "modId": "slvsh",
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_slvsh",
       "name": "SLVSH",
       "description": "S.K.A.T.E. on snow with your Steam party: set tricks, match them, watch each turn and vote on close calls.",

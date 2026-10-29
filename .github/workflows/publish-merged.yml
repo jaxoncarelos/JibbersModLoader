@@ -1,0 +1,47 @@
+name: Publish merged mods
+
+# A merged change to a public mod (its source, its tests or its entry in tools/public-mods.json)
+# publishes that mod, one at a time: the catalog has a single writer, and a concurrency group keeps
+# only one pending run, so parallel publishes would cancel each other. Pushes that also change the
+# SDK or loader are left to "Build and publish public mods".
+on:
+  push:
+    branches: [master]
+    paths: ['mods/cs/**', 'tools/public-mods.json']
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      mods: ${{ steps.changed.outputs.mods }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: changed
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          mods=$(python3 tools/changed_mods.py "$BEFORE" "$AFTER")
+          echo "Mods to publish: $mods"
+          echo "mods=$mods" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: detect
+    if: needs.detect.outputs.mods != '[]' && needs.detect.outputs.mods != ''
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        mod: ${{ fromJSON(needs.detect.outputs.mods) }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-mod.yml
+    with:
+      mod: ${{ matrix.mod }}
+      skip_unchanged: true

@@ -38,7 +38,7 @@ var channel = args.Length > 3 && args[3] == "channel";
 // Channel packages live directly in JibbersMods. Historical backups are not active mods.
 var files = Directory.GetFiles(mods, "*.dll", channel ? SearchOption.TopDirectoryOnly : SearchOption.AllDirectories).AsEnumerable();
 if (channel)
-    files = files.Where(file => new[] { "jibbers_atmosphere.dll", "jibbers_fpv.dll", "jibbers_reshred.dll" }.Contains(Path.GetFileName(file)));
+    files = files.Where(file => args[5].Split(',').Contains(Path.GetFileName(file)));
 foreach (var file in files)
 {
     var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(file);
@@ -54,8 +54,8 @@ foreach (var file in files)
         Console.WriteLine($"Loaded {type.FullName}: {settings.Count} settings validated");
     }
 }
-// The migration fixture enrolls only the mods that once had native versions; packages hold all six.
-var expected = channel ? new[] { "alpinevision", "reshred", "fpv" } : new[] { "alpinevision", "reshred", "fpv", "slowmo", "rumble", "slvsh" };
+// The migration fixture enrolls only the mods that once had native versions; packages hold them all (tools/public-mods.json).
+var expected = args[4].Split(',');
 if (!ids.SetEquals(expected)) throw new Exception("Wrong public mod set: " + string.Join(", ", ids));
 Console.WriteLine($"PASS: {RuntimeInformation.FrameworkDescription}, bundled CoreLib: {core}");
 Console.WriteLine($"SDK and {ids.Count} public C# mods loaded; no game process or game APIs used.");
@@ -79,7 +79,11 @@ try {
     $env:DOTNET_ROOT_X64 = Join-Path $sdkFolder 'runtime'
     $env:DOTNET_MULTILEVEL_LOOKUP = '0'
     $mode = if ($Channel) { 'channel' } else { 'manual' }
-    & (Join-Path $stage 'bin/Release/net8.0/RuntimeProbe.exe') $env:DOTNET_ROOT_X64 (Join-Path $sdkFolder 'Jibbers.Sdk.dll') $managedMods $mode
+    $registry = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'public-mods.json') -Raw | ConvertFrom-Json
+    $probed = if ($Channel) { @($registry.mods | Where-Object { $_.legacy }) } else { @($registry.mods) }
+    $expectedIds = ($probed | ForEach-Object { $_.modId }) -join ','
+    $channelFiles = ($probed | ForEach-Object { "$($_.id).dll" }) -join ','
+    & (Join-Path $stage 'bin/Release/net8.0/RuntimeProbe.exe') $env:DOTNET_ROOT_X64 (Join-Path $sdkFolder 'Jibbers.Sdk.dll') $managedMods $mode $expectedIds $channelFiles
     if ($LASTEXITCODE -ne 0) { throw 'Bundled runtime/SDK/mod loading smoke test failed' }
 } finally {
     $env:DOTNET_ROOT_X64 = $previousRoot

@@ -3,13 +3,23 @@ name: Publish one mod
 # Ships one public mod into the signed catalog in a few minutes, leaving the loader, SDK, runtime
 # and every other mod exactly as published. The mod is built and tested against the SDK players
 # already have. For loader or SDK changes, run "Build and publish public mods" instead.
+# Run it by hand with a folder from tools/public-mods.json, or let publish-merged.yml call it after a merge.
 on:
   workflow_dispatch:
     inputs:
       mod:
-        description: Mod to publish (its folder under mods/cs)
-        type: choice
-        options: [SlowMo, Rumble, Slvsh, Reshred, FPV, AlpineVision]
+        description: Mod to publish (its folder under mods/cs, as listed in tools/public-mods.json)
+        type: string
+        required: true
+  workflow_call:
+    inputs:
+      mod:
+        type: string
+        required: true
+      skip_unchanged:
+        description: Succeed without publishing when the built mod matches the published one
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -41,17 +51,26 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
       - name: Build the catalog publisher
         run: cargo build --release -p jibbers-distribution --bin jibbers-publish
-      - name: Build and test ${{ inputs.mod }} against the published SDK
+      - name: Build and test the mod against the published SDK
+        id: stage
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          MOD: ${{ inputs.mod }}
+          SKIP_UNCHANGED: ${{ inputs.skip_unchanged && '1' || '' }}
         run: |
           $ErrorActionPreference = 'Stop'
+          # The folder must be a plain name; publish_mod.py also checks it is in tools/public-mods.json.
+          if ($env:MOD -notmatch '^[A-Za-z][A-Za-z0-9]{0,39}$') { throw "Not a mod folder name: $env:MOD" }
           gh release download mod-channel-stable --pattern catalog.json --pattern catalog.json.sig --dir out/previous
           if ($LASTEXITCODE -ne 0) { throw 'Could not download the published catalog.' }
-          python tools/publish_mod.py --mod '${{ inputs.mod }}' --previous out/previous/catalog.json --out out/mod-channel
+          $extra = @(); if ($env:SKIP_UNCHANGED) { $extra = @('--skip-unchanged') }
+          python tools/publish_mod.py --mod $env:MOD --previous out/previous/catalog.json --out out/mod-channel @extra
           if ($LASTEXITCODE -ne 0) { throw 'Staging the mod failed.' }
+          $changed = if (Test-Path out/mod-channel/spec.json) { 'true' } else { 'false' }
+          "changed=$changed" >> $env:GITHUB_OUTPUT
       - name: Sign and verify
+        if: steps.stage.outputs.changed == 'true'
         shell: pwsh
         env:
           JIBBERS_SIGNING_KEY: ${{ secrets.JIBBERS_SIGNING_KEY }}
@@ -68,9 +87,11 @@ jobs:
           & target/release/jibbers-publish.exe verify dist/channel
           if ($LASTEXITCODE -ne 0) { throw 'Signed catalog verification failed.' }
       - name: Upload the new files, then the catalog
+        if: steps.stage.outputs.changed == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          MOD: ${{ inputs.mod }}
         run: |
           $ErrorActionPreference = 'Stop'
           # Published assets are content-addressed: only files the old catalog lacks are new.
@@ -83,4 +104,4 @@ jobs:
           }
           gh release upload mod-channel-stable dist/channel/catalog.json.sig dist/channel/catalog.json --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Catalog upload failed.' }
-          Write-Host 'Published ${{ inputs.mod }}. Players receive it on their next launch.'
+          Write-Host "Published $env:MOD. Players receive it on their next launch."

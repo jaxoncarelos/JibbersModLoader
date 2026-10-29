@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jibbers Mod Loader</title>
+  <meta name="description" content="Mods for Jibbers, installed and updated from inside the game. Every mod is open source and reviewed in one repository.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="./"><span class="mark" aria-hidden="true"></span>Jibbers Mod Loader</a>
+      <nav class="nav" aria-label="Site">
+        <a href="./" aria-current="page">Mods</a>
+        <a href="make.html">Make a mod</a>
+        <a href="submit.html">Submit</a>
+        <a href="https://github.com/jaxoncarelos/JibbersModLoader">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <span class="caption mint">For Jibbers</span>
+      <h1>Mods for the mountain.</h1>
+      <p class="lede">Install the loader once. Then pick mods from <strong>Options&nbsp;&gt;&nbsp;Mods</strong> in the game, and they update by themselves. Every mod is open source and reviewed here before it reaches anyone.</p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/jaxoncarelos/JibbersModLoader/releases/download/mod-channel-stable/JibbersModManager.zip">Download the loader</a>
+        <a class="button" href="#mods">Browse mods</a>
+      </div>
+    </section>
+
+    <section class="steps" aria-label="Install">
+      <div class="panel step">
+        <span class="num">1</span>
+        <h3>Download</h3>
+        <p>Get <code>JibbersModManager.zip</code>. It's small: the rest downloads on first launch.</p>
+      </div>
+      <div class="panel step">
+        <span class="num">2</span>
+        <h3>Extract beside the game</h3>
+        <p>Close Jibbers, then put <code>version.dll</code> and <code>JibbersMods</code> next to <code>Jibbers.exe</code>. In Steam: right-click Jibbers, Manage, Browse local files.</p>
+      </div>
+      <div class="panel step">
+        <span class="num">3</span>
+        <h3>Pick mods in game</h3>
+        <p>Open <strong>Options&nbsp;&gt;&nbsp;Mods</strong>, enable what you like, and restart. Updates arrive at startup.</p>
+      </div>
+    </section>
+
+    <section class="section" id="mods">
+      <div class="section-head">
+        <div>
+          <span class="caption">Catalog</span>
+          <h2>Mods</h2>
+        </div>
+        <a class="button" href="submit.html">Submit yours</a>
+      </div>
+      <div class="mods" id="mod-list" aria-live="polite">
+        <p class="empty">Loading the catalog…</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div>
+        <span class="caption">Why trust it</span>
+        <h2>One repository, reviewed code</h2>
+      </div>
+      <div class="trust">
+        <div class="panel">
+          <span class="caption mint">Source, not downloads</span>
+          <p>Every mod's code lives in the loader's repository. Builds are made from that code by GitHub Actions, never uploaded by hand.</p>
+        </div>
+        <div class="panel">
+          <span class="caption mint">Read before it ships</span>
+          <p>Submissions and updates arrive as pull requests. A person reads the code; nothing is published until it's merged.</p>
+        </div>
+        <div class="panel">
+          <span class="caption mint">Signed updates</span>
+          <p>The loader only installs files from the signed catalog, and warns you about any mod DLL that didn't come from it.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Jibbers Mod Loader is a community project, GPL-3.0-only. Not affiliated with the developers of Jibbers.</span>
+      <a href="https://github.com/jaxoncarelos/JibbersModLoader">github.com/jaxoncarelos/JibbersModLoader</a>
+    </div>
+  </footer>
+
+  <script>
+    (async () => {
+      const list = document.getElementById("mod-list");
+      const repo = "https://github.com/jaxoncarelos/JibbersModLoader/tree/master/mods/cs/";
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      try {
+        const response = await fetch("mods.json", { cache: "no-cache" });
+        if (!response.ok) throw new Error(response.status);
+        const { mods } = await response.json();
+        list.replaceChildren();
+        for (const mod of [...mods].sort((a, b) => a.name.localeCompare(b.name))) {
+          const card = el("article", "panel mod");
+          const row = el("div", "row");
+          row.append(el("h3", null, mod.name));
+          const source = el("a", "caption", "Source");
+          source.href = repo + encodeURIComponent(mod.folder);
+          row.append(source);
+          card.append(row, el("p", null, mod.description));
+          const meta = el("div", "meta");
+          for (const author of mod.authors || []) meta.append(el("span", "chip", "@" + author));
+          if (mod.assets && mod.assets.length) meta.append(el("span", "chip", "Assets"));
+          meta.append(el("span", "chip mint", "In game"));
+          card.append(meta);
+          list.append(card);
+        }
+        if (!mods.length) list.append(el("p", "empty", "No mods yet."));
+      } catch {
+        list.replaceChildren(el("p", "empty", "Couldn't load the catalog. See the repository's tools/public-mods.json."));
+      }
+    })();
+  </script>
+</body>
+</html>

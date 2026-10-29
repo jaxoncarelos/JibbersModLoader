@@ -19,11 +19,13 @@ function Game-Path([string]$Relative) {
 $preferences = Game-Path 'JibbersMods/system/distribution/preferences.json'
 $installed = Game-Path 'JibbersMods/system/distribution/installed.json'
 if (Test-Path -LiteralPath (Game-Path 'JibbersMods/system/distribution/journal.json')) { throw 'Launch and close the game to finish its pending update before switching to C# mods.' }
-$publicIds = @('jibbers_atmosphere','jibbers_reshred','jibbers_fpv','jibbers_slowmo','jibbers_rumble','jibbers_slvsh')
-$payloads = @('JibbersMods/cs/AlpineVision/AlpineVision.dll','JibbersMods/cs/Reshred/Reshred.dll','JibbersMods/cs/FPV/FPV.dll','JibbersMods/cs/SlowMo/SlowMo.dll','JibbersMods/cs/Rumble/Rumble.dll','JibbersMods/cs/Slvsh/Slvsh.dll',
-    'jibbers_alpinevision.bundle','JibbersMods/jibbers_fpv.bundle')
+# The public mods and their files, from the list packaged beside this script.
+$registry = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'mods.json') -Raw | ConvertFrom-Json
+$publicIds = @($registry.mods | ForEach-Object { $_.id })
+$payloads = @($registry.mods | ForEach-Object { "JibbersMods/cs/$($_.folder)/$($_.folder).dll" }) + @($registry.mods | ForEach-Object { $_.assets } | ForEach-Object { $_.zip })
 # Mods that never had a native version install where the catalog puts them, so updates replace them.
-$destinations = @{'JibbersMods/cs/SlowMo/SlowMo.dll'='JibbersMods/cs/jibbers_slowmo.dll';'JibbersMods/cs/Rumble/Rumble.dll'='JibbersMods/cs/jibbers_rumble.dll';'JibbersMods/cs/Slvsh/Slvsh.dll'='JibbersMods/cs/jibbers_slvsh.dll'}
+$destinations = @{}
+foreach ($m in @($registry.mods | Where-Object { -not $_.legacy })) { $destinations["JibbersMods/cs/$($m.folder)/$($m.folder).dll"] = "JibbersMods/cs/$($m.id).dll" }
 function Destination([string]$Relative) { if ($destinations.ContainsKey($Relative)) { $destinations[$Relative] } else { $Relative } }
 foreach ($relative in $payloads) {
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $relative) -PathType Leaf)) { throw "Package is incomplete: $relative" }
@@ -56,16 +58,21 @@ try {
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $relative) -Destination $target -Force
     }
-    foreach ($relative in @('JibbersMods/jibbers_atmosphere.dll','JibbersMods/jibbers_reshred.dll','JibbersMods/jibbers_fpv.dll',
-        'JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/Atmosphere/Atmosphere.dll','JibbersMods/cs/RayTracing.dll','JibbersMods/cs/RayTracing/RayTracing.dll','JibbersMods/cs/AlpineVision.dll','JibbersMods/cs/Reshred.dll','JibbersMods/cs/FPV.dll','JibbersMods/cs/SlowMo.dll','JibbersMods/cs/SlowMo/SlowMo.dll','JibbersMods/cs/Rumble.dll','JibbersMods/cs/Rumble/Rumble.dll','JibbersMods/cs/Slvsh.dll','JibbersMods/cs/Slvsh/Slvsh.dll')) {
+    # Native copies of the legacy mods, older manual layouts, and the replaced Atmosphere and Ray Tracing mods.
+    $stale = @('JibbersMods/cs/Atmosphere.dll','JibbersMods/cs/Atmosphere/Atmosphere.dll','JibbersMods/cs/RayTracing.dll','JibbersMods/cs/RayTracing/RayTracing.dll')
+    foreach ($m in $registry.mods) {
+        if ($m.legacy) { $stale += "JibbersMods/$($m.id).dll" } else { $stale += "JibbersMods/cs/$($m.folder)/$($m.folder).dll" }
+        $stale += "JibbersMods/cs/$($m.folder).dll"
+    }
+    foreach ($relative in $stale) {
         $target = Game-Path $relative
         if (Test-Path -LiteralPath $target -PathType Leaf) { $target = Save-Before $relative; Remove-Item -LiteralPath $target }
     }
     # Adopt only the bundles this installer explicitly copied. The next catalog update can
     # replace them safely without treating them as unrelated, unmanaged local files.
-    $bundlePaths = @{jibbers_atmosphere=@('jibbers_alpinevision.bundle');jibbers_reshred=@();jibbers_fpv=@('JibbersMods/jibbers_fpv.bundle');jibbers_slowmo=@();jibbers_rumble=@();jibbers_slvsh=@()}
-    foreach ($id in $publicIds) {
-        $owned = @($bundlePaths[$id] | ForEach-Object {
+    foreach ($m in $registry.mods) {
+        $id = $m.id
+        $owned = @($m.assets | ForEach-Object { $_.zip } | ForEach-Object {
             $path = Game-Path $_
             [pscustomobject]@{path=$_;url=$config.catalogUrl;size=(Get-Item -LiteralPath $path).Length;sha256=(Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant()}
         })
@@ -94,6 +101,6 @@ try {
     }
     throw
 }
-Write-Host 'Installed Alpine Vision, Rewind, FPV and Slow Motion. Previous native copies and manager selections were backed up.'
+Write-Host ('Installed ' + (($registry.mods | ForEach-Object { $_.name }) -join ', ') + '. Previous native copies and manager selections were backed up.')
 Write-Host 'The C# mods remain enrolled in the public update channel; changes apply on the next launch.'
 Write-Host "Backup: $backup"

@@ -1,0 +1,46 @@
+name: Site
+
+# Deploys site/ to GitHub Pages, with the mod list from tools/public-mods.json.
+# Repository settings: Pages > Source: GitHub Actions.
+on:
+  push:
+    branches: [master]
+    paths: ['site/**', 'tools/public-mods.json', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Assemble the site
+        run: |
+          mkdir -p out
+          cp -r site/. out/
+          # Only what the pages show: names, descriptions, folders and authors.
+          python3 -c "import json; d=json.load(open('tools/public-mods.json')); json.dump({'mods': [{k: m[k] for k in ('folder','name','description','authors','assets') if k in m} for m in d['mods']]}, open('out/mods.json','w'), indent=2)"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

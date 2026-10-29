@@ -1,0 +1,151 @@
+name: Mod submission
+
+# Turns a "Submit a mod" issue into a pull request. Two jobs, so submitted code never runs where a
+# write token exists:
+#   stage   reads the issue, fetches and checks the source (tools/submission.py), uploads the staged
+#           files, then builds and tests them against the SDK players run. Read-only token, no secrets.
+#   open-pr re-validates the staged files without running them, copies them into mods/cs, updates
+#           tools/public-mods.json and opens or updates the pull request.
+# Issue text only ever reaches scripts through files and environment variables.
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mod-submission-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  stage:
+    if: contains(github.event.issue.labels.*.name, 'mod-submission') && github.event.issue.state == 'open'
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    outputs:
+      ok: ${{ steps.stage.outputs.ok }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Read and check the submission
+        id: stage
+        shell: pwsh
+        run: |
+          python tools/submission.py parse --event $env:GITHUB_EVENT_PATH --out out/fields.json
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the issue.' }
+          python tools/submission.py stage --fields out/fields.json --out out/submission
+          $result = Get-Content out/submission/result.json -Raw | ConvertFrom-Json
+          "ok=$(if ($result.ok) { 'true' } else { 'false' })" >> $env:GITHUB_OUTPUT
+          $global:LASTEXITCODE = 0
+      # Uploaded before anything submitted runs, so the build below can't alter what gets reviewed.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: submission
+          path: out/submission
+          if-no-files-found: error
+          retention-days: 7
+      - name: Build and test against the published SDK
+        if: steps.stage.outputs.ok == 'true'
+        shell: pwsh
+        run: |
+          $folder = (Get-Content out/submission/result.json -Raw | ConvertFrom-Json).folder
+          if ($folder -notmatch '^[A-Z][A-Za-z0-9]{1,39}$') { throw 'Unexpected folder name.' }
+          python tools/submission.py sdk --out out/sdk
+          if ($LASTEXITCODE -ne 0) { throw 'Could not get the published SDK.' }
+          Copy-Item -Recurse -Force out/submission/files/mods/cs/* mods/cs/
+          $sdk = (Resolve-Path out/sdk/Jibbers.Sdk.dll).Path
+          $status = 'passed'
+          & { dotnet build "mods/cs/$folder" -c Release -nologo "-p:JibbersSdk=$sdk" -p:JibbersNoInstall=true } *>&1 | Tee-Object -FilePath out/build.log
+          if ($LASTEXITCODE -ne 0) { $status = 'failed to build' }
+          else {
+            & { dotnet run --project "mods/cs/$folder.Tests" -c Release "-p:JibbersSdk=$sdk" -p:JibbersNoInstall=true } *>&1 | Tee-Object -FilePath out/build.log -Append
+            if ($LASTEXITCODE -ne 0) { $status = 'tests failed' }
+          }
+          Set-Content out/build-status.txt $status
+          $global:LASTEXITCODE = 0
+      - uses: actions/upload-artifact@v4
+        if: steps.stage.outputs.ok == 'true'
+        with:
+          name: build
+          path: |
+            out/build.log
+            out/build-status.txt
+          retention-days: 7
+
+  open-pr:
+    needs: stage
+    if: always() && needs.stage.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+      AUTHOR: ${{ github.event.issue.user.login }}
+      BASE: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: submission
+          path: staged
+      - uses: actions/download-artifact@v4
+        if: needs.stage.outputs.ok == 'true'
+        continue-on-error: true
+        with:
+          name: build
+          path: build
+      - name: Report a rejection
+        if: needs.stage.outputs.ok != 'true'
+        run: gh issue comment "$ISSUE" --body-file staged/report.md
+      - name: Apply and open the pull request
+        if: needs.stage.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          if ! python3 tools/submission.py apply --staged staged --author "$AUTHOR" > applied.json 2> apply-error.txt; then
+            { echo "## This submission couldn't be applied"; echo; cat apply-error.txt; } > comment.md
+            gh issue comment "$ISSUE" --body-file comment.md
+            exit 1
+          fi
+          folder=$(python3 -c "import json;print(json.load(open('applied.json'))['folder'])")
+          name=$(python3 -c "import json;print(json.load(open('applied.json'))['name'])")
+          update=$(python3 -c "import json;print('true' if json.load(open('applied.json'))['update'] else '')")
+          branch="submission/${folder,,}-$ISSUE"
+          status=$(cat build/build-status.txt 2>/dev/null || echo "not run")
+          verb=$([ -n "$update" ] && echo "Update" || echo "Add")
+          {
+            cat staged/report.md
+            echo
+            echo "**Build and tests against the published SDK:** $status. This is a convenience check run on the submitted code, not a security signal: review the code itself."
+            echo
+            echo "Pull requests opened by the bot don't start the usual CI; it runs after merge. Merging publishes the mod."
+            echo
+            echo "Closes #$ISSUE"
+          } > pr.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add -A "mods/cs/$folder" "mods/cs/$folder.Tests" tools/public-mods.json
+          printf '%s %s\n\nSubmitted by @%s in #%s.\n' "$verb" "$name" "$AUTHOR" "$ISSUE" > message.txt
+          git commit -q -F message.txt
+          git push -f origin "$branch"
+          existing=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --body-file pr.md
+            gh issue comment "$ISSUE" --body "Updated the pull request #$existing with this version."
+          else
+            url=$(gh pr create --base "$BASE" --head "$branch" --title "$verb mod: $name" --body-file pr.md)
+            gh pr edit "$url" --add-label mod-submission || true
+            gh issue comment "$ISSUE" --body "Thanks! Opened $url for review. Edit this issue to submit a new commit; the pull request updates."
+          fi
