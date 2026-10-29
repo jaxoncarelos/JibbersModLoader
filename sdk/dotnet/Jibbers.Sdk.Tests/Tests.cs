@@ -48,8 +48,10 @@ static class Assert
 
 static class Program
 {
-    static int Main()
+    static int Main(string[] args)
     {
+        // `dotnet run -- preview <dir>` draws the SDK's overlays to images instead of testing.
+        if (args is ["preview", var dir]) return PreviewRunner.Run(dir);
         var tests = typeof(Program).Assembly.GetTypes().SelectMany(t => t.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             .Where(m => m.GetCustomAttribute<TestAttribute>() is not null).OrderBy(m => m.DeclaringType!.Name + m.Name).ToList();
         var failed = 0;

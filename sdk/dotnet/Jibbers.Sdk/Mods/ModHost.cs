@@ -209,6 +209,12 @@ internal static unsafe class ModHost
             try { Register(candidate,file); }
             catch(Exception e) { Log.Error("dotnet: "+Path.GetFileName(file),e); }
         }
+        // A mod used the party in its OnLoad: add the Party panel and its Mods tab section.
+        if (Multiplayer.Party.Used)
+        {
+            try { Register(new Multiplayer.PartyMod(), typeof(ModHost).Assembly.Location); }
+            catch (Exception e) { Log.Error("dotnet: party", e); }
+        }
     }
 
     static IEnumerable<JibbersMod> ReadFile(string file)
@@ -319,6 +325,7 @@ internal static unsafe class ModHost
     internal static void UnloadMod(JibbersMod mod)
     {
         Input.RemoveOwner(mod.Id);
+        Multiplayer.Party.RemoveOwner(mod.Id);
         try
         {
             ModContext.With(mod, () =>
@@ -340,6 +347,7 @@ internal static unsafe class ModHost
                 Events.RemoveOwner(mod.Id);
                 GameVars.RemoveOwner(mod.Id);
                 UI.Hud.RemoveOwner(mod.Id);
+                UI.Overlay.RemoveOwner(mod.Id);
             });
         }
         catch (Exception e)

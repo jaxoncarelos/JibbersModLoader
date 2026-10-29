@@ -71,3 +71,9 @@ The catalogue and the generated bindings leave out the game's networking (FishNe
 broadcast messages), server-side checks and other players' state. Mods that change those can affect
 other players and mostly help cheating. Nothing stops you reaching the IL2CPP API directly, but it
 is outside what the SDK supports.
+
+Mods that play *together* use the SDK's own Steam party instead (`Jibbers.Sdk.Multiplayer`, see
+[multiplayer](multiplayer.md)): messages between copies of the same mod, only among players who
+joined a party. That is separate from the game's networking and never touches it. One
+deliberate exception: SLVSH's spectating finds other riders in your session (their nametag or
+position) to point *your own* follow camera at them; it changes nothing about them.

@@ -93,3 +93,9 @@ SDK's low-level APIs, but ordinary mods do not need them.
 
 See [getting started](getting-started.md), [concepts](concepts.md), and
 [native integration](native.md) for additional detail.
+
+## Playing together
+
+Mods can talk to their own copies on friends' PCs through a Steam party: `Party.Channel(this)`
+in `OnLoad`, then `Send`, `Broadcast` and `Received`. The SDK adds a Party panel for making and
+joining parties. See [multiplayer](multiplayer.md) and the [SLVSH](../../mods/cs/Slvsh) mod.
