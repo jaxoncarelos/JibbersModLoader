@@ -1,0 +1,25 @@
+name: Token probe (temporary)
+
+# Diagnoses why the publish job's token can't create releases. Removed once understood.
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Release at an old commit (ace498e, no workflow changes since build 67)
+        run: |
+          gh release create probe-old --target ace498e91e1df4e6d8fcd0a14a2134378f1f3770 --title probe --notes probe --prerelease --latest=false && echo "OLD: OK" || echo "OLD: FAILED"
+      - name: Release at the failing commit (2bb6408)
+        run: |
+          gh release create probe-new --target 2bb6408bbd0c9e4c6e8937ba159faca2c046147e --title probe --notes probe --prerelease --latest=false && echo "NEW: OK" || echo "NEW: FAILED"
+      - name: Clean up
+        if: always()
+        run: |
+          for t in probe-old probe-new; do gh release delete "$t" --yes --cleanup-tag 2>/dev/null || true; done
