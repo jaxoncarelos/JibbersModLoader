@@ -25,8 +25,7 @@ players join once, and every mod they have works with everyone else in it.
 - The player opens the **Party panel** (default **F7**, rebindable under Mods > Party). From there
   they can make a party, join one with its 6-character code, join a friend's party, invite friends
   through the Steam overlay, lock the party, or leave it. Toasts appear when people join or leave.
-- The panel and its Mods-tab section only appear when an installed mod calls `Party.Channel` in
-  its `OnLoad`. Players without multiplayer mods never see them.
+- Every player has the panel, because the SDK's built-in Play together (below) uses the party.
 - The **host** is the Steam lobby owner (`Party.Host`, `Party.IsHost`). If the host leaves,
   Steam hands the role to someone else and everyone gets a `Changed` event. A game can follow the
   party host, or, like SLVSH, make whoever starts a game its host.
@@ -70,8 +69,33 @@ The game dispatches Steam's callbacks itself, so the SDK polls call results and 
 membership directly instead of waiting for callbacks. This is the approach the SLVSH and Voice
 Chat mods proved in this game.
 
-This is separate from the game's own networking (FishNet), which the SDK still does not touch.
-See [coverage](coverage.md).
+Parties are separate from the game's own networking (FishNet). The one place the SDK meets it is
+Play together, below. See [coverage](coverage.md).
+
+## Play together: game servers over Steam
+
+Every player has this, built into the SDK (Mods > Play together). Friends no longer need Hamachi or
+port forwarding to play on someone's server:
+
+1. Host as usual (the console's `host`, or the game's own host option).
+2. The Party panel offers **Invite friends to your server**: it makes a party if you aren't in one
+   and opens Steam's invite dialog. Party members see "Ana is hosting: press F7 to join" and a
+   **Join Ana's server** row in the panel.
+3. A friend who accepts the Steam invite (or uses **Join game** on you in their friends list) joins
+   the party and, unless they turned it off, the server straight away. If the game wasn't running,
+   Steam starts it with `+connect_lobby`, which the SDK picks up.
+
+How it works: the joining player's SDK opens a UDP socket on 127.0.0.1 and asks the game to connect
+to it with the server browser's own join (`ks.Connect`). Every datagram the game sends goes over
+Steam (unreliable, peer to peer through Valve's relays) to the host, whose SDK gives each remote
+player their own loopback socket to the real server's port. The server sees ordinary players on
+127.0.0.1; the game's packets are never read or changed. The host's server password is sent only to
+party members who ask to join. While a tunnel is open the party polls Steam every millisecond.
+
+The code is in `Multiplayer/ServerSession.cs` (the logic, tested end to end with real sockets),
+`ServerTunnel.cs` (the relays), `GameServer.cs` (the game's side), `SteamInvites.cs` (Steam's join
+requests: the SDK watches `SteamAPI_ManualDispatch_GetNextCallback`, which the game calls each
+frame) and `PlayTogether.cs` (the built-in mod).
 
 ## Overlays for multiplayer UI
 

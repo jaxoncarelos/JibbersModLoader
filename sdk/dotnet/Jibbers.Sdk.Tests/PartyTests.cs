@@ -87,6 +87,8 @@ static class PartyTests
         public void SetMemberData(SteamId lobby, string key, string value) => net.Lobbies[lobby].MemberData[(Id, key)] = value;
         public bool InviteToLobby(SteamId lobby, SteamId friend) => true;
         public void OpenInviteOverlay(SteamId lobby) { }
+        public readonly Dictionary<string, string> Presence = new();
+        public void SetRichPresence(string key, string? value) { if (value is null) Presence.Remove(key); else Presence[key] = value; }
         public bool Send(SteamId to, ReadOnlySpan<byte> data, bool reliable)
         {
             if (!net.Inboxes.TryGetValue(to, out var q)) net.Inboxes[to] = q = new();
@@ -277,5 +279,34 @@ static class PartyTests
         Assert.Equal(2, mods.Count);
         Assert.Equal("K7Q2MX", PartyEngine.NormalizeCode(" k7q-2mx "));
         Assert.True(PartyEngine.NewCode().All(c => "ABCDEFGHJKMNPQRSTUVWXYZ23456789".Contains(c)));
+    }
+
+    [Test]
+    static void SteamInvitesJoinByLobbyAndFriendsSeeJoinGame()
+    {
+        var net = new FakeNet();
+        var a = new Client(net, 1, "Ana");
+        var b = new Client(net, 2, "Ben");
+        a.Engine.Create();
+        Run(net, a, b);
+        Assert.Equal($"+connect_lobby {a.S.Lobby}", a.Steam.Presence["connect"]);
+        b.Engine.JoinLobby(a.S.Lobby);
+        Run(net, a, b);
+        Assert.Equal(PartyState.InParty, b.S.State);
+        Assert.Equal(a.S.Code, b.S.Code);
+        Assert.Equal("2", a.Steam.Presence["steam_player_group_size"]);
+        b.Engine.Leave();
+        Run(net, a, b);
+        Assert.True(!b.Steam.Presence.ContainsKey("connect"), "leaving clears Join game");
+
+        // Some other lobby of the game is not a party.
+        var other = new SteamId(net.NextLobby++);
+        net.Lobbies[other] = new FakeNet.Lobby { Owner = new SteamId(99) };
+        net.Lobbies[other].Members.Add(new SteamId(99));
+        b.Engine.JoinLobby(other);
+        Run(net, a, b);
+        Assert.Equal(PartyState.None, b.S.State);
+        Assert.Equal("That invite isn't for a party", b.S.Status);
+        Assert.True(!net.Lobbies[other].Members.Contains(b.Steam.Id), "left it again");
     }
 }

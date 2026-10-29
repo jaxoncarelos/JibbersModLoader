@@ -43,6 +43,8 @@ internal interface ISteamBackend
     void SetMemberData(SteamId lobby, string key, string value);
     bool InviteToLobby(SteamId lobby, SteamId friend);
     void OpenInviteOverlay(SteamId lobby);
+    /// <summary>Sets (or with null clears) one of the player's Steam rich presence keys, which friends see.</summary>
+    void SetRichPresence(string key, string? value);
 
     bool Send(SteamId to, ReadOnlySpan<byte> data, bool reliable);
     /// <summary>Appends waiting messages to <paramref name="into"/>; returns how many.</summary>

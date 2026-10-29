@@ -12,7 +12,8 @@ namespace Jibbers.Sdk.Multiplayer;
 /// </summary>
 /// <remarks>
 /// Messages go peer to peer through Valve's relays (no ports, no IP addresses shared), only between
-/// party members. This is separate from the game's own networking, which the SDK does not touch.
+/// party members. Party messages are separate from the game's own networking (the SDK's built-in
+/// Play together uses the party to tunnel game servers, see docs/guides/multiplayer.md).
 /// Players get a Party panel (Mods tab > Party, default key F7) to make, join and leave parties, so
 /// your mod usually only needs <see cref="Channel"/>. Everything here is safe from any thread.
 /// </remarks>
@@ -80,6 +81,18 @@ public static class Party
     public static void Invite(SteamId friend) => Do(e => e.Invite(friend));
     /// <summary>Opens the Steam overlay's invite dialog for the party.</summary>
     public static void OpenInviteOverlay() => Do(e => e.OpenInviteOverlay());
+
+    /// <summary>Joins the party behind a Steam lobby (an accepted Steam invite or "Join game").</summary>
+    internal static void JoinLobby(SteamId lobby) => Do(e => e.JoinLobby(lobby));
+
+    /// <summary>Shows a short line to the player, like the party's own notices.</summary>
+    internal static void Announce(string line) => Raise(Notice, line);
+
+    /// <summary>
+    /// While above zero the party thread checks for messages every millisecond instead of every
+    /// 15, for latency-sensitive traffic (the server tunnel). Increment, and decrement when done.
+    /// </summary>
+    internal static int FastPoll;
 
     /// <summary>
     /// Your mod's message channel. Other members see that you run the mod (<see cref="PartyMember.HasMod"/>),
@@ -205,7 +218,7 @@ public static class Party
             {
                 if (failures++ < 3) Log.Error("party", ex);
             }
-            Thread.Sleep(e.Snapshot.State == PartyState.InParty ? 15 : 100);
+            Thread.Sleep(Volatile.Read(ref FastPoll) > 0 ? 1 : e.Snapshot.State == PartyState.InParty ? 15 : 100);
         }
     }
 

@@ -33,7 +33,8 @@ SDK type and member, every game symbol and event) or the generated code in `dotn
 7. Do not write symbols or code for the game's networking, server-side checks or other players'
    state (see "Not covered on purpose" in `docs/guides/coverage.md`). For mods that play together,
    use the SDK's Steam party (`Jibbers.Sdk.Multiplayer.Party`, `docs/guides/multiplayer.md`), and
-   validate every message you receive: it comes from another player's PC.
+   validate every message you receive: it comes from another player's PC. The SDK's built-in Play
+   together joins and tunnels the game's own servers; keep that internal (no public API for it).
 
 ## Game builds
 

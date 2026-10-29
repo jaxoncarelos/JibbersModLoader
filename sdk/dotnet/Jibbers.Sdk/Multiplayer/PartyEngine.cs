@@ -97,6 +97,14 @@ internal sealed class PartyEngine
         BeginJoin(target);
     });
 
+    /// <summary>Joins a party by its Steam lobby, as a Steam invite or "Join game" names it.</summary>
+    public void JoinLobby(SteamId target) => requests.Enqueue(() =>
+    {
+        if (!target.IsValid || (step == Step.In && target == lobby)) return;
+        LeaveNow(quiet: true);
+        BeginJoin(target);
+    });
+
     public void Leave() => requests.Enqueue(() => LeaveNow(quiet: false));
 
     public void SetLocked(bool value) => requests.Enqueue(() =>
@@ -218,7 +226,17 @@ internal sealed class PartyEngine
             steam.SetLobbyData(lobby, KeyCode, code);
             steam.SetLobbyData(lobby, KeyLocked, "0");
         }
+        if (!created && steam.LobbyData(lobby, KeyParty) != "1")
+        {
+            // An invite to some other lobby of this game (not a party).
+            steam.LeaveLobby(lobby);
+            Fail("That invite isn't for a party");
+            return;
+        }
         code = steam.LobbyData(lobby, KeyCode);
+        // Friends see "Join game" in Steam, which lands in this lobby (see SteamInvites).
+        steam.SetRichPresence("connect", $"+connect_lobby {lobby}");
+        steam.SetRichPresence("steam_player_group", lobby.ToString());
         members.Clear();
         advertisedMods = "\0";
         AdvertiseMods();
@@ -238,10 +256,18 @@ internal sealed class PartyEngine
         SetStatus(why);
     }
 
+    void ClearPresence()
+    {
+        steam.SetRichPresence("connect", null);
+        steam.SetRichPresence("steam_player_group", null);
+        steam.SetRichPresence("steam_player_group_size", null);
+    }
+
     void LeaveNow(bool quiet)
     {
         if (step == Step.In)
         {
+            ClearPresence();
             steam.LeaveLobby(lobby);
             foreach (var m in members.Keys.Where(m => m != steam.LocalId)) steam.Close(m);
             log($"left party {code}");
@@ -276,6 +302,7 @@ internal sealed class PartyEngine
         {
             log($"no longer in party {code}");
             Notice?.Invoke("The party closed");
+            ClearPresence();
             step = Step.Idle;
             lobby = SteamId.None;
             members.Clear();
@@ -289,6 +316,7 @@ internal sealed class PartyEngine
             if (steam.LobbyData(lobby, KeySize) != ids.Count.ToString()) steam.SetLobbyData(lobby, KeySize, ids.Count.ToString());
         }
         locked = steam.LobbyData(lobby, KeyLocked) == "1";
+        if (members.Count != ids.Count) steam.SetRichPresence("steam_player_group_size", ids.Count.ToString());
         var pings = now >= nextPing;
         if (pings) nextPing = now + PingRefresh;
         var changed = false;

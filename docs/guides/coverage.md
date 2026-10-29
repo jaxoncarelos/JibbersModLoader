@@ -77,3 +77,9 @@ Mods that play *together* use the SDK's own Steam party instead (`Jibbers.Sdk.Mu
 joined a party. That is separate from the game's networking and never touches it. One
 deliberate exception: SLVSH's spectating finds other riders in your session (their nametag or
 position) to point *your own* follow camera at them; it changes nothing about them.
+
+The SDK's built-in **Play together** is the other exception, and stays inside the SDK: it reads
+whether the game is hosting or connected (and the host's port and server password), and joins a
+server with the game's own `Connect(address, port, password)`, the server browser's join. The
+game's packets travel unchanged through a loopback relay and Steam; nothing in them is read or
+altered. Mods get no API for the game's networking from it.

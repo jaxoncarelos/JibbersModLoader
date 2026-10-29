@@ -209,6 +209,10 @@ internal static unsafe class ModHost
             try { Register(candidate,file); }
             catch(Exception e) { Log.Error("dotnet: "+Path.GetFileName(file),e); }
         }
+        // Everyone gets Play together (game servers through Steam), which uses the party, so the
+        // Party panel and its Mods tab section always follow.
+        try { Register(new Multiplayer.PlayTogether(), typeof(ModHost).Assembly.Location); }
+        catch (Exception e) { Log.Error("dotnet: play together", e); }
         // A mod used the party in its OnLoad: add the Party panel and its Mods tab section.
         if (Multiplayer.Party.Used)
         {

@@ -61,10 +61,10 @@ static class OverlayTests
     [Test]
     static void PartyPanelFitsEveryState()
     {
-        foreach (var (name, snapshot, ui) in OverlayPreview_Scenarios())
+        foreach (var (name, snapshot, ui, server, status) in OverlayPreview_Scenarios())
         {
-            var actions = PartyPanel.Actions(snapshot, ui);
-            var frame = PartyPanel.Build(snapshot, ui, actions, "F7", 1.0);
+            var actions = PartyPanel.Actions(snapshot, ui, server);
+            var frame = PartyPanel.Build(snapshot, ui, actions, "F7", 1.0, status);
             foreach (var t in frame.Texts)
                 Assert.True(t.X >= PartyPanel.Margin && t.Y >= PartyPanel.Margin && t.X + t.W <= frame.Width - PartyPanel.Margin + 0.01f && t.Y + t.H <= frame.Height - PartyPanel.Margin + 0.01f, $"{name}: text '{t.Text}' inside the card");
         }
@@ -72,7 +72,7 @@ static class OverlayTests
         Assert.Equal("Slow Mo", PartyPanel.Pretty("slow_mo"));
     }
 
-    internal static IEnumerable<(string, PartySnapshot, PanelUi)> OverlayPreview_Scenarios()
+    internal static IEnumerable<(string, PartySnapshot, PanelUi, List<PanelAction>?, string)> OverlayPreview_Scenarios()
     {
         IReadOnlyDictionary<string, string> Mods(params string[] ids) => ids.ToDictionary(i => i, _ => "1.0.0");
         var members = new List<PartyMember>
@@ -88,12 +88,19 @@ static class OverlayTests
             new(new SteamId(6), "Kai", true, 1, false),
             new(new SteamId(7), "Lou", false, 0, false),
         };
-        yield return ("Not in a party", new(PartyState.None, SteamId.None, "", false, Array.Empty<PartyMember>(), friends, ""), new PanelUi());
-        yield return ("Bad code", new(PartyState.None, SteamId.None, "", false, Array.Empty<PartyMember>(), friends.Take(0).ToList(), "No party found with code ZZZZZZ"), new PanelUi { Selected = 1 });
-        yield return ("Host with friends", new(PartyState.InParty, SteamId.None, "K7Q2MX", false, members, friends.Skip(2).ToList(), ""), new PanelUi { Selected = 0 });
-        yield return ("Guest", new(PartyState.InParty, SteamId.None, "K7Q2MX", true, members.Select(m => m with { IsHost = m.Name == "Ben Carver", IsLocal = m.Name == "mira" }).ToList(), Array.Empty<FriendParty>(), ""), new PanelUi { Selected = 1 });
-        yield return ("Typing a code", new(PartyState.None, SteamId.None, "", false, Array.Empty<PartyMember>(), friends, ""), new PanelUi { EnteringCode = true, Code = "K7Q" });
-        yield return ("Joining", new(PartyState.Joining, SteamId.None, "", false, Array.Empty<PartyMember>(), friends, "Looking for party K7Q2MX"), new PanelUi());
+        yield return ("Not in a party", new(PartyState.None, SteamId.None, "", false, Array.Empty<PartyMember>(), friends, ""), new PanelUi(), null, "");
+        yield return ("Bad code", new(PartyState.None, SteamId.None, "", false, Array.Empty<PartyMember>(), friends.Take(0).ToList(), "No party found with code ZZZZZZ"), new PanelUi { Selected = 1 }, null, "");
+        yield return ("Host with friends", new(PartyState.InParty, SteamId.None, "K7Q2MX", false, members, friends.Skip(2).ToList(), ""), new PanelUi { Selected = 0 }, null, "");
+        yield return ("Guest", new(PartyState.InParty, SteamId.None, "K7Q2MX", true, members.Select(m => m with { IsHost = m.Name == "Ben Carver", IsLocal = m.Name == "mira" }).ToList(), Array.Empty<FriendParty>(), ""), new PanelUi { Selected = 1 }, null, "");
+        yield return ("Typing a code", new(PartyState.None, SteamId.None, "", false, Array.Empty<PartyMember>(), friends, ""), new PanelUi { EnteringCode = true, Code = "K7Q" }, null, "");
+        yield return ("Joining", new(PartyState.Joining, SteamId.None, "", false, Array.Empty<PartyMember>(), friends, "Looking for party K7Q2MX"), new PanelUi(), null, "");
+        var guest = members.Select(m => m with { IsHost = m.Name == "Ben Carver", IsLocal = m.Name == "mira" }).ToList();
+        yield return ("Friend is hosting", new(PartyState.InParty, SteamId.None, "K7Q2MX", false, guest, Array.Empty<FriendParty>(), ""), new PanelUi(),
+            new List<PanelAction> { new("Join Ben Carver's server", "Play in their world", () => { }) }, "");
+        yield return ("Hosting a server", new(PartyState.InParty, SteamId.None, "K7Q2MX", false, members, friends.Skip(2).ToList(), ""), new PanelUi(),
+            new List<PanelAction>(), "Hosting · 2 joined through Steam");
+        yield return ("On a friend's server", new(PartyState.InParty, SteamId.None, "K7Q2MX", false, guest, Array.Empty<FriendParty>(), ""), new PanelUi { Selected = 0 },
+            new List<PanelAction>(), "Playing on Ben Carver's server");
     }
 }
 
@@ -103,8 +110,8 @@ static class PreviewRunner
     public static int Run(string dir)
     {
         var frames = OverlayTests.OverlayPreview_Scenarios()
-            .Select(s => (PartyPanel.Build(s.Item2, s.Item3, PartyPanel.Actions(s.Item2, s.Item3), "F7", 0.4), s.Item1)).ToList();
-        frames.Add((PartyPanel.Toasts(new[] { ("Ben Carver joined the party", 1.0), ("Party made. Code: K7Q2MX", 2.0), ("mira left the party", 4.2) }, 4.5), "Toasts"));
+            .Select(s => (PartyPanel.Build(s.Item2, s.Item3, PartyPanel.Actions(s.Item2, s.Item3, s.Item4), "F7", 0.4, s.Item5), s.Item1)).ToList();
+        frames.Add((PartyPanel.Toasts(new[] { ("Ben Carver is hosting: press F7 to join", 1.0), ("Party made. Code: K7Q2MX", 2.0), ("mira left the party", 4.2) }, 4.5), "Toasts"));
         OverlayPreview.Save(frames, Path.Combine(dir, "party.html"));
         Console.WriteLine(Path.GetFullPath(Path.Combine(dir, "party.html")));
         return 0;

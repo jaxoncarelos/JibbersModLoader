@@ -54,6 +54,7 @@ internal sealed unsafe class SteamFlat : ISteamBackend
     readonly delegate* unmanaged<nint, byte*, byte> acceptSession;
     readonly delegate* unmanaged<nint, byte*, byte> closeSession;
     readonly delegate* unmanaged<nint, byte*, void*, void*, int> connectionInfo;
+    readonly delegate* unmanaged<nint, byte*, byte*, byte> setRichPresence;
 
     SteamFlat(nint lib)
     {
@@ -100,6 +101,7 @@ internal sealed unsafe class SteamFlat : ISteamBackend
         acceptSession = (delegate* unmanaged<nint, byte*, byte>)Get("SteamAPI_ISteamNetworkingMessages_AcceptSessionWithUser");
         closeSession = (delegate* unmanaged<nint, byte*, byte>)Get("SteamAPI_ISteamNetworkingMessages_CloseSessionWithUser");
         connectionInfo = (delegate* unmanaged<nint, byte*, void*, void*, int>)Get("SteamAPI_ISteamNetworkingMessages_GetSessionConnectionInfo");
+        setRichPresence = (delegate* unmanaged<nint, byte*, byte*, byte>)Get("SteamAPI_ISteamFriends_SetRichPresence");
         // Warm up Valve's relay network now, so the first message to a peer is not slow.
         if (NativeLibrary.TryGetExport(lib, "SteamAPI_SteamNetworkingUtils_SteamAPI_v004", out var nu) && NativeLibrary.TryGetExport(lib, "SteamAPI_ISteamNetworkingUtils_InitRelayNetworkAccess", out var relay))
         {
@@ -111,14 +113,22 @@ internal sealed unsafe class SteamFlat : ISteamBackend
     [DllImport("kernel32", CharSet = CharSet.Unicode)]
     static extern nint GetModuleHandleW(string name);
 
+    /// <summary>The game's steam_api library, or 0 while it is not loaded.</summary>
+    internal static nint Library()
+    {
+        var lib = OperatingSystem.IsWindows() ? GetModuleHandleW("steam_api64.dll") : 0;
+        if (lib == 0 && !Runtime.GameNativeLibrary.TryLoad(OperatingSystem.IsWindows() ? "steam_api64" : "steam_api", out lib)) return 0;
+        return lib;
+    }
+
     /// <summary>The game's Steam, or null while steam_api is not loaded or Steam is not running.</summary>
     public static SteamFlat? TryOpen(out string why)
     {
         why = "";
         try
         {
-            var lib = OperatingSystem.IsWindows() ? GetModuleHandleW("steam_api64.dll") : 0;
-            if (lib == 0 && !Runtime.GameNativeLibrary.TryLoad(OperatingSystem.IsWindows() ? "steam_api64" : "steam_api", out lib))
+            var lib = Library();
+            if (lib == 0)
             {
                 why = "the game has not loaded Steam";
                 return null;
@@ -248,6 +258,11 @@ internal sealed unsafe class SteamFlat : ISteamBackend
     public void SetMemberData(SteamId lobby, string key, string value) { fixed (byte* k = Z(key), v = Z(value)) setMemberData(mm, lobby.Value, k, v); }
     public bool InviteToLobby(SteamId lobby, SteamId friend) => inviteUser(mm, lobby.Value, friend.Value) != 0;
     public void OpenInviteOverlay(SteamId lobby) => inviteDialog(friends, lobby.Value);
+
+    public void SetRichPresence(string key, string? value)
+    {
+        fixed (byte* k = Z(key), v = Z(value ?? "")) setRichPresence(friends, k, v);
+    }
 
     public bool Send(SteamId to, ReadOnlySpan<byte> data, bool reliable)
     {

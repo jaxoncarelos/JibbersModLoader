@@ -25,9 +25,10 @@ internal static class PartyPanel
     const float Pad = 16, RowMember = 40, RowAction = 34;
     const int MaxActionRows = 6;
 
-    public static List<PanelAction> Actions(PartySnapshot s, PanelUi ui)
+    // server: Play together's rows (join a member's server, invite to yours), shown first.
+    public static List<PanelAction> Actions(PartySnapshot s, PanelUi ui, IReadOnlyList<PanelAction>? server = null)
     {
-        var list = new List<PanelAction>();
+        var list = new List<PanelAction>(server ?? Array.Empty<PanelAction>());
         switch (s.State)
         {
             case PartyState.None:
@@ -48,7 +49,8 @@ internal static class PartyPanel
         return list;
     }
 
-    public static OverlayFrame Build(PartySnapshot s, PanelUi ui, IReadOnlyList<PanelAction> actions, string closeKey, double time)
+    // server: Play together's status ("Hosting your server"), shown under the title, or "".
+    public static OverlayFrame Build(PartySnapshot s, PanelUi ui, IReadOnlyList<PanelAction> actions, string closeKey, double time, string server = "")
     {
         var members = s.State == PartyState.InParty ? s.Members : Array.Empty<PartyMember>();
         var busy = s.State is PartyState.Creating or PartyState.Joining or PartyState.Unavailable;
@@ -86,7 +88,8 @@ internal static class PartyPanel
             PartyState.Unavailable => "Steam is starting with the game",
             _ => "Play with friends who have the same mods",
         };
-        f.Text(sub, Pad, 64, showCode ? 220 : Width - Pad * 2, 18, 13, Theme.Caption);
+        if (server.Length > 0) f.Text(server, Pad, 64, showCode ? 220 : Width - Pad * 2, 18, 13, Theme.Mint);
+        else f.Text(sub, Pad, 64, showCode ? 220 : Width - Pad * 2, 18, 13, Theme.Caption);
         if (showCode)
         {
             const float w = 120, x = Width - Pad - w;

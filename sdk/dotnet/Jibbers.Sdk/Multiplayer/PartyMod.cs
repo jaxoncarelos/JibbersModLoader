@@ -5,8 +5,8 @@ namespace Jibbers.Sdk.Multiplayer;
 
 /// <summary>
 /// The SDK's own Party section in the Mods tab and the Party panel: a hotkey opens a card where the
-/// player makes, joins, locks and leaves parties. Loaded only when an installed mod uses
-/// <see cref="Party"/>, so players without multiplayer mods never see it.
+/// player makes, joins, locks and leaves parties, and joins party members' game servers
+/// (<see cref="PlayTogether"/>, which every player has, so every player has the panel too).
 /// </summary>
 internal sealed class PartyMod : JibbersMod
 {
@@ -53,6 +53,7 @@ internal sealed class PartyMod : JibbersMod
         }
         Party.Changed += Redraw;
         Party.Notice += Toast;
+        if (PlayTogether.Current is { } server) server.Changed += Redraw;
         Party.PanelKeySource = () => PanelKey.ToString();
         ticker = new Thread(Tick) { IsBackground = true, Name = "Jibbers Party panel" };
         ticker.Start();
@@ -64,6 +65,7 @@ internal sealed class PartyMod : JibbersMod
         stopping = true;
         Party.Changed -= Redraw;
         Party.Notice -= Toast;
+        if (PlayTogether.Current is { } server) server.Changed -= Redraw;
         Party.Shutdown();
     }
 
@@ -157,9 +159,10 @@ internal sealed class PartyMod : JibbersMod
         OverlayFrame frame;
         lock (gate)
         {
-            actions = PartyPanel.Actions(snapshot, ui);
+            var server = PlayTogether.Current;
+            actions = PartyPanel.Actions(snapshot, ui, server?.PanelActions());
             if (ui.Selected >= actions.Count) ui.Selected = Math.Max(0, actions.Count - 1);
-            frame = PartyPanel.Build(snapshot, ui, actions, PanelKey.ToString(), clock.Elapsed.TotalSeconds);
+            frame = PartyPanel.Build(snapshot, ui, actions, PanelKey.ToString(), clock.Elapsed.TotalSeconds, server?.Status ?? "");
         }
         panel.Draw(frame);
         panel.Show();
