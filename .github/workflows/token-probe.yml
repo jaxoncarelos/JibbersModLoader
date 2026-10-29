@@ -12,14 +12,27 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      SHA: ace498e91e1df4e6d8fcd0a14a2134378f1f3770
     steps:
-      - name: Release at an old commit (ace498e, no workflow changes since build 67)
+      - name: Create a tag ref directly
         run: |
-          gh release create probe-old --target ace498e91e1df4e6d8fcd0a14a2134378f1f3770 --title probe --notes probe --prerelease --latest=false && echo "OLD: OK" || echo "OLD: FAILED"
-      - name: Release at the failing commit (2bb6408)
+          curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GH_REPO/git/refs" -d "{\"ref\":\"refs/tags/probe-ref\",\"sha\":\"$SHA\"}" | head -c 600; echo
+      - name: Draft release (no tag)
         run: |
-          gh release create probe-new --target 2bb6408bbd0c9e4c6e8937ba159faca2c046147e --title probe --notes probe --prerelease --latest=false && echo "NEW: OK" || echo "NEW: FAILED"
+          curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GH_REPO/releases" -d "{\"tag_name\":\"probe-draft\",\"target_commitish\":\"$SHA\",\"name\":\"probe\",\"draft\":true}" | head -c 600; echo
+      - name: Release on the existing tag
+        run: |
+          curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GH_REPO/releases" -d "{\"tag_name\":\"probe-ref\",\"name\":\"probe\",\"prerelease\":true,\"make_latest\":\"false\"}" | head -c 600; echo
+      - name: Upload to the existing stable release
+        run: |
+          echo probe > probe.txt
+          gh release upload mod-channel-stable probe.txt --clobber && echo "UPLOAD: OK" || echo "UPLOAD: FAILED"
+          gh release delete-asset mod-channel-stable probe.txt --yes 2>/dev/null || true
       - name: Clean up
         if: always()
         run: |
-          for t in probe-old probe-new; do gh release delete "$t" --yes --cleanup-tag 2>/dev/null || true; done
+          for t in probe-draft probe-ref; do gh release delete "$t" --yes 2>/dev/null || true; done
+          gh api -X DELETE "repos/$GH_REPO/git/refs/tags/probe-ref" 2>/dev/null || true
