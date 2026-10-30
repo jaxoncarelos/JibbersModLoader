@@ -339,10 +339,11 @@ static class SlvshTests
         }
         Assert.Equal(CallMenu.Step.Stance, m.Current);
         Assert.True(m.Labels.Count <= CallMenu.PerPage);
-        // A rail trick: left 270 on, slide, right 270 off.
-        Pick("Don't care"); Pick("Rail"); Pick("Left"); Pick("270"); Pick("Slide"); Pick("Right"); Pick("Flat"); Pick("270");
+        // A rail trick: left 270 on, slide, back 270 off.
+        Pick("Don't care"); Pick("Rail"); Pick("Left"); Pick("270"); Pick("Slide"); Pick("Back"); Pick("Flat"); Pick("270");
         Assert.Equal(CallMenu.Step.Next, m.Current);
-        Assert.Equal("Left 270 On - Slide - Right 270 Out", m.Done[0].Describe());
+        Assert.Equal("Left 270 On - Slide - Back 270 Out", m.Done[0].Describe());
+        Assert.True(m.Done[0].Matches("Left 270 On - Slide - Back 270 Out"), "the game's own name for it");
         // Then a don't-care dub cork 1080, with a wrong turn undone by Back.
         Pick("Add a trick"); Pick("Don't care"); Pick("Jump"); Pick("Don't care"); Pick("Misty");
         Assert.True(m.Picks.SequenceEqual(new[] { "Don't care", "Jump", "Don't care", "Misty" }), string.Join(",", m.Picks));

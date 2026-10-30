@@ -87,7 +87,8 @@ internal sealed class CallMenu
             Step.OnSpin => new() { S("Left", t => t with { Spin = "left" }), S("Right", t => t with { Spin = "right" }), S("Straight on", t => t with { Spin = "none" }, "none"), S(Any, t => t with { Spin = null }, "any") },
             Step.OnDegrees => Degrees(90, 900, (t, d) => t with { Degrees = d }),
             Step.Slide => new() { S("Slide", t => t with { Slide = "slide" }), S("Frontslide", t => t with { Slide = "frontslide" }), S("Backslide", t => t with { Slide = "backslide" }), S("50-50", t => t with { Slide = "5050" }), S("5-0", t => t with { Slide = "5-0" }), S(Any, t => t with { Slide = null }, "any") },
-            Step.Off => new() { S("Left", t => t with { Off = "left" }), S("Right", t => t with { Off = "right" }), S("Front", t => t with { Off = "front" }), S("Back", t => t with { Off = "back" }), S("Straight off", t => t with { Off = "none" }, "none"), S(Any, t => t with { Off = null }, "any") },
+            // The game names spins off a rail front or back ("Back 270 Out"), not left or right.
+            Step.Off => new() { S("Front", t => t with { Off = "front" }), S("Back", t => t with { Off = "back" }), S("Straight off", t => t with { Off = "none" }, "none"), S(Any, t => t with { Off = null }, "any") },
             Step.OffAxis => new() { S("Flat", t => t with { OffAxis = "flat" }), S("Cork", t => t with { OffAxis = "cork" }), S("Misty", t => t with { OffAxis = "misty" }), S("Bio", t => t with { OffAxis = "bio" }), S(Any, t => t with { OffAxis = null }, "any") },
             Step.OffCount => new() { S("Single", t => t with { OffCount = 1 }), S("Dub", t => t with { OffCount = 2 }), S("Trip", t => t with { OffCount = 3 }), S(Any, t => t with { OffCount = null }, "any") },
             Step.OffDegrees => Degrees(90, 1080, (t, d) => t with { OffDegrees = d }),
