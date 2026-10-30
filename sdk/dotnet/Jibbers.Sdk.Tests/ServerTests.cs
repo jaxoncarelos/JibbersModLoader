@@ -45,7 +45,8 @@ static class ServerTests
         }
         public void Connect(string address, int port, string password) => Connected = (address, port, password);
         public void Announce(string line) => Lines.Enqueue(line);
-        public void Fast(bool on) => FastHolds += on ? 1 : -1;
+        // Called from relay threads too, so counted atomically.
+        public void Fast(bool on) => Interlocked.Add(ref FastHolds, on ? 1 : -1);
         public void CreateParty() => PartyMade = true;
         public void OpenInviteOverlay() => OverlayOpened = true;
     }
@@ -97,7 +98,8 @@ static class ServerTests
         Assert.True(((IPEndPoint)from).Port != ((IPEndPoint)game.LocalEndPoint!).Port, "the server sees the host relay's socket, not the remote game");
         server.SendTo("welcome"u8.ToArray(), from);
         Assert.Equal("welcome", Encoding.UTF8.GetString(Receive(game, out _)));
-        Assert.True(ben.FastHolds == 1 && ana.FastHolds == 1, "both poll fast while the tunnel is open");
+        // The host relay forwards to the server before it takes its fast hold, so the answer can beat it here.
+        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref ben.FastHolds) == 1 && Volatile.Read(ref ana.FastHolds) == 1, 3000), "both poll fast while the tunnel is open");
 
         ben.Session.Update(new ServerInfo(false, true, 0, ""));
         Assert.Equal("Playing on Ana's server", ben.Session.Status);
