@@ -20,8 +20,8 @@ don't install both.
 2. One rider presses **Ctrl+Enter** to start a game. Everyone else in the party sees an invite and
    presses **Ctrl+Enter** to join.
 3. When everyone's in, the starter presses **Ctrl+Enter** again to begin (2 to 8 players).
-4. **Call your set.** On your set the wheel opens by itself (**T**, or a right-stick click, opens
-   and closes it). Pick each part with the number keys **1-9**, or point the right stick and press
+4. **Call your set.** On your set the wheel opens by itself (**Ctrl+G**, or a right-stick click,
+   opens and closes it). Pick each part with the number keys **1-9**, or point the right stick and press
    **A**. **Backspace** or **B** goes back a step. You have 90 seconds to call; the clock for landing
    it starts when you do.
 5. **Watch every turn.** While someone takes their turn, your camera follows their rider, so you
@@ -69,7 +69,7 @@ of a call: they differ by moveset.
 
 ## Settings (Mods > SLVSH)
 
-- Keys: start / join / begin (Ctrl+Enter), leave (Ctrl+Q), call your set (T), vote it counted (Y)
+- Keys: start / join / begin (Ctrl+Enter), leave (Ctrl+Q), call your set (Ctrl+G), vote it counted (Y)
   and it didn't (N). The vote keys and the wheel's number keys only work while they're open. No
   F-keys, so nothing clashes with the drone or Alpine Vision.
 - **Time for each try**: 45 seconds by default.

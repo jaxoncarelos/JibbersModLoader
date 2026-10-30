@@ -39,7 +39,8 @@ public sealed class SlvshMod : JibbersMod
     [KeyBinding("Vote: it didn't count", Key.N, Key = "no_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
     public Key VoteNoKey { get; private set; }
 
-    [KeyBinding("Call your set (radial menu)", Key.T, Key = "call_key", Section = "Keys", Tooltip = "On your set, opens the wheel to call the line you'll land. Pick with 1-9 (or the right stick and A), Backspace (or B) goes back. A controller opens it with a right-stick click.")]
+    // Ctrl, like the other SLVSH keys, and not T: T opens the game's chat. A new setting key, so a saved T doesn't carry over.
+    [KeyBinding("Call your set (radial menu, with Ctrl)", Key.G, Key = "call_key_ctrl", Section = "Keys", Tooltip = "On your set, opens the wheel to call the line you'll land. Pick with 1-9 (or the right stick and A), Backspace (or B) goes back. A controller opens it with a right-stick click.")]
     public Key CallKey { get; private set; }
 
     [Slider("Time for each try (seconds)", 45, 15, 180, 5, Key = "attempt_secs", Section = "Rules")]
@@ -120,7 +121,7 @@ public sealed class SlvshMod : JibbersMod
         Input.OnPressed(() => LeaveKey, () => pressedLeave = true, Key.Control);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true);
-        Input.OnPressed(() => CanCall && menu is not { Typing: true } ? CallKey : 0, () => pressedCall = true); // a typed "t" isn't the call key
+        Input.OnPressed(() => CanCall && menu is not { Typing: true } ? CallKey : 0, () => pressedCall = true, Key.Control); // not while typing a trick
         Input.OnPressed(() => menu is not null ? Key.Backspace : 0, () => pressedBack = true);
         for (var i = 0; i < 10; i++)
         {
@@ -580,7 +581,7 @@ public sealed class SlvshMod : JibbersMod
 
     void DrawMenu()
     {
-        var frame = menu is { } m ? CallWheel.Build(m, lit, "Backspace / B", $"{CallKey} / R-stick") : null;
+        var frame = menu is { } m ? CallWheel.Build(m, lit, "Backspace / B", $"Ctrl+{CallKey} / R-stick") : null;
         if (frame is null)
         {
             if (menuShown is not null) callPanel!.Hide();
@@ -683,7 +684,7 @@ public sealed class SlvshMod : JibbersMod
             Trying = judge?.Judge.Current,
             Hint = Now < hintUntil ? hint : joining is not null ? "Joining the game…" : "",
             Watching = g is not null && g.Attempter != me && g.Watching(g.Attempter) ? watching : SpectateStatus.Off,
-            CallKey = CallKey.ToString(),
+            CallKey = $"Ctrl+{CallKey}",
             ReadyIn = readying ? (int)Math.Ceiling(Math.Max(0, readyAt - Now)) : 0,
             GoKey = $"Ctrl+{GoKey}",
             LeaveKey = $"Ctrl+{LeaveKey}",

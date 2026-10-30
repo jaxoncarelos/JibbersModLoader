@@ -21,7 +21,7 @@ internal sealed record SlvshView
     public string LeaveKey { get; init; } = "Ctrl+Q";
     public string YesKey { get; init; } = "Y";
     public string NoKey { get; init; } = "N";
-    public string CallKey { get; init; } = "T";
+    public string CallKey { get; init; } = "Ctrl+G";
     /// <summary>Seconds until you're let go at the start of your turn (0 once you're riding).</summary>
     public int ReadyIn { get; init; }
 }
