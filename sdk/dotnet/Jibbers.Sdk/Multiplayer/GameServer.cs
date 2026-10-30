@@ -59,12 +59,31 @@ internal static class GameServer
         return new ServerInfo(true, client, Port(), password);
     }
 
-    /// <summary>Connects the game to a server, as the server browser's join does.</summary>
+    /// <summary>
+    /// Connects the game to a server, as the server browser's join does. Objects placed with the
+    /// object placer (and the terrain they raise) are cleared first: going from one server to
+    /// another on the same map (following the party leader) doesn't reload the map, which is
+    /// where the game would clear them, so the old server's jumps stayed on the new one.
+    /// </summary>
     public static void Connect(string address, int port, string password)
     {
         var k = Manager();
         if (k.IsNull) throw new InvalidOperationException("the game's network manager isn't loaded");
+        try { ClearPlacedObjects(); }
+        catch (Exception e) { Log.Error("play together: clearing placed objects", e); } // never in the way of joining
         k.Connect(address, (ushort)port, password);
+    }
+
+    /// <summary>
+    /// Clears every placed object and restores the terrain they changed, with the placer's own
+    /// reset (what it does when the map changes, and before it applies a server's objects). The
+    /// server joined then sends its own objects as usual.
+    /// </summary>
+    static void ClearPlacedObjects()
+    {
+        foreach (var placer in ObjectPlacer.Class.Live())
+            if (placer != 0 && !Unity.IsNull(placer))
+                new ObjectPlacer(placer).bqn();
     }
 
     static bool Flag(Il2CppClass type, nint obj, string getter)
