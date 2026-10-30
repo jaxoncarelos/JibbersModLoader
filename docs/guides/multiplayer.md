@@ -84,6 +84,12 @@ port forwarding to play on someone's server:
 3. A friend who accepts the Steam invite (or uses **Join game** on you in their friends list) joins
    the party and, unless they turned it off, the server straight away. If the game wasn't running,
    Steam starts it with `+connect_lobby`, which the SDK picks up.
+4. The party leader can **Bring everyone to this server** from the panel, wherever they are: a
+   public server (members connect to its address directly, with its password), their own server,
+   or a party member's (members join it through the tunnel). That's server hopping with friends,
+   or moving the party from a public server to a private one. A member who hosts a server of their
+   own is asked to stop hosting instead, and anyone can turn off **Follow the party leader between
+   servers**.
 
 How it works: the joining player's SDK opens a UDP socket on 127.0.0.1 and asks the game to connect
 to it with the server browser's own join (`ks.Connect`). Every datagram the game sends goes over
@@ -92,8 +98,15 @@ player their own loopback socket to the real server's port. The server sees ordi
 127.0.0.1; the game's packets are never read or changed. The host's server password is sent only to
 party members who ask to join. While a tunnel is open the party polls Steam every millisecond.
 
+The game's server also serves its map (when the map isn't on mod.io) and its status over **TCP** on
+the same port, and a joining game downloads the map from the address it joined. So the joining
+player's relay listens for TCP on the same loopback port too, and each connection travels to the
+host as open/data/close frames on the reliable channel (`StreamTunnel.cs`), where the host's relay
+connects to the game's TCP port. Both sides log each step of a join to `jibbers_hotload.log`
+(`jibbers_play:` lines).
+
 The code is in `Multiplayer/ServerSession.cs` (the logic, tested end to end with real sockets),
-`ServerTunnel.cs` (the relays), `GameServer.cs` (the game's side), `SteamInvites.cs` (Steam's join
+`ServerTunnel.cs` and `StreamTunnel.cs` (the relays), `GameServer.cs` (the game's side), `SteamInvites.cs` (Steam's join
 requests: the SDK watches `SteamAPI_ManualDispatch_GetNextCallback`, which the game calls each
 frame) and `PlayTogether.cs` (the built-in mod).
 

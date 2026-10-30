@@ -17,6 +17,9 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     [Toggle("Join a friend's server when you accept their invite", Key = "auto_join", Tooltip = "Accepting a Steam invite (or Join game) takes you straight into their server.")]
     public bool AutoJoin { get; private set; }
 
+    [Toggle("Follow the party leader between servers", Key = "follow_leader", Tooltip = "When the party leader brings everyone to their server, you go too.")]
+    public bool Follow { get; private set; }
+
     /// <summary>The running session, for the Party panel.</summary>
     internal static ServerSession? Current { get; private set; }
 
@@ -96,6 +99,7 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     bool IServerSessionHost.InParty => Party.State == PartyState.InParty;
     IReadOnlyList<PartyMember> IServerSessionHost.Members => Party.Members;
     string IServerSessionHost.PanelKey => Party.PanelKey;
+    bool IServerSessionHost.FollowLeader => Follow;
     bool IServerSessionHost.Send(SteamId to, byte[] payload, bool reliable) => channel?.Send(to, payload, reliable ? Delivery.Reliable : Delivery.Unreliable) ?? false;
     void IServerSessionHost.Announce(string line) => Party.Announce(line);
     void IServerSessionHost.Log(string line) => Log(line);

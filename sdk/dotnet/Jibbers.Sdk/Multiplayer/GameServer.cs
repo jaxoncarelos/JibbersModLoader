@@ -3,8 +3,12 @@ using Jibbers.Sdk.Interop;
 
 namespace Jibbers.Sdk.Multiplayer;
 
-/// <summary>What the game's own networking (FishNet) is doing, read on the main thread.</summary>
-internal readonly record struct ServerInfo(bool Hosting, bool Client, int Port, string Password)
+/// <summary>
+/// What the game's own networking (FishNet) is doing, read on the main thread. Hosting: the
+/// server's port and password. Only playing on a server: the address, port and password the
+/// game connected with.
+/// </summary>
+internal readonly record struct ServerInfo(bool Hosting, bool Client, int Port, string Password, string Address = "")
 {
     public static readonly ServerInfo None = new(false, false, 0, "");
 }
@@ -41,8 +45,16 @@ internal static class GameServer
         var type = Il2Cpp.ClassOf(network);
         var hosting = Flag(type, network, "get_IsServerStarted");
         var client = Flag(type, network, "get_IsClientStarted");
-        if (!hosting) return new ServerInfo(false, client, 0, "");
         var auth = k.qxy;
+        if (!hosting)
+        {
+            if (!client) return new ServerInfo(false, false, 0, "");
+            // Where the game connected: what the party leader shares to bring everyone along.
+            var t = Transport();
+            var getAddress = tugboat.IsNull ? default : tugboat.Method("GetClientAddress", 0);
+            var address = t == 0 || getAddress.IsNull ? "" : Il2Cpp.ReadString(getAddress.Invoke(t)) ?? "";
+            return new ServerInfo(false, true, address.Length > 0 ? Port() : 0, auth.IsNull ? "" : auth.clientPassword ?? "", address);
+        }
         var password = auth.IsNull ? "" : auth.serverPassword ?? "";
         return new ServerInfo(true, client, Port(), password);
     }
@@ -61,8 +73,8 @@ internal static class GameServer
         return !m.IsNull && m.Invoke<bool>(obj);
     }
 
-    /// <summary>The port the server listens on: Tugboat's, else the game's default.</summary>
-    static int Port()
+    /// <summary>The game's Tugboat transport (0 if there's none), found once and kept while it lives.</summary>
+    static nint Transport()
     {
         if (!searched)
         {
@@ -73,17 +85,25 @@ internal static class GameServer
                 if (!k.IsNull) { tugboat = k; break; }
             }
         }
-        var getPort = tugboat.IsNull ? default : tugboat.Method("GetPort", 0);
-        if (getPort.IsNull) return ks.DefaultPort;
+        if (tugboat.IsNull) return 0;
         if (transport is not { } t || Unity.IsNull(t.Target))
         {
             transport?.Dispose();
             transport = null;
             var found = Unity.FindObjects(tugboat).FirstOrDefault(o => !Unity.IsNull(o));
-            if (found == 0) return ks.DefaultPort;
+            if (found == 0) return 0;
             transport = new GameRef(found);
         }
-        var port = getPort.Invoke<ushort>(transport.Target);
+        return transport.Target;
+    }
+
+    /// <summary>The port the server listens on (or the client connected to): Tugboat's, else the game's default.</summary>
+    static int Port()
+    {
+        var t = Transport();
+        var getPort = tugboat.IsNull ? default : tugboat.Method("GetPort", 0);
+        if (t == 0 || getPort.IsNull) return ks.DefaultPort;
+        var port = getPort.Invoke<ushort>(t);
         return port != 0 ? port : ks.DefaultPort;
     }
 }

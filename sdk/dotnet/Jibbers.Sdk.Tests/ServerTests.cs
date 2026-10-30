@@ -29,6 +29,7 @@ static class ServerTests
         public bool InParty => InPartyNow;
         public IReadOnlyList<PartyMember> Members => Party;
         public string PanelKey => "F7";
+        public bool FollowLeader { get; set; } = true;
         public readonly ConcurrentQueue<string> Logged = new();
         public void Log(string line) => Logged.Enqueue(line);
         /// <summary>Reliable sends to refuse, as Steam does when its send buffer is full.</summary>
@@ -172,6 +173,72 @@ static class ServerTests
         Assert.True(served.Join(5000), "the server's side closes too");
         ana.Session.Dispose();
         ben.Session.Dispose();
+    }
+
+    static void Bring(FakePlayer leader) => leader.Session.PanelActions().Single(a => a.Label == "Bring everyone to this server").Run();
+
+    [Test]
+    static void TheLeaderBringsThePartyToAPublicServer()
+    {
+        var (ana, ben) = Party();
+        Assert.True(ana.Session.PanelActions().All(a => a.Label != "Bring everyone to this server"), "not on a server: nothing to bring anyone to");
+        ana.Session.Update(new ServerInfo(false, true, 7777, "letmein", "203.0.113.5"));
+        Assert.True(ben.Session.PanelActions().All(a => a.Label != "Bring everyone to this server"), "only the leader brings the party");
+        Bring(ana);
+        Assert.True(ben.Connected == ("203.0.113.5", 7777, "letmein"), "Ben's game connects straight to the server, with its password");
+        Assert.True(ben.Lines.Contains("Following Ana to their server"));
+        Assert.True(ana.Lines.Contains("Bringing the party to your server"));
+        Assert.True(!ana.Logged.Any(l => l.Contains("letmein")) && !ben.Logged.Any(l => l.Contains("letmein")), "the password stays out of the logs");
+        ana.Session.Dispose();
+        ben.Session.Dispose();
+    }
+
+    [Test]
+    static void TheLeaderBringsThePartyFromPublicToTheirOwnServer()
+    {
+        var (ana, ben) = Party();
+        ben.Session.Update(new ServerInfo(false, true, 7777, "", "203.0.113.5"));
+        ana.Session.Update(new ServerInfo(true, true, 7770, "secret"));
+        Bring(ana);
+        Assert.True(ben.Connected is { Address: "127.0.0.1", Password: "secret" }, "Ben joins Ana's server through the tunnel");
+        Assert.True(ben.Lines.Contains("Following Ana to their server"));
+        ana.Session.Dispose();
+        ben.Session.Dispose();
+    }
+
+    [Test]
+    static void ServerHoppingLeavesTheTunnelFirst()
+    {
+        var (ana, ben) = Party();
+        ana.Session.Update(new ServerInfo(true, true, 7770, ""));
+        ben.Session.Join(ana.Me);
+        Assert.Equal("Joining Ana's server…", ben.Session.Status);
+        // Ana moves to a public server and brings Ben along.
+        ana.Session.Update(new ServerInfo(false, true, 7777, "", "203.0.113.5"));
+        Bring(ana);
+        Assert.True(ben.Connected == ("203.0.113.5", 7777, ""), "on to the public server");
+        Assert.Equal("", ben.Session.Status);
+        Assert.True(ben.Logged.Any(l => l == "leaving Ana's server to follow Ana"));
+        ana.Session.Dispose();
+        ben.Session.Dispose();
+    }
+
+    [Test]
+    static void FollowingTheLeaderCanBeTurnedOff()
+    {
+        var (ana, ben) = Party();
+        ben.FollowLeader = false;
+        ana.Session.Update(new ServerInfo(false, true, 7777, "", "203.0.113.5"));
+        Bring(ana);
+        Assert.True(ben.Connected is null && ben.Lines.Any(l => l.Contains("following the leader is off")));
+
+        // Someone hosting their own server isn't pulled off it.
+        var (cat, dan) = Party();
+        dan.Session.Update(new ServerInfo(true, true, 7771, ""));
+        cat.Session.Update(new ServerInfo(false, true, 7777, "", "203.0.113.5"));
+        Bring(cat);
+        Assert.True(dan.Connected is null && dan.Lines.Contains("Ana wants the party on their server: stop hosting yours to join them"));
+        foreach (var p in new[] { ana, ben, cat, dan }) p.Session.Dispose();
     }
 
     [Test]

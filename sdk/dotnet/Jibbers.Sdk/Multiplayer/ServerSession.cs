@@ -21,6 +21,8 @@ internal interface IServerSessionHost
     void CreateParty();
     void OpenInviteOverlay();
     string PanelKey { get; }
+    /// <summary>Whether to go along when the party leader brings everyone to their server.</summary>
+    bool FollowLeader { get; }
 }
 
 /// <summary>
@@ -34,6 +36,8 @@ internal interface IServerSessionHost
 /// Payloads on the channel: byte 0 is <see cref="Data"/> (a datagram follows),
 /// <see cref="Control"/> (UTF-8 JSON follows: hosting, stopped, join, welcome, bye) or
 /// <see cref="Stream"/> (a frame of a TCP connection: see <see cref="StreamTunnel"/>).
+/// The party leader can bring everyone to the server they're on ("pull"): a server reached
+/// directly (a public one) by its address, or one hosted in the party by who hosts it.
 /// Only party members can reach the channel (the SDK drops everything else).
 /// </remarks>
 internal sealed class ServerSession : IDisposable
@@ -120,8 +124,41 @@ internal sealed class ServerSession : IDisposable
             // In a party, its own "Invite friends" does this: invited friends join the party and then the server.
             if (game.Hosting && !host.InParty)
                 list.Add(new PanelAction("Invite friends to your server", "Makes a party first", InviteToServer));
+            if (host.InParty && IsLeader && host.Members.Count > 1 && Where() is not null)
+                list.Add(new PanelAction("Bring everyone to this server", "The party joins you here", BringParty));
         }
         return list;
+    }
+
+    bool IsLeader => host.Members.Any(m => m.IsLocal && m.IsHost);
+
+    /// <summary>The server you're on, as a pull message (null when you aren't on one others can join).</summary>
+    JsonObject? Where()
+    {
+        if (game.Hosting) return new JsonObject { ["t"] = "pull", ["via"] = host.Me.Value.ToString() };
+        if (phase == Phase.Connected) return new JsonObject { ["t"] = "pull", ["via"] = target.Value.ToString() };
+        if (game.Client && game.Address.Length > 0 && !IsLoopback(game.Address) && game.Port > 0)
+            return new JsonObject { ["t"] = "pull", ["addr"] = game.Address, ["port"] = game.Port, ["pw"] = game.Password };
+        return null;
+    }
+
+    static bool IsLoopback(string address) => address is "localhost" || (System.Net.IPAddress.TryParse(address, out var ip) && System.Net.IPAddress.IsLoopback(ip));
+
+    /// <summary>The party leader brings everyone to the server they're on: server hopping, or a public server to a private one.</summary>
+    public void BringParty()
+    {
+        JsonObject? where;
+        lock (gate) where = Where();
+        if (where is null)
+        {
+            host.Announce("Join or host a server first");
+            return;
+        }
+        var others = host.Members.Where(m => !m.IsLocal).ToList();
+        foreach (var m in others) SendControl(m.Id, (JsonObject)where.DeepClone());
+        var place = where["via"]?.GetValue<string>() is { } via ? $"{(via == host.Me.Value.ToString() ? "your" : NameOf(new SteamId(ulong.Parse(via))) + "'s")} server" : $"{where["addr"]}:{where["port"]}";
+        host.Log($"bringing the party ({others.Count}) to {place}");
+        host.Announce("Bringing the party to your server");
     }
 
     public void InviteToServer()
@@ -267,10 +304,42 @@ internal sealed class ServerSession : IDisposable
         if (kind != "hosting") host.Log($"{from.Name}: {kind}");
         string? line = null;
         var changed = false;
+        var leaveTunnel = false;
+        SteamId pullTo = SteamId.None;
+        (string Address, int Port, string Password)? connectTo = null;
         lock (gate)
         {
             switch (kind)
             {
+                case "pull" when !from.IsHost:
+                    break; // only the party leader brings the party
+                case "pull" when game.Hosting:
+                    line = $"{from.Name} wants the party on their server: stop hosting yours to join them";
+                    break;
+                case "pull" when !host.FollowLeader:
+                    line = $"{from.Name} brought the party to their server (following the leader is off in Play together's settings)";
+                    break;
+                case "pull":
+                    if (json?["via"]?.GetValue<string>() is { } via)
+                    {
+                        if (!ulong.TryParse(via, out var v) || new SteamId(v) == host.Me) break;
+                        var server = new SteamId(v);
+                        if (phase != Phase.None && target == server) break; // there already
+                        leaveTunnel = phase != Phase.None;
+                        pullTo = server;
+                    }
+                    else
+                    {
+                        var address = json?["addr"]?.GetValue<string>() ?? "";
+                        var port = json?["port"]?.GetValue<int>() ?? 0;
+                        var pw = json?["pw"]?.GetValue<string>() ?? "";
+                        if (address.Length is 0 or > 255 || port is <= 0 or > 65535 || pw.Length > 256 || IsLoopback(address)) break;
+                        if (game.Client && phase == Phase.None && game.Address == address && game.Port == port) break; // there already
+                        leaveTunnel = phase != Phase.None;
+                        connectTo = (address, port, pw);
+                    }
+                    line = $"Following {from.Name} to their server";
+                    break;
                 case "hosting":
                     changed = !hosts.ContainsKey(from.Id);
                     hosts[from.Id] = clock();
@@ -307,6 +376,21 @@ internal sealed class ServerSession : IDisposable
             UpdateFast();
         }
         if (line is not null) host.Announce(line);
+        if (leaveTunnel)
+            lock (gate)
+            {
+                host.Log($"leaving {NameOf(target)}'s server to follow {from.Name}");
+                SendControl(target, new JsonObject { ["t"] = "bye" });
+                EndClient();
+                UpdateFast();
+                changed = true;
+            }
+        if (pullTo.IsValid) Join(pullTo);
+        if (connectTo is { } to)
+        {
+            host.Log($"following {from.Name} to {to.Address}:{to.Port}");
+            host.Connect(to.Address, to.Port, to.Password);
+        }
         if (changed) Changed?.Invoke();
     }
 
