@@ -46,6 +46,9 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
     // Frozen: this state is put back every physics step. Placing: put once, then you ride.
     double[]? frozen;
     bool freezing;
+    // Where the freeze holds you: your spawn (null), or a spot to start your turn from, maybe switch.
+    SpawnSpot? holdAt;
+    bool holdSwitch;
     (bool Pending, SpawnSpot? At, bool Switch) place;
 
     /// <summary>
@@ -58,9 +61,19 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
     }
 
     /// <summary>Holds your rider still at your spawn (or where it is, before the game has spawned you) until <see cref="Place"/> or <see cref="Release"/>.</summary>
-    public void Freeze()
+    public void Freeze() => Hold(null, false);
+
+    /// <summary>
+    /// Holds your rider still where your turn starts: your spawn, or <paramref name="at"/> (someone
+    /// else's spawn point), switch if <paramref name="switched"/>. <see cref="Release"/> lets you go from there.
+    /// </summary>
+    public void Hold(SpawnSpot? at, bool switched)
     {
-        lock (gate) { if (!freezing) { freezing = true; frozen = null; } }
+        lock (gate)
+        {
+            if (freezing && holdAt == at && holdSwitch == switched) return;
+            (freezing, frozen, holdAt, holdSwitch, place) = (true, null, at, switched, (false, null, false));
+        }
     }
 
     /// <summary>
@@ -145,7 +158,10 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
             if (hold is null || hold.Length != length)
             {
                 // First frozen step: your spawn if the game has spawned you, else right here.
-                hold = SpawnFor(null, length);
+                SpawnSpot? at;
+                bool switched;
+                lock (gate) (at, switched) = (holdAt, holdSwitch);
+                hold = SpawnFor(at, length, switched);
                 if (hold is null)
                 {
                     hold = new double[length];

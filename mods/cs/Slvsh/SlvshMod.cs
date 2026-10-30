@@ -60,6 +60,9 @@ public sealed class SlvshMod : JibbersMod
     [Slider("Run-in before the trick (seconds)", 6, 2, 15, 1, Key = "run_in", Section = "Rules", Tooltip = "How far back from the setter's trick the line starts.")]
     public double RunIn { get; private set; }
 
+    [Slider("Get ready before your turn (seconds)", 3, 0, 10, 1, Key = "ready_secs", Section = "Camera", Tooltip = "After you call your set, or when your turn to match starts, you're held at the spawn this long before you're let go.")]
+    public double ReadySeconds { get; private set; }
+
     [Toggle("Watch each player's turn", Key = "spectate", Section = "Camera", Tooltip = "Your camera follows whoever is taking their turn (when they're on your server), then comes back for yours.")]
     public bool Spectate { get; private set; }
 
@@ -412,8 +415,8 @@ public sealed class SlvshMod : JibbersMod
             if (game is null || game.Attempter != me) judge = null;
             return;
         }
-        // A set counts only once it's called: tricks before then are warm-up.
-        if (g.Call.Count == 0)
+        // A set counts only once it's called, and a try starts when you're let go: nothing counts before.
+        if (g.Call.Count == 0 || readying)
         {
             judge = null;
             return;
@@ -591,6 +594,9 @@ public sealed class SlvshMod : JibbersMod
 
     uint placedFor;
     bool inGame, spawnMoved;
+    /// <summary>When you're let go at the start of your turn (held at the spawn until then to get ready).</summary>
+    double readyAt;
+    volatile bool readying;
 
     /// <summary>
     /// Freezes your rider at your spawn while it isn't your live turn (others trying, votes, or you
@@ -625,10 +631,24 @@ public sealed class SlvshMod : JibbersMod
                 // A line that starts switch starts you riding switch.
                 var switched = g.Call.Count > 0 && g.Call[0].Stance == "switch";
                 if (switched) Log("SLVSH: your line starts switch: placing you switch");
-                line.Place(at, switched);
+                // Held at the spawn for a moment to get ready, then let go.
+                var ready = Math.Clamp(ReadySeconds, 0, 10);
+                if (ready > 0)
+                {
+                    line.Hold(at, switched);
+                    readyAt = Now + ready;
+                    readying = true;
+                }
+                else line.Place(at, switched);
+            }
+            else if (live && readying && Now >= readyAt)
+            {
+                readying = false;
+                line.Release();
             }
             else if (!live)
             {
+                readying = false;
                 RestoreSpawn();
                 line.Freeze();
             }
@@ -664,6 +684,7 @@ public sealed class SlvshMod : JibbersMod
             Hint = Now < hintUntil ? hint : joining is not null ? "Joining the game…" : "",
             Watching = g is not null && g.Attempter != me && g.Watching(g.Attempter) ? watching : SpectateStatus.Off,
             CallKey = CallKey.ToString(),
+            ReadyIn = readying ? (int)Math.Ceiling(Math.Max(0, readyAt - Now)) : 0,
             GoKey = $"Ctrl+{GoKey}",
             LeaveKey = $"Ctrl+{LeaveKey}",
             YesKey = VoteYesKey.ToString(),
