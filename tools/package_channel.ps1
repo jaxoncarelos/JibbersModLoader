@@ -62,8 +62,9 @@ try {
             foreach ($asset in @($entry.assets)) {
                 Extract-Entry $mods $asset.zip "$payload/$($asset.path)"; $files += $asset.path
             }
-            # The publish job raises versions above the published catalog where files changed.
-            $packageVersion = if ($entry.version) { $entry.version } else { $Version }
+            # Mods version independently of the loader: the publish job keeps a mod's published
+            # version while its files match and goes one patch above it when they change.
+            $packageVersion = if ($entry.version) { $entry.version } else { '0.1.0' }
             $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }
