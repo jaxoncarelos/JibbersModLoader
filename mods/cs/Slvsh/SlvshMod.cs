@@ -92,6 +92,7 @@ public sealed class SlvshMod : JibbersMod
     /// <summary>Your Steam ID, or a stand-in when practicing alone outside a party.</summary>
     ulong myId;
     volatile int pressedSlice = -1;
+    readonly ConcurrentQueue<char> typed = new();
     OverlayPanel? callPanel;
 
     public override void OnLoad()
@@ -116,15 +117,23 @@ public sealed class SlvshMod : JibbersMod
         Input.OnPressed(() => LeaveKey, () => pressedLeave = true, Key.Control);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true);
-        Input.OnPressed(() => CanCall ? CallKey : 0, () => pressedCall = true);
+        Input.OnPressed(() => CanCall && menu is not { Typing: true } ? CallKey : 0, () => pressedCall = true); // a typed "t" isn't the call key
         Input.OnPressed(() => menu is not null ? Key.Backspace : 0, () => pressedBack = true);
         for (var i = 0; i < 10; i++)
         {
             var slice = i;
-            Key Digit(Key first) => menu is not null ? (Key)((int)first + (slice + 1) % 10) : 0;
+            Key Digit(Key first) => menu is { Typing: false } ? (Key)((int)first + (slice + 1) % 10) : 0;
             Input.OnPressed(() => Digit(Key.D0), () => pressedSlice = slice);
             Input.OnPressed(() => Digit(Key.Num0), () => pressedSlice = slice);
         }
+        // Typing a trick: letters, digits, space and dashes go to the text; Enter adds it.
+        foreach (var key in Enumerable.Range((int)Key.A, 26).Concat(Enumerable.Range((int)Key.D0, 10)).Concat(Enumerable.Range((int)Key.Num0, 10)).Append((int)Key.Space).Append((int)Key.Minus))
+        {
+            var k = (Key)key;
+            var c = k switch { >= Key.A and <= Key.Z => (char)('a' + (k - Key.A)), >= Key.D0 and <= Key.D9 => (char)('0' + (k - Key.D0)), >= Key.Num0 and <= Key.Num9 => (char)('0' + (k - Key.Num0)), Key.Space => ' ', _ => '-' };
+            Input.OnPressed(() => menu is { Typing: true } ? k : 0, () => typed.Enqueue(c));
+        }
+        Input.OnPressed(() => menu is { Typing: true } ? Key.Enter : 0, () => typed.Enqueue('\n'));
         callPanel = Overlay.Register("slvsh-call", new OverlayOptions { Anchor = HudAnchor.Center });
         // Every frame: fly the camera behind whoever you're watching.
         Jibbers.Sdk.Game.Env.Manager.UpdateMethod.Before((_, _) =>
@@ -531,6 +540,7 @@ public sealed class SlvshMod : JibbersMod
             menu = null;
             pressedBack = false;
             pressedSlice = -1;
+            typed.Clear();
             DrawMenu();
             return;
         }
@@ -538,6 +548,9 @@ public sealed class SlvshMod : JibbersMod
         else if (toggle) menu = menu is null ? new CallMenu() : null;
         if (menu is { } m)
         {
+            while (typed.TryDequeue(out var c))
+                if (c == '\n') m.Enter();
+                else m.Type(c);
             var count = m.Labels.Count;
             if (MathF.Sqrt(pad.RightX * pad.RightX + pad.RightY * pad.RightY) > 0.5f) lit = CallWheel.SliceAt(pad.RightX, pad.RightY, count);
             if (pressedSlice is >= 0 and var slice) m.Pick(slice);

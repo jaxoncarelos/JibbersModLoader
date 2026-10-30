@@ -38,6 +38,20 @@ internal static class CallWheel
             f.Text(labels[i], x - 54, y - 8, 108, 22, labels[i].Length > 10 ? 13 : 16, on ? Look.Mint : Look.Text, HudTextAlignment.Center, bold: on);
         }
 
+        if (menu.Typing)
+        {
+            // Typing a trick: a text box across the wheel instead of slices.
+            f.Circle(Cx, Cy, Inner - 10, Look.Panel);
+            f.Text("CALL YOUR SET", Cx - 100, Cy - 92, 200, 14, 10, Look.Caption, HudTextAlignment.Center, spacing: Look.Tracked);
+            f.Text(menu.Title, Cx - 150, Cy - 72, 300, 30, 24, Look.Mint, HudTextAlignment.Center, bold: true);
+            f.Rect(Cx - 200, Cy - 30, 400, 56, Look.ChipCorner, Look.Inset);
+            f.Text(menu.Text.Length > 0 ? menu.Text + "_" : "e.g. 360 nose tap the snow blower", Cx - 190, Cy - 22, 380, 44, 15,
+                menu.Text.Length > 0 ? Look.Text : Look.Dim, HudTextAlignment.Center, wrap: true);
+            f.Text("Enter adds it · Backspace deletes · the vote judges it", Cx - 160, Cy + 36, 320, 14, 10, Look.Dim, HudTextAlignment.Center);
+            Line(f, menu);
+            return f;
+        }
+
         // The middle: which part this is, and what's picked for this trick so far.
         f.Circle(Cx, Cy, Inner - 10, Look.Panel);
         f.Text("CALL YOUR SET", Cx - 100, Cy - 62, 200, 14, 10, Look.Caption, HudTextAlignment.Center, spacing: Look.Tracked);
@@ -46,7 +60,13 @@ internal static class CallWheel
         f.Text(picked, Cx - 105, Cy - 4, 210, 40, 13, Look.Text, HudTextAlignment.Center, wrap: true);
         f.Text($"{backKey} back · {closeKey} close", Cx - 100, Cy + 44, 200, 14, 10, Look.Dim, HudTextAlignment.Center);
 
-        // The line so far.
+        Line(f, menu);
+        return f;
+    }
+
+    /// <summary>The line so far, under the wheel.</summary>
+    static void Line(OverlayFrame f, CallMenu menu)
+    {
         if (menu.Done.Count > 0)
         {
             f.Rect(20, Size - 110, Size - 40, 96, Look.Corner, Look.Panel);
@@ -54,7 +74,6 @@ internal static class CallWheel
             var rows = menu.Done.Select((t, i) => $"{i + 1}. {t.Describe()}").ToList();
             f.Text(string.Join("\n", rows.TakeLast(4)), 36, Size - 82, Size - 72, 66, 13, Look.Text, wrap: true);
         }
-        return f;
     }
 
     /// <summary>The slice a stick (or mouse) pushed to (<paramref name="x"/>, <paramref name="y"/>, +Y up) points at, from 12 o'clock clockwise.</summary>

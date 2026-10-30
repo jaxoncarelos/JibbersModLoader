@@ -3,7 +3,8 @@ using System.Text.RegularExpressions;
 
 namespace Slvsh;
 
-internal enum TrickType { Jump, Rail }
+/// <summary>A jump, a rail trick, or one typed in words ("360 nose tap the snow blower") that the vote judges.</summary>
+internal enum TrickType { Jump, Rail, Typed }
 
 /// <summary>
 /// One trick of a called line, built in the radial menu. Every part is optional: null means
@@ -23,6 +24,10 @@ internal sealed record CalledTrick
     public int? Degrees { get; init; }
     /// <summary>Rail: "slide", "frontslide", "backslide", "5050" or "5-0".</summary>
     public string? Slide { get; init; }
+    /// <summary>Typed: the trick in the setter's words.</summary>
+    public string? Text { get; init; }
+    /// <summary>The longest a typed trick may be.</summary>
+    public const int MaxText = 60;
     /// <summary>Rail: the spin off ("none" = straight off).</summary>
     public string? Off { get; init; }
     public string? OffAxis { get; init; }
@@ -39,6 +44,7 @@ internal sealed record CalledTrick
     /// <summary>What to show for it: "Switch Left Dub Cork 1080", "Left 270 On - Slide - Right 270 Out".</summary>
     public string Describe()
     {
+        if (Type == TrickType.Typed) return $"\"{Text}\"";
         if (Type == TrickType.Jump)
         {
             var words = new List<string>();
@@ -75,6 +81,7 @@ internal sealed record CalledTrick
     /// <summary>Whether the game's name for a landed trick is this trick. Grabs and taps are ignored.</summary>
     public bool Matches(string name)
     {
+        if (Type == TrickType.Typed) return MatchesText(name);
         var parsed = TrickName.Parse(name);
         if (Type == TrickType.Jump)
         {
@@ -94,6 +101,30 @@ internal sealed record CalledTrick
         return exit is not null && Air(exit, Off, OffAxis, OffCount, OffDegrees);
     }
 
+    /// <summary>
+    /// A typed trick can't be checked, only filled: by any real trick, or one sharing a word with the
+    /// text ("nose tap" finds the game's "Nosetap"). The vote decides whether it was really that.
+    /// </summary>
+    bool MatchesText(string name)
+    {
+        if (TrickName.IsReal(name)) return true;
+        var trick = Squash(name);
+        var words = (Text ?? "").ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var tokens = words.Concat(words.Zip(words.Skip(1), (a, b) => a + b)).Select(Squash).Where(w => w.Length >= 3 && !int.TryParse(w, out _));
+        return tokens.Any(trick.Contains);
+    }
+
+    static string Squash(string s) => new(s.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+
+    /// <summary>A typed trick as it may be sent: printable, trimmed, one line, not too long; null if nothing's left.</summary>
+    public static string? CleanText(string? text)
+    {
+        if (text is null) return null;
+        var clean = new string(text.Where(c => !char.IsControl(c)).ToArray()).Trim();
+        if (clean.Length > MaxText) clean = clean[..MaxText].Trim();
+        return clean.Length == 0 ? null : clean;
+    }
+
     static bool Is(string? wanted, string actual) => wanted is null || wanted == actual;
 
     static bool Air(TrickName.Segment s, string? spin, string? axis, int? count, int? degrees)
@@ -110,7 +141,8 @@ internal sealed record CalledTrick
 
     public JsonObject ToJson()
     {
-        var o = new JsonObject { ["type"] = Type == TrickType.Rail ? "rail" : "jump" };
+        var o = new JsonObject { ["type"] = Type switch { TrickType.Rail => "rail", TrickType.Typed => "typed", _ => "jump" } };
+        if (Type == TrickType.Typed) { o["text"] = Text; return o; }
         void Put(string key, string? s) { if (s is not null) o[key] = s; }
         void PutInt(string key, int? i) { if (i is not null) o[key] = i; }
         Put("stance", Stance); Put("spin", Spin); Put("axis", Axis); PutInt("count", Count); PutInt("deg", Degrees);
@@ -124,7 +156,9 @@ internal sealed record CalledTrick
         if (n is not JsonObject o) return null;
         string? Pick(string key, string[] allowed) => o[key]?.GetValue<string>() is { } s ? (allowed.Contains(s) ? s : throw new FormatException(key)) : null;
         int? Int(string key, int max) => o[key]?.GetValue<int>() is { } i ? (i >= 0 && i <= max ? i : throw new FormatException(key)) : null;
-        var type = o["type"]?.GetValue<string>() switch { "jump" => TrickType.Jump, "rail" => TrickType.Rail, _ => throw new FormatException("type") };
+        var type = o["type"]?.GetValue<string>() switch { "jump" => TrickType.Jump, "rail" => TrickType.Rail, "typed" => TrickType.Typed, _ => throw new FormatException("type") };
+        if (type == TrickType.Typed)
+            return CleanText(o["text"]?.GetValue<string>()) is { } text && text.Length <= MaxText ? new CalledTrick { Type = type, Text = text } : throw new FormatException("text");
         return new CalledTrick
         {
             Type = type, Stance = Pick("stance", Stances), Spin = Pick("spin", Spins), Axis = Pick("axis", Axes), Count = Int("count", 4), Degrees = Int("deg", MaxDegrees),

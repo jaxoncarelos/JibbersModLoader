@@ -308,6 +308,12 @@ static class SlvshTests
         Assert.True(!rail.Matches("Left 270"), "a jump isn't a rail trick");
         var anyOff = rail with { Off = null, Slide = null };
         Assert.True(anyOff.Matches("Left 270 On - 5-0 - Back Misty 720 Out"));
+        // A typed trick is filled by any real trick, or one sharing a word ("nose tap" = "Nosetap"); the vote judges it.
+        var typed = new CalledTrick { Type = TrickType.Typed, Text = "360 nose tap the snow blower" };
+        Assert.True(typed.Matches("Left 360") && typed.Matches("Regular Nosetap On - Slide") && typed.Matches("Nose Butter"));
+        Assert.True(!typed.Matches("Straight Air") && !typed.Matches("Zero Spin"));
+        Assert.Equal(typed, CalledTrick.FromJson(typed.ToJson()));
+        Assert.Equal(0, CalledLine.FromJson(JsonNode.Parse("[{\"type\":\"typed\",\"text\":\"   \"}]")).Count); // nothing typed: no line
         var straight = new CalledTrick { Type = TrickType.Rail, Stance = "regular", Spin = "none", Slide = "5-0", Off = "none" };
         Assert.True(straight.Matches("Regular On - 5-0 - To Regular"), "a normal (90) on");
         Assert.Equal("Regular On (normal) - 5-0 - straight off", straight.Describe());
@@ -445,6 +451,22 @@ static class SlvshTests
         Pick("Call it");
         Assert.True(m.Called is { Count: 2 });
         Assert.True(m.Called![1].Matches("Right Dub Cork 1080 Safety"));
+
+        // Typing a trick in words: keys go to the text, Backspace deletes, Enter adds it.
+        var typed = new CallMenu();
+        typed.Pick(2); typed.Pick(2); // don't care, "Type it"
+        Assert.True(typed.Typing && typed.Labels.Count == 0);
+        foreach (var c in "360 nose tap the snow blowerx") typed.Type(c);
+        typed.Back();
+        Assert.Equal("360 nose tap the snow blower", typed.Text);
+        typed.Enter();
+        Assert.Equal((CallMenu.Step.Next, "\"360 nose tap the snow blower\""), (typed.Current, typed.Done[0].Describe()));
+        var empty = new CallMenu();
+        empty.Pick(2); empty.Pick(2);
+        empty.Enter(); // nothing typed: stays
+        Assert.True(empty.Typing);
+        empty.Back(); // nothing to delete: back to jump or rail
+        Assert.Equal(CallMenu.Step.Type, empty.Current);
 
         // Backing out of the first part closes it.
         var closed = new CallMenu();

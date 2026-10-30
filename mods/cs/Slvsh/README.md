@@ -43,6 +43,10 @@ Each trick is built one part at a time, and every part has **Don't care**:
   frontslide, backslide, 50-50, 5-0), then spin off (left, right, front, back or straight off, then
   its rotation and degrees).
 
+- **Type it** (keyboard): type the trick in your own words ("360 nose tap the snow blower") and
+  press Enter. Detection can't check words, so your next real trick (or one sharing a word, like
+  "nose tap" and the game's "Nosetap") fills its place, and the vote decides if it was really that.
+
 After each trick: **Add a trick**, **Call it**, or **Undo last**. A line has up to 8 tricks, for
 example "Left 270 On - Slide - Right 270 Out", then "Any way Dub Cork 1080". Grabs are never part
 of a call: they differ by moveset.

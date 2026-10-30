@@ -8,7 +8,7 @@ namespace Slvsh;
 /// </summary>
 internal sealed class CallMenu
 {
-    internal enum Step { Stance, Type, Spin, Axis, Count, Degrees, OnSpin, OnDegrees, Slide, Off, OffAxis, OffCount, OffDegrees, Next }
+    internal enum Step { Stance, Type, Spin, Axis, Count, Degrees, OnSpin, OnDegrees, Slide, Off, OffAxis, OffCount, OffDegrees, Typing, Next }
 
     /// <summary>One slice: what it says, and what picking it does to the trick being built.</summary>
     internal sealed record Slice(string Label, Func<CalledTrick, CalledTrick> Apply, string Value);
@@ -28,6 +28,10 @@ internal sealed class CallMenu
     public CalledTrick Draft => draft;
     /// <summary>What's been picked so far for the trick being built ("Switch", "Jump", "Left").</summary>
     public IReadOnlyList<string> Picks => picks;
+    /// <summary>Typing a trick in words (keyboard): the slices are off and keys go to <see cref="Text"/>.</summary>
+    public bool Typing => Current == Step.Typing;
+    /// <summary>The typed trick so far.</summary>
+    public string Text { get; private set; } = "";
     /// <summary>Set once the line is called.</summary>
     public IReadOnlyList<CalledTrick>? Called { get; private set; }
     /// <summary>Set when backed out of entirely.</summary>
@@ -37,6 +41,7 @@ internal sealed class CallMenu
     {
         Step.Stance => "Stance",
         Step.Type => "Jump or rail",
+        Step.Typing => "Type the trick",
         Step.Spin => "Spin",
         Step.Axis => "Rotation",
         Step.Count => "How many",
@@ -77,7 +82,8 @@ internal sealed class CallMenu
         return Current switch
         {
             Step.Stance => new() { S("Regular", t => t with { Stance = "regular" }), S("Switch", t => t with { Stance = "switch" }), S(Any, t => t with { Stance = null }, "any") },
-            Step.Type => new() { S("Jump", t => t with { Type = TrickType.Jump }), S("Rail", t => t with { Type = TrickType.Rail }) },
+            Step.Type => new() { S("Jump", t => t with { Type = TrickType.Jump }), S("Rail", t => t with { Type = TrickType.Rail }), S("Type it", t => t with { Type = TrickType.Typed }, "typed") },
+            Step.Typing => new List<Slice>(),
             Step.Spin => new() { S("Left", t => t with { Spin = "left" }), S("Right", t => t with { Spin = "right" }), S("No spin", t => t with { Spin = "none" }, "none"), S(Any, t => t with { Spin = null }, "any") },
             Step.Axis => new[] { "flat", "cork", "misty", "bio", "lincoln", "frontflip", "backflip" }
                 .Select(a => S(a == "flat" ? "Flat" : char.ToUpperInvariant(a[0]) + a[1..], t => t with { Axis = a }, a))
@@ -152,7 +158,7 @@ internal sealed class CallMenu
     static Step After(Step step, CalledTrick t, string value) => step switch
     {
         Step.Stance => Step.Type,
-        Step.Type => t.Type == TrickType.Jump ? Step.Spin : Step.OnSpin,
+        Step.Type => t.Type switch { TrickType.Jump => Step.Spin, TrickType.Rail => Step.OnSpin, _ => Step.Typing },
         Step.Spin => Step.Axis,
         Step.Axis => value switch
         {
@@ -171,10 +177,29 @@ internal sealed class CallMenu
         _ => Step.Next,
     };
 
-    /// <summary>Goes back one part (out of "More" pages first). Backing out of the first part closes the menu.</summary>
+    /// <summary>Adds a typed character (while <see cref="Typing"/>).</summary>
+    public void Type(char c)
+    {
+        if (Typing && !char.IsControl(c) && Text.Length < CalledTrick.MaxText) Text += c;
+    }
+
+    /// <summary>Adds the typed trick to the line (while <see cref="Typing"/>). Nothing typed does nothing.</summary>
+    public void Enter()
+    {
+        if (!Typing || CalledTrick.CleanText(Text) is not { } text) return;
+        Text = "";
+        Go(Step.Next, draft with { Type = TrickType.Typed, Text = text, Stance = null }, null);
+    }
+
+    /// <summary>Goes back one part (out of "More" pages first). Backing out of the first part closes the menu. While typing, deletes a character first.</summary>
     public void Back()
     {
         if (Called is not null || Cancelled) return;
+        if (Typing && Text.Length > 0)
+        {
+            Text = Text[..^1];
+            return;
+        }
         if (page > 0)
         {
             page = 0;
