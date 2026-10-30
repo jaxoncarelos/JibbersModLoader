@@ -10,15 +10,20 @@ using Jibbers.Sdk.Symbols;
 namespace Slvsh.Integration;
 
 /// <summary>
-/// Where a line begins, and how fast: the physics state of your rider (MuJoCo's integration state:
-/// every body's position, orientation and velocity) a few seconds before the setter's trick. While
+/// Where a line begins, and how fast: the physics state of your rider (every body's position,
+/// orientation and velocity, and its muscles' activations) a few seconds before the setter's trick. While
 /// you set, it keeps a short history; a matcher's game loads the setter's snapshot at the start of
 /// their turn, so they start at the same place and speed. Same calls as the Rewind mod.
 /// Other players aren't simulated on your PC, so the state is only ever your own rider's.
 /// </summary>
 internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
 {
-    const uint IntegrationState = ((1u << 13) - 1) & ~1u; // everything but time
+    // The rider's physical state only: qpos, qvel and act (mjSTATE_QPOS | QVEL | ACT), in that order.
+    // Not controls, active constraints, mocap or plugin data: the game drives poses, grabs and
+    // special actions through those, and putting back a snapshot of them (every step while you're
+    // held) left the game thinking a constraint or control was already set, so special actions
+    // stopped working. Snapshots from players on an older SLVSH don't fit and aren't applied.
+    const uint IntegrationState = (1u << 1) | (1u << 2) | (1u << 3);
     /// <summary>Snapshots larger than this aren't sent (a party message holds 64 KB).</summary>
     public const int MaxDoubles = 6000;
     const double Every = 0.1, Keep = 15;
