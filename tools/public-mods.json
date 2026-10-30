@@ -67,6 +67,16 @@
       "description": "S.K.A.T.E. on snow with your Steam party: set tricks, match them, watch each turn and vote on close calls.",
       "legacy": false,
       "assets": []
+    },
+    {
+      "folder": "ChairLift",
+      "modId": "chairlift",
+      "authors": ["scotttucker1599"],
+      "id": "jibbers_chairlift",
+      "name": "Chair Lift",
+      "description": "Ride the chair lifts: sit with friends, use the phone on the way up, get off at the top.",
+      "legacy": false,
+      "assets": []
     }
   ]
 }
