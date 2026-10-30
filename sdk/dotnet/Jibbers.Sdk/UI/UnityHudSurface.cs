@@ -37,10 +37,7 @@ internal sealed class UnityHudSurface : IHudSurface
     void CreateCanvas(HudSnapshot snapshot)
     {
         Dispose();
-        font = Unity.FindObjects(Unity.Class("TMPro.TMP_Text"))
-            .Where(text => !Unity.IsNull(text))
-            .Select(text => Unity.Call(text, "get_font"))
-            .FirstOrDefault(candidate => !Unity.IsNull(candidate));
+        font = UiFont.Get();
         if (font == 0) throw new InvalidOperationException("HUD is waiting for the game to load a font.");
         root = OwnedGameObject.Create("Jibbers.Hud." + snapshot.Name);
         var canvas = root.AddComponent("UnityEngine.Canvas");

@@ -52,7 +52,7 @@ internal sealed unsafe class UnityOverlaySurface : IOverlaySurface
     void Build(OverlaySnapshot s)
     {
         Dispose();
-        font = Unity.FindObjects(Unity.Class("TMPro.TMP_Text")).Where(t => !Unity.IsNull(t)).Select(t => Unity.Call(t, "get_font")).FirstOrDefault(f => !Unity.IsNull(f));
+        font = UiFont.Get();
         if (font == 0) throw new InvalidOperationException("waiting for the game to load a font");
         root = OwnedGameObject.Create("Jibbers.Overlay." + s.Name);
         var canvas = root.AddComponent("UnityEngine.Canvas");
