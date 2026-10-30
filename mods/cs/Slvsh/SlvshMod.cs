@@ -99,6 +99,11 @@ public sealed class SlvshMod : JibbersMod
         Input.OnPressed(() => LeaveKey, () => pressedLeave = true, Key.Control);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true);
+        // Every frame: fly the camera behind whoever you're watching.
+        Jibbers.Sdk.Game.Env.Manager.UpdateMethod.Before((_, _) =>
+        {
+            if (!stopping) camera.Frame();
+        });
         thread = new Thread(Run) { IsBackground = true, Name = "SLVSH" };
         thread.Start();
     }

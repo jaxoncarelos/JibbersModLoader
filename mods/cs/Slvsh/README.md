@@ -59,14 +59,20 @@ The starter's rules are used for the whole game; the camera setting is your own.
 | [SlvshRules.cs](SlvshRules.cs) | The rules and votes (`SlvshHost`) and the state the host sends everyone |
 | [TrickJudge.cs](TrickJudge.cs) | Detects an attempt from the game's trick and respawn events |
 | [Scoreboard.cs](Scoreboard.cs) | Draws the overlay with `Jibbers.Sdk.UI.Overlay` |
-| [Integration/SpectateCamera.cs](Integration/SpectateCamera.cs) | Points the game's follow camera at another rider and back |
+| [Integration/SpectateCamera.cs](Integration/SpectateCamera.cs) | Finds the rider to watch and flies your camera behind them, then gives it back |
+| [Integration/ChaseCamera.cs](Integration/ChaseCamera.cs) | The chase camera's motion (pure, tested) |
 | [Integration/GamePlayers.cs](Integration/GamePlayers.cs) | The other riders in your session, from the game's player manager |
 | [Integration/LineStart.cs](Integration/LineStart.cs) | Records and loads where a line begins (physics state) |
 
 Other players' riders are puppets on your PC (the game draws them from network snapshots), listed
 by the game's player manager. Spectating finds the attempter's puppet there (by Steam ID, the
-game's name for them, or as the one nearest to where they report they are) and points your follow
-camera's `target` at it. If it can't, the log says which riders it saw. This reads other riders in
+game's name for them, or as the one nearest to where they report they are) and points your
+camera at it. The game's follow camera only ever follows your own rider (changing its `target` does
+nothing), so while you watch it is switched off and SLVSH flies the camera itself every frame:
+behind the rider, turning to their heading, pulled in front of the slope when it would go into the
+ground. It's switched back on when the turn and its vote end. If the rider can't be found, the log
+says which riders it saw; while watching, the log says which rider and body it follows and how far
+they moved in the first few seconds. This reads other riders in
 your session, an exception to the SDK's usual scope; it only moves your own camera.
 
 A line is your rider's MuJoCo integration state (every body's position, orientation and velocity),
