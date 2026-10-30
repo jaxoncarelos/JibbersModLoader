@@ -31,10 +31,16 @@ static class ServerTests
         public string PanelKey => "F7";
         public readonly ConcurrentQueue<string> Logged = new();
         public void Log(string line) => Logged.Enqueue(line);
-        public void Send(SteamId to, byte[] payload, bool reliable)
+        /// <summary>Reliable sends to refuse, as Steam does when its send buffer is full.</summary>
+        public int RefuseReliable;
+        readonly object deliver = new();
+        public bool Send(SteamId to, byte[] payload, bool reliable)
         {
-            // Delivered as the SDK would: to the member with that id, from us as a remote member.
-            if (Peer is not null && Peer.Me == to) Peer.Session.Receive(Peer.Party.Single(m => m.Id == Me), payload);
+            if (reliable && Interlocked.Decrement(ref RefuseReliable) >= 0) return false;
+            // Delivered as the SDK would: to the member with that id, from us as a remote member, one at a time.
+            if (Peer is not null && Peer.Me == to)
+                lock (deliver) Peer.Session.Receive(Peer.Party.Single(m => m.Id == Me), payload);
+            return true;
         }
         public void Connect(string address, int port, string password) => Connected = (address, port, password);
         public void Announce(string line) => Lines.Enqueue(line);
@@ -118,6 +124,52 @@ static class ServerTests
         Assert.Equal("", ben.Session.Status);
         Assert.Equal("Hosting your server", ana.Session.Status);
         Assert.True(ben.FastHolds == 0 && ana.FastHolds == 0, "polling slows down again");
+        ana.Session.Dispose();
+        ben.Session.Dispose();
+    }
+
+    [Test]
+    static void TheServersMapComesThroughTheTunnelOverTcp()
+    {
+        // The game's server serves its map (when it isn't on mod.io) over TCP on its own port,
+        // and the joining game downloads it from the address it joined: 127.0.0.1 through the
+        // tunnel. Without this the download failed with "Connection refused".
+        var (ana, ben) = Party();
+        using var udp = Loopback.Udp();
+        var port = ((IPEndPoint)udp.LocalEndPoint!).Port;
+        using var mapServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        mapServer.Bind(new IPEndPoint(IPAddress.Loopback, port));
+        mapServer.Listen(4);
+        var map = new byte[3 * 1024 * 1024 + 123];
+        new Random(7).NextBytes(map);
+        var served = new Thread(() =>
+        {
+            using var c = mapServer.Accept();
+            var request = new byte[64];
+            var n = c.Receive(request);
+            if (Encoding.ASCII.GetString(request, 0, n) == "GET /map/ruka") c.Send(map);
+            c.Shutdown(SocketShutdown.Send);
+            while (c.Receive(request) > 0) { }
+        }) { IsBackground = true };
+        served.Start();
+
+        ana.Session.Update(new ServerInfo(true, true, port, ""));
+        ben.Session.Join(ana.Me);
+        // Steam's buffer fills up now and then: the stream waits and carries on.
+        ana.RefuseReliable = 40;
+        ben.RefuseReliable = 3;
+
+        using var game = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { ReceiveTimeout = 10000 };
+        game.Connect(new IPEndPoint(IPAddress.Loopback, ben.Connected!.Value.Port));
+        game.Send(Encoding.ASCII.GetBytes("GET /map/ruka"));
+        var got = new MemoryStream();
+        var buffer = new byte[65536];
+        int read;
+        while ((read = game.Receive(buffer)) > 0) got.Write(buffer, 0, read);
+        Assert.Equal(map.Length, (int)got.Length);
+        Assert.True(got.ToArray().AsSpan().SequenceEqual(map), "the map arrives intact");
+        game.Dispose();
+        Assert.True(served.Join(5000), "the server's side closes too");
         ana.Session.Dispose();
         ben.Session.Dispose();
     }

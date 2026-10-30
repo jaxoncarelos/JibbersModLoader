@@ -96,7 +96,7 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     bool IServerSessionHost.InParty => Party.State == PartyState.InParty;
     IReadOnlyList<PartyMember> IServerSessionHost.Members => Party.Members;
     string IServerSessionHost.PanelKey => Party.PanelKey;
-    void IServerSessionHost.Send(SteamId to, byte[] payload, bool reliable) => channel?.Send(to, payload, reliable ? Delivery.Reliable : Delivery.Unreliable);
+    bool IServerSessionHost.Send(SteamId to, byte[] payload, bool reliable) => channel?.Send(to, payload, reliable ? Delivery.Reliable : Delivery.Unreliable) ?? false;
     void IServerSessionHost.Announce(string line) => Party.Announce(line);
     void IServerSessionHost.Log(string line) => Log(line);
     void IServerSessionHost.CreateParty() => Party.Create();

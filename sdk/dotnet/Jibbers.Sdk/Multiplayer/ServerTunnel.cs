@@ -59,12 +59,37 @@ internal sealed class HostRelay : IDisposable
     readonly object gate = new();
     readonly Dictionary<SteamId, Peer> peers = new();
     readonly Action<SteamId, byte[]> toPeer;
+    readonly StreamTunnel streams;
     bool disposed;
 
-    public HostRelay(int serverPort, Action<SteamId, byte[]> toPeer)
+    /// <param name="toPeer">Sends a datagram to a player (unreliably).</param>
+    /// <param name="reliable">Sends a stream frame to a player (reliably); false when Steam won't take it right now.</param>
+    public HostRelay(int serverPort, Action<SteamId, byte[]> toPeer, Func<SteamId, byte[], bool>? reliable = null, Action<string>? log = null)
     {
         ServerPort = serverPort;
         this.toPeer = toPeer;
+        streams = new StreamTunnel(reliable ?? ((_, _) => false), log ?? (_ => { }));
+    }
+
+    /// <summary>TCP connections (the map download, status) open through the tunnel.</summary>
+    public int Streams => streams.Count;
+
+    /// <summary>A stream frame from a player: their game opened, sent on, or closed a TCP connection to the server.</summary>
+    public void FromPeerStream(SteamId peer, uint id, byte op, ReadOnlySpan<byte> data)
+    {
+        lock (gate)
+        {
+            if (disposed) return;
+            if (peers.TryGetValue(peer, out var p)) p.LastSeen = Environment.TickCount64;
+        }
+        streams.Receive(peer, id, op, data, () =>
+        {
+            // The game serves its map and status over TCP on its own port.
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+            try { socket.Connect(new IPEndPoint(IPAddress.Loopback, ServerPort)); }
+            catch { socket.Dispose(); throw; }
+            return socket;
+        });
     }
 
     public int ServerPort { get; }
@@ -114,6 +139,7 @@ internal sealed class HostRelay : IDisposable
     {
         lock (gate)
             if (peers.Remove(peer, out var p)) p.Socket.Dispose();
+        streams.Drop(peer);
     }
 
     /// <summary>Closes the sockets of players who sent nothing for a while (the server has timed them out by then).</summary>
@@ -136,24 +162,32 @@ internal sealed class HostRelay : IDisposable
             foreach (var p in peers.Values) p.Socket.Dispose();
             peers.Clear();
         }
+        streams.Dispose();
     }
 }
 
 /// <summary>
 /// On a joining player's PC: a loopback socket the game connects to as if it were the server.
 /// Whatever the game sends goes to the host over Steam, and the host's replies come back to it.
+/// The same port also takes TCP connections (the game downloads the server's map that way) and
+/// carries them to the host's server.
 /// </summary>
 internal sealed class ClientRelay : IDisposable
 {
-    readonly Socket socket;
+    readonly Socket socket, listener;
+    readonly StreamTunnel streams;
     EndPoint? game;
     long toHost, fromHost;
+    int nextStream;
 
-    public ClientRelay(SteamId host, Action<SteamId, byte[]> toHost, int preferredPort = 0)
+    /// <param name="toHost">Sends a datagram to the host (unreliably).</param>
+    /// <param name="reliable">Sends a stream frame to the host (reliably); false when Steam won't take it right now.</param>
+    public ClientRelay(SteamId host, Action<SteamId, byte[]> toHost, int preferredPort = 0, Func<SteamId, byte[], bool>? reliable = null, Action<string>? log = null)
     {
         Host = host;
-        try { socket = Loopback.Udp(preferredPort); }
-        catch (SocketException) when (preferredPort != 0) { socket = Loopback.Udp(); }
+        (socket, listener) = Bind(preferredPort);
+        streams = new StreamTunnel(reliable ?? ((_, _) => false), log ?? (_ => { }));
+        new Thread(Accept) { IsBackground = true, Name = "Jibbers tunnel client streams" }.Start();
         var reader = new Thread(() => Loopback.Pump(socket, (data, from) =>
         {
             // Only the game on this PC talks to the relay.
@@ -164,6 +198,46 @@ internal sealed class ClientRelay : IDisposable
         })) { IsBackground = true, Name = "Jibbers tunnel client" };
         reader.Start();
     }
+
+    /// <summary>A UDP socket and a TCP listener on the same loopback port (the game uses one port for both).</summary>
+    static (Socket Udp, Socket Tcp) Bind(int preferredPort)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            Socket? udp = null, tcp = null;
+            try
+            {
+                udp = Loopback.Udp(attempt == 0 ? preferredPort : 0);
+                tcp = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                tcp.Bind(new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)udp.LocalEndPoint!).Port));
+                tcp.Listen(16);
+                return (udp, tcp);
+            }
+            catch (SocketException) when (attempt < 20)
+            {
+                udp?.Dispose();
+                tcp?.Dispose();
+            }
+        }
+    }
+
+    void Accept()
+    {
+        while (true)
+        {
+            Socket connection;
+            try { connection = listener.Accept(); }
+            catch (Exception e) when (e is SocketException or ObjectDisposedException) { return; }
+            connection.NoDelay = true;
+            streams.Attach(Host, (uint)Interlocked.Increment(ref nextStream), connection, announce: true);
+        }
+    }
+
+    /// <summary>TCP connections (the map download) open through the tunnel.</summary>
+    public int Streams => streams.Count;
+
+    /// <summary>A stream frame from the host: their server's side of one of the game's TCP connections.</summary>
+    public void FromHostStream(uint id, byte op, ReadOnlySpan<byte> data) => streams.Receive(Host, id, op, data, connect: null);
 
     public SteamId Host { get; }
     /// <summary>The port the game should connect to on 127.0.0.1.</summary>
@@ -183,5 +257,10 @@ internal sealed class ClientRelay : IDisposable
         catch (Exception e) when (e is SocketException or ObjectDisposedException) { }
     }
 
-    public void Dispose() => socket.Dispose();
+    public void Dispose()
+    {
+        listener.Dispose();
+        socket.Dispose();
+        streams.Dispose();
+    }
 }

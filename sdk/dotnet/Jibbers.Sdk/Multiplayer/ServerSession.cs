@@ -9,8 +9,8 @@ internal interface IServerSessionHost
     SteamId Me { get; }
     bool InParty { get; }
     IReadOnlyList<PartyMember> Members { get; }
-    /// <summary>Sends to one party member on the play-together channel. Any thread.</summary>
-    void Send(SteamId to, byte[] payload, bool reliable);
+    /// <summary>Sends to one party member on the play-together channel; false if it couldn't be sent now (Steam's buffer is full). Any thread.</summary>
+    bool Send(SteamId to, byte[] payload, bool reliable);
     /// <summary>Asks the game to connect to a server (does not wait).</summary>
     void Connect(string address, int port, string password);
     void Announce(string line);
@@ -31,13 +31,14 @@ internal interface IServerSessionHost
 /// untouched: it sees an ordinary connection to 127.0.0.1.
 /// </summary>
 /// <remarks>
-/// Payloads on the channel: byte 0 is <see cref="Data"/> (a datagram follows) or
-/// <see cref="Control"/> (UTF-8 JSON follows: hosting, stopped, join, welcome, bye).
+/// Payloads on the channel: byte 0 is <see cref="Data"/> (a datagram follows),
+/// <see cref="Control"/> (UTF-8 JSON follows: hosting, stopped, join, welcome, bye) or
+/// <see cref="Stream"/> (a frame of a TCP connection: see <see cref="StreamTunnel"/>).
 /// Only party members can reach the channel (the SDK drops everything else).
 /// </remarks>
 internal sealed class ServerSession : IDisposable
 {
-    internal const byte Data = 0, Control = 1;
+    internal const byte Data = 0, Control = 1, Stream = 2;
     const double AnnounceEvery = 2, HostForgetAfter = 7, AskTimeout = 8, ConnectTimeout = 25;
     /// <summary>
     /// How long the game must report its client (or server) stopped before the tunnel closes. It
@@ -165,7 +166,7 @@ internal sealed class ServerSession : IDisposable
             {
                 if (relay is not null) host.Log($"server port changed from {relay.ServerPort} to {now.Port}: tunnels reopened");
                 relay?.Dispose();
-                relay = new HostRelay(now.Port, (peer, data) => host.Send(peer, Frame(data), reliable: false));
+                relay = new HostRelay(now.Port, (peer, data) => host.Send(peer, Frame(data), reliable: false), (peer, frame) => host.Send(peer, frame, reliable: true), host.Log);
                 host.Log($"hosting on port {now.Port}{(string.IsNullOrEmpty(now.Password) ? "" : " (with a password)")}: party members can join through Steam");
                 lines.Add(host.InParty ? "Hosting: your party can join from the Party panel" : $"Hosting: press {host.PanelKey} to invite friends over Steam");
                 nextAnnounce = 0;
@@ -248,6 +249,16 @@ internal sealed class ServerSession : IDisposable
             lock (gate) UpdateFast();
             return;
         }
+        if (payload[0] == Stream)
+        {
+            if (!StreamTunnel.TryParse(payload, out var id, out var op, out var bytes)) return;
+            HostRelay? r;
+            ClientRelay? c;
+            lock (gate) { r = relay; c = client; }
+            if (c is not null && c.Host == from.Id) c.FromHostStream(id, op, bytes);
+            else r?.FromPeerStream(from.Id, id, op, bytes);
+            return;
+        }
         if (payload[0] != Control) return;
         JsonNode? json;
         try { json = JsonNode.Parse(payload[1..]); }
@@ -280,7 +291,7 @@ internal sealed class ServerSession : IDisposable
                 case "welcome" when phase == Phase.Asking && from.Id == target:
                     var password = json?["pw"]?.GetValue<string>() ?? "";
                     if (password.Length > 256) break;
-                    client = new ClientRelay(target, (to, data) => host.Send(to, Frame(data), reliable: false));
+                    client = new ClientRelay(target, (to, data) => host.Send(to, Frame(data), reliable: false), reliable: (to, frame) => host.Send(to, frame, reliable: true), log: host.Log);
                     phase = Phase.Connecting;
                     phaseAt = clock();
                     host.Log($"welcomed by {from.Name}: the game connects to 127.0.0.1:{client.Port}{(password.Length > 0 ? " with the server's password" : "")}");
