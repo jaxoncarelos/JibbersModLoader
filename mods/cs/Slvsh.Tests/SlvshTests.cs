@@ -324,9 +324,9 @@ static class SlvshTests
         // Landed in order, with small stuff in between. The drop at the spawn (a trick or reset in the
         // first seconds, even a 180 from landing turned) is ignored.
         var log = new TrickLog();
-        var j = new TrickJudge(log, 7, line);
-        log.AddReset(7.5);
-        log.AddTrick(8, "Switch Right 180", 30);
+        var j = new TrickJudge(log, 9.4, line);
+        log.AddReset(9.8);
+        log.AddTrick(10.4, "Switch Right 180", 30);
         log.AddTrick(11, "Left 270 On", 1);
         Assert.True(j.Step(14) is null, "still on the rail");
         log.AddTrick(15, "Left 270 On - Slide - Back 270 Out", 1);

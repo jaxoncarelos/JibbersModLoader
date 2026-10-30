@@ -63,7 +63,7 @@ internal sealed class TrickJudge
     /// little above the snow, and the game can report the drop as a trick (a straight air, a zero
     /// spin, even a 180 if you land turned).
     /// </summary>
-    public const double Grace = 3;
+    public const double Grace = 1.5;
     readonly TrickLog log;
     readonly IReadOnlyList<CalledTrick> line;
     readonly double started;
