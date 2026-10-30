@@ -59,3 +59,57 @@ pub unsafe extern "C" fn destroy(h: *mut c_void) {
         let _ = d.disable();
     }
 }
+
+#[cfg(all(test, windows, target_arch = "x86_64"))]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use windows_sys::Win32::System::Memory::{VirtualAlloc, MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE};
+
+    static ORIGINAL: AtomicUsize = AtomicUsize::new(0);
+
+    extern "C" fn replacement() -> u8 {
+        let original: extern "C" fn() -> u8 = unsafe { std::mem::transmute(ORIGINAL.load(Ordering::SeqCst)) };
+        original() + 10
+    }
+
+    /// SteamAPI_ManualDispatch_GetNextCallback opens with a RIP-relative compare that has an
+    /// immediate after its displacement; relocating it wrongly crashed the game on the first frame.
+    #[test]
+    fn relocates_rip_relative_compare_with_immediate() {
+        #[rustfmt::skip]
+        let code: [u8; 27] = [
+            0x48, 0x83, 0xEC, 0x28,             // 0:  sub rsp, 0x28
+            0x83, 0x3D, 53, 0, 0, 0, 0x00,      // 4:  cmp dword ptr [rip+53], 0   (the flag at 64)
+            0x7F, 0x07,                         // 11: jg 20
+            0x30, 0xC0,                         // 13: xor al, al
+            0x48, 0x83, 0xC4, 0x28,             // 15: add rsp, 0x28
+            0xC3,                               // 19: ret
+            0xB0, 0x01,                         // 20: mov al, 1
+            0x48, 0x83, 0xC4, 0x28,             // 22: add rsp, 0x28
+            0xC3,                               // 26: ret
+        ];
+        unsafe {
+            let page = VirtualAlloc(std::ptr::null(), 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE) as *mut u8;
+            assert!(!page.is_null());
+            std::ptr::copy_nonoverlapping(code.as_ptr(), page, code.len());
+            let flag = page.add(64) as *mut i32;
+            let function: extern "C" fn() -> u8 = std::mem::transmute(page);
+            *flag = 0;
+            assert_eq!(function(), 0);
+            *flag = 5;
+            assert_eq!(function(), 1);
+
+            let mut trampoline = std::ptr::null();
+            let handle = create(page as *const c_void, replacement as *const c_void, &mut trampoline);
+            assert!(!handle.is_null());
+            ORIGINAL.store(trampoline as usize, Ordering::SeqCst);
+            assert_eq!(enable(handle), 0);
+            assert_eq!(function(), 11, "the trampoline must read the flag the original reads");
+            *flag = 0;
+            assert_eq!(function(), 10);
+            destroy(handle);
+            assert_eq!(function(), 0);
+        }
+    }
+}
