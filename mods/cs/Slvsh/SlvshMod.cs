@@ -174,6 +174,8 @@ public sealed class SlvshMod : JibbersMod
     (uint Id, double At)? joining;
     (uint Attempt, TrickJudge Judge)? judge;
     uint sentResult;
+    /// <summary>The game the per-turn memory (sentResult, placedFor, judge) belongs to.</summary>
+    uint turnsOf;
     string hint = "";
     SpectateStatus watching;
     readonly Dictionary<ulong, (Vector3 At, double When)> reported = new();
@@ -411,6 +413,7 @@ public sealed class SlvshMod : JibbersMod
     /// <summary>Your attempt: judge it from the game's trick events and report it to the host.</summary>
     void Judge(ulong me, double now)
     {
+        TurnsFor(game);
         if (game is not { Phase: Phase.Set or Phase.Match } g || g.Attempter != me || g.Attempt == sentResult)
         {
             if (game is null || game.Attempter != me) judge = null;
@@ -607,6 +610,7 @@ public sealed class SlvshMod : JibbersMod
     /// </summary>
     void Spawns(ulong me)
     {
+        TurnsFor(game);
         var g = game;
         var playing = g is { Phase: Phase.Set or Phase.Match or Phase.Vote };
         var live = g is not null && g.Attempter == me && g.Attempt != sentResult
@@ -658,6 +662,21 @@ public sealed class SlvshMod : JibbersMod
         {
             Log($"SLVSH: couldn't move you to the spawn: {e.Message}");
         }
+    }
+
+    /// <summary>
+    /// Attempt numbers start again at 1 in every game, so what was done for attempt N belongs to one
+    /// game: a new game starts it afresh. Before, a second game's first turn counted as already
+    /// placed and reported, and kept you frozen at your spawn after you called your set.
+    /// </summary>
+    void TurnsFor(GameState? g)
+    {
+        if (g is null || g.Id == turnsOf) return;
+        turnsOf = g.Id;
+        sentResult = 0;
+        placedFor = 0;
+        readying = false;
+        judge = null;
     }
 
     void RestoreSpawn()
