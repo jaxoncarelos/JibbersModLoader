@@ -23,7 +23,6 @@ internal sealed record SlvshView
     public string NoKey { get; init; } = "N";
     public string CallKey { get; init; } = "Ctrl+G";
     /// <summary>Seconds until you're let go at the start of your turn (0 once you're riding).</summary>
-    public int ReadyIn { get; init; }
 }
 
 /// <summary>
@@ -246,7 +245,6 @@ internal static class Scoreboard
         {
             Phase.Lobby when g.Host == v.Me => (g.Players.Count >= 2 ? "Ready when you are" : "Waiting for players", $"Party members with SLVSH press {v.GoKey} to join"),
             Phase.Lobby => ($"{g.NameOf(g.Host)}'s game", $"{First(g.NameOf(g.Host))} starts when everyone's in"),
-            Phase.Set or Phase.Match when mine && v.ReadyIn > 0 => ($"Get ready: {v.ReadyIn}", g.Call.Count > 0 && g.Call[0].Stance == "switch" ? "You start switch" : "You go when it hits zero"),
             Phase.Set when mine && g.Call.Count == 0 => ("Call your set", $"{v.CallKey} or right-stick click opens the wheel"),
             Phase.Set when mine => ("Land your line", $"{rule} · then they vote"),
             Phase.Set when g.Call.Count == 0 => ($"{who} is calling a set", "Their line shows here once it's called"),
