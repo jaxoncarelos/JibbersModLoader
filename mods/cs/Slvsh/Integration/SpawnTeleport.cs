@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Jibbers.Sdk;
-using Jibbers.Sdk.Game.Event;
 using Jibbers.Sdk.Game.Player;
 
 namespace Slvsh.Integration;
@@ -28,9 +27,9 @@ internal sealed record SpawnSpot(Vector3 Position, Vector3 Rotation, Vector3 Vel
 }
 
 /// <summary>
-/// Puts your rider back at a spawn point with the game's own reset (as if you pressed reset). To
-/// start at someone else's spawn, your selected spawn point is moved to theirs for your turn and put
-/// back afterwards, so respawning during your turn also takes you there. Main thread only.
+/// Reads your spawn point, and lends it out: for a turn at someone else's spawn, your selected spawn
+/// point is moved to theirs and put back afterwards, so respawning during the turn takes you there.
+/// Main thread only.
 /// </summary>
 internal sealed class SpawnTeleport(Action<string> log)
 {
@@ -44,11 +43,11 @@ internal sealed class SpawnTeleport(Action<string> log)
         return Read(spawn);
     }
 
-    /// <summary>Resets your rider to your selected spawn point.</summary>
-    public void Respawn() => Reset.RaiseEmpty();
+    /// <summary>The spawn point the game uses right now (borrowed or not): where a respawn puts you.</summary>
+    public SpawnSpot? Actual() => Selected() is { } spawn ? Read(spawn) : null;
 
-    /// <summary>Moves your selected spawn point to <paramref name="spot"/> (until <see cref="Restore"/>) and resets you there.</summary>
-    public void RespawnAt(SpawnSpot spot)
+    /// <summary>Moves your selected spawn point to <paramref name="spot"/> until <see cref="Restore"/>, so respawning takes you there.</summary>
+    public void MoveTo(SpawnSpot spot)
     {
         Restore();
         if (Selected() is not { } spawn)
@@ -58,7 +57,6 @@ internal sealed class SpawnTeleport(Action<string> log)
         }
         moved = (new GameRef(spawn.Ptr), Read(spawn));
         Write(spawn, spot);
-        Respawn();
     }
 
     /// <summary>Puts your spawn point back where it was. Safe to call any time.</summary>

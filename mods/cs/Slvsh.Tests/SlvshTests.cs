@@ -380,6 +380,27 @@ static class SlvshTests
     }
 
     [Test]
+    static void MovingASpawnStateToAnotherSpawn()
+    {
+        // One free joint at qpos 0 (x y z, w x y z) and dof 0, then a hinge; nq = 8, nv = 7.
+        var state = new double[] { 10, 20, 5, 1, 0, 0, 0, 0.3, /* qvel */ 1, 0, 0, 0, 0, 0, 0 };
+        var joints = new[] { new SpawnMove.FreeJoint(0, 0) };
+        var from = new SpawnSpot(new Vector3(10, 4, 20), new Vector3(0, 0, 0), new Vector3(0, 0, 1)); // Unity (x, y, z) = MuJoCo (x, z, y)
+        var same = SpawnMove.Move(state, 8, joints, from, from)!;
+        Assert.True(same.Zip(state).All(p => Math.Abs(p.First - p.Second) < 1e-9), "same spot: unchanged");
+        // Another spot 100 m along Unity x, 10 m higher, facing 90 degrees right, no speed.
+        var to = new SpawnSpot(new Vector3(110, 14, 20), new Vector3(0, 90, 0), new Vector3(0, 0, 0));
+        var moved = SpawnMove.Move(state, 8, joints, from, to)!;
+        Assert.True(Math.Abs(moved[0] - 110) < 1e-9 && Math.Abs(moved[1] - 20) < 1e-9 && Math.Abs(moved[2] - 15) < 1e-9, $"moved to the spot: {moved[0]}, {moved[1]}, {moved[2]}");
+        Assert.Equal(0.3, moved[7]); // the pose (hinges) is kept
+        // A Unity turn of +90 about Y is a MuJoCo turn of -90 about Z: quaternion (cos -45, 0, 0, sin -45).
+        Assert.True(Math.Abs(moved[3] - Math.Cos(-Math.PI / 4)) < 1e-9 && Math.Abs(moved[6] - Math.Sin(-Math.PI / 4)) < 1e-9, "turned");
+        // Speed: the old spot's (Unity +z = MuJoCo +y) taken out, leaving (1, -1), turned -90 degrees, plus the new one's (none).
+        Assert.True(Math.Abs(moved[8] + 1) < 1e-9 && Math.Abs(moved[9] + 1) < 1e-9, $"speed {moved[8]}, {moved[9]}");
+        Assert.True(SpawnMove.Move(state, 8, new[] { new SpawnMove.FreeJoint(5, 0) }, from, to) is null, "a joint outside the state");
+    }
+
+    [Test]
     static void FindingTheRiderToWatch()
     {
         var riders = new[]

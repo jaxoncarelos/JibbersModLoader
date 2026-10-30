@@ -100,6 +100,13 @@ public sealed class SlvshMod : JibbersMod
         overlay = Overlay.Register("slvsh", new OverlayOptions { Anchor = HudAnchor.TopRight, Offset = new Vector2(-12, -12) });
         TrickPerformed.Subscribe(t => tricks.AddTrick(Now, t.Name ?? "", t.SequenceId));
         Respawn.Subscribe(_ => tricks.AddReset(Now));
+        // Each respawn at your own spawn: save where the game put you, as where your turns start.
+        RagdollResetFinished.Subscribe(_ =>
+        {
+            if (spawnMoved) return; // at the setter's spawn for a turn: not yours
+            try { line.SpawnedAt(spawns.Actual()); }
+            catch (Exception e) when (e is InvalidOperationException or MissingMethodException or Il2CppException) { line.SpawnedAt(null); }
+        });
         Reset.Subscribe(_ => tricks.AddReset(Now));
         // Ctrl+Shift+start (not in the menus or README): practice alone, no party needed.
         Input.OnPressed(() => GoKey, () => { if (Input.IsDown(Key.Shift)) pressedSolo = true; else pressedGo = true; }, Key.Control);
@@ -535,10 +542,10 @@ public sealed class SlvshMod : JibbersMod
             {
                 menu = null;
                 Log($"SLVSH: called {CalledLine.Describe(line)}");
-                // Your set starts from your spawn point: note where it is (the others start there too) and go there.
+                // Your set starts from your spawn point (the others start there too).
                 SpawnSpot? spot = null;
-                try { spot = MainThread.Run(() => { var s = spawns.Current(); spawns.Respawn(); return s; }); }
-                catch (Exception e) when (e is TimeoutException or InvalidOperationException or MissingMethodException or Il2CppException) { Log($"SLVSH: couldn't reset you to your spawn: {e.Message}"); }
+                try { spot = MainThread.Run(spawns.Current); }
+                catch (Exception e) when (e is TimeoutException or InvalidOperationException or MissingMethodException or Il2CppException) { Log($"SLVSH: couldn't read your spawn point: {e.Message}"); }
                 if (host is not null) host.Called(me, g.Attempt, line, spot);
                 else channel!.Send(new SteamId(g.Host), new JsonObject { ["t"] = "call", ["id"] = g.Id, ["attempt"] = g.Attempt, ["line"] = CalledLine.ToJson(line), ["spawn"] = spot?.ToJson() });
             }
@@ -562,37 +569,58 @@ public sealed class SlvshMod : JibbersMod
         menuShown = frame;
     }
 
-    uint spawnedFor;
-    bool spawnMoved;
+    uint placedFor;
+    bool inGame, spawnMoved;
 
-    /// <summary>On your turn to match, resets you to the setter's spawn point (yours is borrowed for the turn, then put back).</summary>
+    /// <summary>
+    /// Freezes your rider at your spawn while it isn't your live turn (others trying, votes, or you
+    /// still calling your set). When your turn goes live you're put at the spawn and let go: your own
+    /// for your set, the setter's when matching (your spawn point is lent to theirs for the turn, so a
+    /// respawn takes you back there). When it ends you're put back and frozen again.
+    /// </summary>
     void Spawns(ulong me)
     {
         var g = game;
-        var myTry = g is { Phase: Phase.Match } && g.Attempter == me;
+        var playing = g is { Phase: Phase.Set or Phase.Match or Phase.Vote };
+        var live = g is not null && g.Attempter == me && g.Attempt != sentResult
+            && (g.Phase == Phase.Match || g is { Phase: Phase.Set, Call.Count: > 0 });
         try
         {
-            if (myTry && spawnedFor != g!.Attempt)
+            if (!playing)
             {
-                spawnedFor = g.Attempt;
-                if (g.Spawn is { } spot)
-                {
-                    MainThread.Run(() => spawns.RespawnAt(spot));
-                    spawnMoved = true;
-                    Log($"SLVSH: starting at {g.NameOf(g.Setter)}'s spawn");
-                }
-                else MainThread.Run(spawns.Respawn);
+                if (inGame) { inGame = false; line.Release(); RestoreSpawn(); }
+                return;
             }
-            else if (!myTry && spawnMoved && g?.Phase != Phase.Vote)
+            inGame = true;
+            if (live && placedFor != g!.Attempt)
             {
-                spawnMoved = false;
-                MainThread.Run(spawns.Restore);
+                placedFor = g.Attempt;
+                var at = g.Phase == Phase.Match ? g.Spawn : null;
+                if (at is not null)
+                {
+                    MainThread.Run(() => spawns.MoveTo(at));
+                    spawnMoved = true;
+                    Log($"SLVSH: your turn: starting at {g.NameOf(g.Setter)}'s spawn");
+                }
+                line.Place(at);
+            }
+            else if (!live)
+            {
+                RestoreSpawn();
+                line.Freeze();
             }
         }
         catch (Exception e) when (e is TimeoutException or InvalidOperationException or MissingMethodException or Il2CppException)
         {
-            Log($"SLVSH: couldn't reset you to the setter's spawn: {e.Message}");
+            Log($"SLVSH: couldn't move you to the spawn: {e.Message}");
         }
+    }
+
+    void RestoreSpawn()
+    {
+        if (!spawnMoved) return;
+        spawnMoved = false;
+        MainThread.Run(spawns.Restore);
     }
 
     void Hint(string text)

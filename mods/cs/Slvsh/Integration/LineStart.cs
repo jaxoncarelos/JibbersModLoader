@@ -2,6 +2,8 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using Jibbers.Sdk;
 using Jibbers.Sdk.Game.Physics;
+using Jibbers.Sdk.Game.Player;
+using Jibbers.Interop.Mujoco;
 using Jibbers.Sdk.Runtime;
 using Jibbers.Sdk.Symbols;
 
@@ -33,6 +35,45 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
     double lastCapture;
     bool hooked, failed;
     volatile bool recording;
+
+    // Your spawn: your rider's state just after the game respawned you, and the spawn point it was at.
+    double[]? spawnState;
+    SpawnSpot? spawnSpot;
+    List<SpawnMove.FreeJoint> freeJoints = new();
+    int spawnNq;
+    bool captureSpawn;
+    SpawnSpot? captureAt;
+    // Frozen: this state is put back every physics step. Placing: put once, then you ride.
+    double[]? frozen;
+    bool freezing;
+    (bool Pending, SpawnSpot? At) place;
+
+    /// <summary>
+    /// The game just respawned you at <paramref name="at"/> (the spawn point it used): save your rider's
+    /// state at the next physics step, as where you start your turns.
+    /// </summary>
+    public void SpawnedAt(SpawnSpot? at)
+    {
+        lock (gate) { captureSpawn = true; captureAt = at; }
+    }
+
+    /// <summary>Holds your rider still at your spawn (or where it is, before the game has spawned you) until <see cref="Place"/> or <see cref="Release"/>.</summary>
+    public void Freeze()
+    {
+        lock (gate) { if (!freezing) { freezing = true; frozen = null; } }
+    }
+
+    /// <summary>Puts your rider at your spawn, or at <paramref name="at"/> (someone else's spawn point), and lets you ride.</summary>
+    public void Place(SpawnSpot? at)
+    {
+        lock (gate) { freezing = false; frozen = null; place = (true, at); }
+    }
+
+    /// <summary>Lets go without moving you.</summary>
+    public void Release()
+    {
+        lock (gate) { freezing = false; frozen = null; place = (false, null); }
+    }
 
     /// <summary>Keep a history of your rider (while you set).</summary>
     public bool Recording
@@ -73,14 +114,46 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
     void Step(nint scene)
     {
         double[]? apply;
-        lock (gate) { apply = pending; pending = null; }
-        if (!recording && apply is null) return;
+        bool capture, freeze;
+        (bool Pending, SpawnSpot? At) placing;
+        lock (gate) { apply = pending; pending = null; capture = captureSpawn; freeze = freezing; placing = place; }
+        if (!recording && apply is null && !capture && !freeze && !placing.Pending) return;
         if (Scene.IsPaused)
         {
             if (apply is not null) lock (gate) pending ??= apply;
             return;
         }
         if (!Open(scene, out var model, out var data, out var length)) return;
+        if (capture) CaptureSpawn(model, data, length);
+        if (placing.Pending)
+        {
+            lock (gate) place = (false, null);
+            if (SpawnFor(placing.At, length) is { } start)
+            {
+                fixed (double* s = start) setState(model, data, s, IntegrationState);
+                forward(model, data);
+                lock (gate) history.Clear();
+            }
+        }
+        else if (freeze)
+        {
+            double[]? hold;
+            lock (gate) hold = frozen;
+            if (hold is null || hold.Length != length)
+            {
+                // First frozen step: your spawn if the game has spawned you, else right here.
+                hold = SpawnFor(null, length);
+                if (hold is null)
+                {
+                    hold = new double[length];
+                    fixed (double* s = hold) getState(model, data, s, IntegrationState);
+                }
+                lock (gate) frozen = hold;
+            }
+            fixed (double* s = hold) setState(model, data, s, IntegrationState);
+            forward(model, data);
+            return;
+        }
         if (apply is not null)
         {
             if (apply.Length == length)
@@ -101,6 +174,50 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
             history.Add((now, state));
             while (history.Count > 0 && now - history[0].At > Keep) history.RemoveAt(0);
         }
+    }
+
+    void CaptureSpawn(nint model, nint data, int length)
+    {
+        SpawnSpot? at;
+        lock (gate) { captureSpawn = false; at = captureAt; }
+        var state = new double[length];
+        fixed (double* s = state) getState(model, data, s, IntegrationState);
+        var joints = new List<SpawnMove.FreeJoint>();
+        try
+        {
+            if (RagdollSpawner.First() is { } spawner && !spawner.Rider.IsNull)
+                foreach (var j in Unity.GetComponentsInChildren(Unity.Transform(spawner.Rider.Ptr), MjFreeJoint.Class.Class, includeInactive: true))
+                    joints.Add(new SpawnMove.FreeJoint(Unity.Call<int>(j, "get_QposAddress"), Unity.Call<int>(j, "get_DofAddress")));
+        }
+        catch (Exception e) when (e is InvalidOperationException or MissingMethodException or Jibbers.Sdk.Interop.Il2CppException)
+        {
+            log($"SLVSH: couldn't find your rider's joints: {e.Message}");
+        }
+        lock (gate)
+        {
+            spawnState = state;
+            spawnSpot = at;
+            freeJoints = joints;
+            spawnNq = *(int*)model; // mjModel starts with nq
+        }
+    }
+
+    /// <summary>Your saved spawn state, moved to <paramref name="at"/> when given; null if there's none that fits.</summary>
+    double[]? SpawnFor(SpawnSpot? at, int length)
+    {
+        double[]? state;
+        SpawnSpot? mine;
+        List<SpawnMove.FreeJoint> joints;
+        int nq;
+        lock (gate) { state = spawnState; mine = spawnSpot; joints = freeJoints; nq = spawnNq; }
+        if (state is null || state.Length != length) return null;
+        if (at is null || mine is null || at == mine) return state;
+        if (joints.Count == 0)
+        {
+            log("SLVSH: can't move you to the setter's spawn: your rider has no free joints");
+            return state;
+        }
+        return SpawnMove.Move(state, nq, joints, mine, at) ?? state;
     }
 
     bool Open(nint scene, out nint model, out nint data, out int length)
