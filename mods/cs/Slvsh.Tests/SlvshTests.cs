@@ -499,6 +499,14 @@ static class SlvshTests
         // Speed: the old spot's (Unity +z = MuJoCo +y) taken out, leaving (1, -1), turned -90 degrees, plus the new one's (none).
         Assert.True(Math.Abs(moved[8] + 1) < 1e-9 && Math.Abs(moved[9] + 1) < 1e-9, $"speed {moved[8]}, {moved[9]}");
         Assert.True(SpawnMove.Move(state, 8, new[] { new SpawnMove.FreeJoint(5, 0) }, from, to) is null, "a joint outside the state");
+        // Switch: the same spot turned 180 degrees and the same speed. A body ahead of the spot ends up
+        // behind it, facing back, still moving the spawn's way.
+        var ahead = new double[] { 10, 21, 5, 1, 0, 0, 0, 0.3, 0, 1, 0, 0, 0, 0, 0 }; // 1 m ahead (+y), moving +y at the spawn's speed
+        var spawn = @from with { Velocity = new Vector3(0, 0, 1) };
+        var turned = SpawnMove.Move(ahead, 8, joints, spawn, spawn with { Rotation = new Vector3(0, 180, 0) })!;
+        Assert.True(Math.Abs(turned[0] - 10) < 1e-9 && Math.Abs(turned[1] - 19) < 1e-9, $"behind: {turned[0]}, {turned[1]}");
+        Assert.True(Math.Abs(Math.Abs(turned[6]) - 1) < 1e-9, "facing back");
+        Assert.True(Math.Abs(turned[8]) < 1e-9 && Math.Abs(turned[9] - 1) < 1e-9, $"still moving the spawn's way: {turned[8]}, {turned[9]}");
     }
 
     [Test]

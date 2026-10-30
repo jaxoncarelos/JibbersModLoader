@@ -46,7 +46,7 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
     // Frozen: this state is put back every physics step. Placing: put once, then you ride.
     double[]? frozen;
     bool freezing;
-    (bool Pending, SpawnSpot? At) place;
+    (bool Pending, SpawnSpot? At, bool Switch) place;
 
     /// <summary>
     /// The game just respawned you at <paramref name="at"/> (the spawn point it used): save your rider's
@@ -63,16 +63,19 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
         lock (gate) { if (!freezing) { freezing = true; frozen = null; } }
     }
 
-    /// <summary>Puts your rider at your spawn, or at <paramref name="at"/> (someone else's spawn point), and lets you ride.</summary>
-    public void Place(SpawnSpot? at)
+    /// <summary>
+    /// Puts your rider at your spawn, or at <paramref name="at"/> (someone else's spawn point), and lets
+    /// you ride. With <paramref name="switched"/>, you face the other way but move the same way: riding switch.
+    /// </summary>
+    public void Place(SpawnSpot? at, bool switched = false)
     {
-        lock (gate) { freezing = false; frozen = null; place = (true, at); }
+        lock (gate) { freezing = false; frozen = null; place = (true, at, switched); }
     }
 
     /// <summary>Lets go without moving you.</summary>
     public void Release()
     {
-        lock (gate) { freezing = false; frozen = null; place = (false, null); }
+        lock (gate) { freezing = false; frozen = null; place = (false, null, false); }
     }
 
     /// <summary>Keep a history of your rider (while you set).</summary>
@@ -115,7 +118,7 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
     {
         double[]? apply;
         bool capture, freeze;
-        (bool Pending, SpawnSpot? At) placing;
+        (bool Pending, SpawnSpot? At, bool Switch) placing;
         lock (gate) { apply = pending; pending = null; capture = captureSpawn; freeze = freezing; placing = place; }
         if (!recording && apply is null && !capture && !freeze && !placing.Pending) return;
         if (Scene.IsPaused)
@@ -127,8 +130,8 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
         if (capture) CaptureSpawn(model, data, length);
         if (placing.Pending)
         {
-            lock (gate) place = (false, null);
-            if (SpawnFor(placing.At, length) is { } start)
+            lock (gate) place = (false, null, false);
+            if (SpawnFor(placing.At, length, placing.Switch) is { } start)
             {
                 fixed (double* s = start) setState(model, data, s, IntegrationState);
                 forward(model, data);
@@ -203,7 +206,7 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
     }
 
     /// <summary>Your saved spawn state, moved to <paramref name="at"/> when given; null if there's none that fits.</summary>
-    double[]? SpawnFor(SpawnSpot? at, int length)
+    double[]? SpawnFor(SpawnSpot? at, int length, bool switched = false)
     {
         double[]? state;
         SpawnSpot? mine;
@@ -211,7 +214,11 @@ internal sealed unsafe class LineStart(Func<double> clock, Action<string> log)
         int nq;
         lock (gate) { state = spawnState; mine = spawnSpot; joints = freeJoints; nq = spawnNq; }
         if (state is null || state.Length != length) return null;
-        if (at is null || mine is null || at == mine) return state;
+        var target = at ?? mine;
+        // Riding switch: turned around on the spot, still moving the way the spawn sends you.
+        if (switched && target is not null) target = target with { Rotation = target.Rotation with { Y = target.Rotation.Y + 180 } };
+        if (target is null || mine is null || target == mine) return state;
+        at = target;
         if (joints.Count == 0)
         {
             log("SLVSH: can't move you to the setter's spawn: your rider has no free joints");

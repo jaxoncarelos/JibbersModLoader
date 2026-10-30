@@ -622,7 +622,10 @@ public sealed class SlvshMod : JibbersMod
                     spawnMoved = true;
                     Log($"SLVSH: your turn: starting at {g.NameOf(g.Setter)}'s spawn");
                 }
-                line.Place(at);
+                // A line that starts switch starts you riding switch.
+                var switched = g.Call.Count > 0 && g.Call[0].Stance == "switch";
+                if (switched) Log("SLVSH: your line starts switch: placing you switch");
+                line.Place(at, switched);
             }
             else if (!live)
             {
