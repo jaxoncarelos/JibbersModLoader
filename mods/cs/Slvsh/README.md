@@ -2,8 +2,9 @@
 
 S.K.A.T.E. on snow, with your party.
 
-- Players take turns **setting**. The setter lands any trick.
-- Everyone else gets **one try** to land the same trick. Miss it (bail, a different trick, or run
+- Players take turns **setting**. The setter **calls a line** first: one or more tricks, picked part
+  by part on a radial menu. Then they have to land it.
+- Everyone else gets **one try** to land the same line. Miss it (bail, a different trick, or run
   out of time) and you get the next letter: S, L, V, S, H.
 - The setter keeps setting until they miss their own set. Then the next player sets, and missing
   your own set gives no letter.
@@ -19,28 +20,48 @@ don't install both.
 2. One rider presses **Ctrl+Enter** to start a game. Everyone else in the party sees an invite and
    presses **Ctrl+Enter** to join.
 3. When everyone's in, the starter presses **Ctrl+Enter** again to begin (2 to 8 players).
-4. **Watch every turn.** While someone takes their turn, your camera follows their rider, so you
-   see the whole line and trick. It comes back to you for your own turn. This only works when
-   they're on the same server as you; otherwise the scoreboard says "Not on your server".
-5. **Vote.** After each try, everyone else votes: **Y** it counted, **N** it didn't. The
+4. **Call your set.** On your set the wheel opens by itself (**T**, or a right-stick click, opens
+   and closes it). Pick each part with the number keys **1-9**, or point the right stick and press
+   **A**. **Backspace** or **B** goes back a step. You have 90 seconds to call; the clock for landing
+   it starts when you do.
+5. **Watch every turn.** While someone takes their turn, your camera follows their rider, so you
+   see the whole line. It comes back to you for your own turn. This only works when they're on the
+   same server as you; otherwise the scoreboard says "Not on your server".
+6. **Vote.** After each try, everyone else votes: **Y** it counted, **N** it didn't. The
    scoreboard shows what the game detected ("game's guess"). The majority decides; a tie, or
    nobody voting, goes with the game's guess. You can change your vote until time's up.
-6. **Ctrl+Q** leaves the game. If the starter ends it, it ends for everyone.
+7. **Ctrl+Q** leaves the game. If the starter ends it, it ends for everyone.
+
+## Calling a line
+
+Each trick is built one part at a time, and every part has **Don't care**:
+
+- **Jump**: stance (regular / switch), spin (left / right / no spin), rotation (flat, cork, misty,
+  bio, lincoln, frontflip, backflip), how many (single, dub, trip, quad), then degrees (180 up to
+  2160, on two pages).
+- **Rail**: stance, spin on (left / right / straight on, then degrees), the slide (slide,
+  frontslide, backslide, 50-50, 5-0), then spin off (left, right, front, back or straight off, then
+  its rotation and degrees).
+
+After each trick: **Add a trick**, **Call it**, or **Undo last**. A line has up to 8 tricks, for
+example "Left 270 On - Slide - Right 270 Out", then "Any way Dub Cork 1080". Grabs are never part
+of a call: they differ by moveset.
 
 ## How a try is detected
 
-- Your **first trick** after your turn starts is your try. It counts once you ride away clean:
-  no respawn and no more combo for about two seconds. Rails count when you come off.
-- Bailing (the game gives no trick), or respawning after your trick, is a miss. Respawning
-  *before* your trick is fine, so you can get back up to the jump.
-- No trick before the timer runs out is a miss, with no vote.
-- A set where the game saw no trick at all isn't voted on: there's no trick to match.
+- Land the called tricks **in order, in one run**. Other tricks in between don't matter. A trick
+  counts once you ride away clean (no respawn, no more combo for about two seconds), or start the
+  next one. Rails count when you come off.
+- Respawning *before* your first trick is fine, so you can get back up to the jump. Respawning after
+  it ends your run: a miss, unless the whole line was already landed.
+- Not finishing before the timer runs out is a miss, with no vote.
+- A set where the game saw no trick at all isn't voted on.
 
 ## Settings (Mods > SLVSH)
 
-- Keys: start / join / begin (Ctrl+Enter), leave (Ctrl+Q), vote it counted (Y) and it didn't (N),
-  which only work while a vote is open. No F-keys, so nothing clashes with the drone or Alpine Vision.
-- **A match counts when**: exact trick (default), same spins with any grab, or any landed trick.
+- Keys: start / join / begin (Ctrl+Enter), leave (Ctrl+Q), call your set (T), vote it counted (Y)
+  and it didn't (N). The vote keys and the wheel's number keys only work while they're open. No
+  F-keys, so nothing clashes with the drone or Alpine Vision.
 - **Time for each try**: 45 seconds by default.
 - **Vote on every try** and **time to vote** (12 seconds). Turn voting off to let trick detection
   decide everything.
@@ -55,9 +76,12 @@ The starter's rules are used for the whole game; the camera setting is your own.
 
 | File | What it does |
 | --- | --- |
-| [SlvshMod.cs](SlvshMod.cs) | Entry point: party channel, keys, the game thread, camera and overlay |
+| [SlvshMod.cs](SlvshMod.cs) | Entry point: party channel, keys, the game thread, the wheel, camera and overlay |
 | [SlvshRules.cs](SlvshRules.cs) | The rules and votes (`SlvshHost`) and the state the host sends everyone |
-| [TrickJudge.cs](TrickJudge.cs) | Detects an attempt from the game's trick and respawn events |
+| [Calls.cs](Calls.cs) | A called trick, reading the game's trick names, and matching one against the other |
+| [CallMenu.cs](CallMenu.cs) | The radial menu's steps (pure, tested) |
+| [CallWheel.cs](CallWheel.cs) | Draws the radial menu |
+| [TrickJudge.cs](TrickJudge.cs) | Judges a run against the called line from the game's trick and respawn events |
 | [Scoreboard.cs](Scoreboard.cs) | Draws the overlay with `Jibbers.Sdk.UI.Overlay` |
 | [Integration/SpectateCamera.cs](Integration/SpectateCamera.cs) | Finds the rider to watch and flies your camera behind them, then gives it back |
 | [Integration/ChaseCamera.cs](Integration/ChaseCamera.cs) | The chase camera's motion (pure, tested) |

@@ -42,56 +42,78 @@ internal sealed class TrickLog
     }
 }
 
+
 /// <summary>
-/// Watches one attempt: the first trick after it starts is the try. It counts as landed once the
-/// rider rides away clean (no respawn, no more combo for <see cref="Settle"/>); respawning after the
-/// trick started, or a new trick while still on a rail, is a miss (still naming the trick, for the vote). Respawning before the trick (to
-/// get back up to the jump) is fine.
+/// Watches one attempt at a called line: the tricks must be landed in order in one run, and other
+/// tricks in between don't matter. A trick is landed once the rider rides away clean (no respawn,
+/// no more combo for <see cref="Settle"/>) or starts the next trick; a rail trick still going when
+/// the next one starts, or for <see cref="Rail"/> seconds, wasn't landed. Respawning before the
+/// first trick (to get back up to the jump) is fine; respawning after it ends the run, a miss
+/// unless the whole line was already landed and settled.
 /// </summary>
 internal sealed class TrickJudge
 {
     public const double Settle = 1.8, Rail = 10;
     readonly TrickLog log;
+    readonly IReadOnlyList<CalledTrick> line;
     readonly double started;
-    int? sequence;
-    string name = "";
-    bool going;
-    double last;
-    int seen;
 
-    public TrickJudge(TrickLog log, double now)
+    public TrickJudge(TrickLog log, double now, IReadOnlyList<CalledTrick> line)
     {
         this.log = log;
+        this.line = line;
         started = now;
     }
 
-    /// <summary>The trick so far, once one has started.</summary>
-    public string? Current => sequence is null ? null : name;
-    /// <summary>When the game first reported the trick (it reports on landing), once one has started.</summary>
+    /// <summary>The tricks so far, once one has started ("Left 540  /  Regular On - Slide").</summary>
+    public string? Current { get; private set; }
+    /// <summary>When the game first reported a trick of the line (it reports on landing).</summary>
     public double? TrickAt { get; private set; }
     /// <summary>When this attempt started.</summary>
     public double Started => started;
+    /// <summary>How many of the line's tricks are landed so far.</summary>
+    public int Matched { get; private set; }
+
+    sealed record Run(int Sequence, double First, double Last, string Name, bool Going);
 
     /// <summary>The outcome once it is decided, else null.</summary>
     public Outcome? Step(double now)
     {
         var (tricks, resets) = log.Since(started);
-        foreach (var t in tricks.Skip(seen))
+        // One entry per trick (sequence id): rails update their name as they go.
+        var runs = new List<Run>();
+        foreach (var t in tricks)
         {
-            if (sequence is null || sequence == t.Sequence)
-            {
-                TrickAt ??= t.At;
-                (sequence, name, going, last) = (t.Sequence, t.Name, t.Going, t.At);
-                continue;
-            }
-            // A new trick began: the first one was landed if it wasn't still going.
-            return going ? new Outcome(false, name) : Outcome.Land(name);
+            if (runs.Count > 0 && runs[^1].Sequence == t.Sequence) runs[^1] = runs[^1] with { Last = t.At, Name = t.Name, Going = t.Going };
+            else runs.Add(new Run(t.Sequence, t.At, t.At, t.Name, t.Going));
         }
-        seen = tricks.Count;
-        if (sequence is null) return null;
-        if (resets.Any(r => r >= last)) return new Outcome(false, name);
-        if (!going && now - last >= Settle) return Outcome.Land(name);
-        if (going && now - last >= Rail) return new Outcome(false, name);
+        if (runs.Count == 0) return null;
+        var landed = new List<Run>();
+        for (var i = 0; i < runs.Count; i++)
+        {
+            var r = runs[i];
+            var next = i + 1 < runs.Count ? runs[i + 1].First : (double?)null;
+            var end = next ?? now;
+            if (resets.Any(x => x >= r.First && x < end)) break; // the run ended on this trick
+            if (r.Going) { if (next is null) break; continue; } // still on the rail, or bailed off it
+            if (next is null && now - r.Last < Settle) break; // not ridden away yet
+            landed.Add(r);
+        }
+        Current = string.Join("  /  ", runs.Select(r => r.Name));
+        Matched = 0;
+        foreach (var r in landed)
+            if (Matched < line.Count && line[Matched].Matches(r.Name))
+            {
+                if (Matched == 0) TrickAt = r.First;
+                Matched++;
+            }
+        var tried = Clip(string.Join("  /  ", landed.Select(r => r.Name)));
+        if (Matched == line.Count) return Outcome.Land(tried);
+        var last = runs[^1];
+        if (resets.Any(x => x >= runs[0].First)) return new Outcome(false, Clip(Current));
+        if (last.Going && now - last.Last >= Rail) return new Outcome(false, Clip(Current));
         return null;
     }
+
+    static string Clip(string s) => s.Length <= GameState.MaxTried ? s : s[..(GameState.MaxTried - 1)] + "…";
 }

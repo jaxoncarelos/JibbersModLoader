@@ -28,7 +28,6 @@ internal sealed record GameState
     public uint Id { get; init; }
     public ulong Host { get; init; }
     public Phase Phase { get; init; }
-    public string Rule { get; init; } = MatchRules.Exact;
     /// <summary>Matchers start each try where the setter's line began, at the setter's speed.</summary>
     public bool SameLine { get; init; }
     /// <summary>How long before the set trick the line begins (seconds).</summary>
@@ -39,8 +38,14 @@ internal sealed record GameState
     public ulong Attempter { get; init; }
     /// <summary>Counts up with every attempt, so results and votes are matched to their attempt.</summary>
     public uint Attempt { get; init; }
-    /// <summary>The trick to match (empty while setting).</summary>
+    /// <summary>The called line, as words (empty until the setter calls it).</summary>
     public string Trick { get; init; } = "";
+    /// <summary>The called line: the tricks to land, in order (empty until the setter calls it).</summary>
+    public IReadOnlyList<CalledTrick> Call { get; init; } = Array.Empty<CalledTrick>();
+    /// <summary>The longest a line's words or a tried run may be.</summary>
+    public const int MaxTrick = 400, MaxTried = 200;
+    /// <summary>How long the setter has to call their line.</summary>
+    public const int CallSeconds = 90;
     public int SecondsLeft { get; init; }
     public int SecondsTotal { get; init; }
     /// <summary>What just happened ("Ben missed: S-L").</summary>
@@ -73,8 +78,8 @@ internal sealed record GameState
     public JsonObject ToJson() => new()
     {
         ["t"] = "state", ["id"] = Id, ["host"] = Host.ToString(), ["phase"] = Phase.ToString().ToLowerInvariant(),
-        ["rule"] = Rule, ["setter"] = Setter.ToString(), ["attempter"] = Attempter.ToString(), ["attempt"] = Attempt,
-        ["trick"] = Trick, ["secs"] = SecondsLeft, ["total"] = SecondsTotal, ["news"] = News, ["winner"] = Winner.ToString(),
+        ["setter"] = Setter.ToString(), ["attempter"] = Attempter.ToString(), ["attempt"] = Attempt,
+        ["trick"] = Trick, ["call"] = CalledLine.ToJson(Call), ["secs"] = SecondsLeft, ["total"] = SecondsTotal, ["news"] = News, ["winner"] = Winner.ToString(),
         ["players"] = new JsonArray(Players.Select(p => (JsonNode)new JsonObject { ["id"] = p.Id.ToString(), ["name"] = p.Name, ["letters"] = p.Letters }).ToArray()),
         ["on"] = VotingOn.ToString().ToLowerInvariant(), ["tried"] = Tried, ["detected"] = Detected, ["voters"] = Ids(Voters),
         ["ballots"] = new JsonArray(Ballots.Select(b => (JsonNode)new JsonObject { ["v"] = b.Voter.ToString(), ["yes"] = b.Yes }).ToArray()),
@@ -91,24 +96,23 @@ internal sealed record GameState
             static Phase PhaseOf(JsonNode? n) => Enum.TryParse<Phase>(n?.GetValue<string>(), true, out var p) && Enum.IsDefined(p) ? p : Phase.Over;
             var players = v["players"]!.AsArray().Take(SlvshHost.MaxPlayers).Select(p => new Player(Id(p!["id"]), Clip(p["name"]?.GetValue<string>() ?? "", 32), Math.Clamp(p["letters"]?.GetValue<int>() ?? 0, 0, Word.Length)))
                 .Where(p => p.Id != 0).ToList();
-            var rule = v["rule"]?.GetValue<string>();
             return new GameState
             {
                 Id = v["id"]!.GetValue<uint>(),
                 Host = Id(v["host"]),
                 Phase = PhaseOf(v["phase"]),
-                Rule = MatchRules.All.Contains(rule) ? rule! : MatchRules.Exact,
                 Players = players,
                 Setter = Id(v["setter"]),
                 Attempter = Id(v["attempter"]),
                 Attempt = v["attempt"]?.GetValue<uint>() ?? 0,
-                Trick = Clip(v["trick"]?.GetValue<string>() ?? "", 80),
+                Trick = Clip(v["trick"]?.GetValue<string>() ?? "", MaxTrick),
+                Call = CalledLine.FromJson(v["call"]),
                 SecondsLeft = Math.Clamp(v["secs"]?.GetValue<int>() ?? 0, 0, 600),
                 SecondsTotal = Math.Clamp(v["total"]?.GetValue<int>() ?? 0, 0, 600),
                 News = Clip(v["news"]?.GetValue<string>() ?? "", 120),
                 Winner = Id(v["winner"]),
                 VotingOn = PhaseOf(v["on"]),
-                Tried = Clip(v["tried"]?.GetValue<string>() ?? "", 80),
+                Tried = Clip(v["tried"]?.GetValue<string>() ?? "", MaxTried),
                 Detected = v["detected"]?.GetValue<bool>() == true,
                 Voters = (v["voters"]?.AsArray() ?? new JsonArray()).Take(SlvshHost.MaxPlayers).Select(Id).Where(i => i != 0).ToList(),
                 Ballots = (v["ballots"]?.AsArray() ?? new JsonArray()).Take(SlvshHost.MaxPlayers).Select(b => new Ballot(Id(b!["v"]), b["yes"]?.GetValue<bool>() == true)).Where(b => b.Voter != 0).ToList(),
@@ -143,6 +147,8 @@ internal sealed class SlvshHost
     readonly List<ulong> followers = new();
     readonly int voteSeconds;
     double deadline, voteDeadline;
+    /// <summary>Practice alone: you set, then match your own line, until you spell SLVSH.</summary>
+    public bool Solo { get; }
     public GameState Game { get; private set; }
     /// <summary>Set when the state changed and should be sent reliably.</summary>
     public bool Changed { get; set; } = true;
@@ -150,14 +156,15 @@ internal sealed class SlvshHost
 
     /// <param name="voteSeconds">How long a vote lasts; 0 turns voting off (trick detection decides).</param>
     /// <param name="sameLine">Matchers start on the setter's line (see <see cref="GameState.SameLine"/>).</param>
-    public SlvshHost(ulong me, string myName, string rule, int attemptSeconds, int voteSeconds, Func<double> clock, bool sameLine = false, int runIn = 6)
+    public SlvshHost(ulong me, string myName, int attemptSeconds, int voteSeconds, Func<double> clock, bool sameLine = false, int runIn = 6, bool solo = false)
     {
         this.clock = clock;
+        Solo = solo;
         this.voteSeconds = voteSeconds;
         var id = (uint)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond) | 1;
         Game = new GameState
         {
-            Id = id, Host = me, Phase = Phase.Lobby, Rule = rule, SecondsTotal = attemptSeconds, VoteSecondsTotal = voteSeconds,
+            Id = id, Host = me, Phase = Phase.Lobby, SecondsTotal = attemptSeconds, VoteSecondsTotal = voteSeconds,
             SameLine = sameLine, RunIn = Math.Clamp(runIn, 2, 15),
             Players = new[] { new Player(me, myName, 0) }, News = $"{myName} started SLVSH",
         };
@@ -177,7 +184,7 @@ internal sealed class SlvshHost
 
     public bool Start()
     {
-        if (Game.Phase != Phase.Lobby || Game.Players.Count < 2) return false;
+        if (Game.Phase != Phase.Lobby || (Game.Players.Count < 2 && !Solo)) return false;
         Set(Game with { Setter = Game.Players[0].Id, News = $"Game on! {Game.Players[0].Name} sets first." });
         BeginSet();
         return true;
@@ -192,8 +199,22 @@ internal sealed class SlvshHost
     void BeginSet()
     {
         followers.Clear();
-        Set(Game with { Phase = Phase.Set, Trick = "" });
+        Set(Game with { Phase = Phase.Set, Trick = "", Call = Array.Empty<CalledTrick>() });
         BeginAttempt(Game.Setter);
+        // First the setter calls their line; the clock for landing it starts once they have.
+        deadline = clock() + GameState.CallSeconds;
+        Set(Game with { SecondsLeft = GameState.CallSeconds });
+    }
+
+    /// <summary>The setter calls the line for their set. Only once per set; the clock restarts for landing it.</summary>
+    public void Called(ulong who, uint attempt, IReadOnlyList<CalledTrick> line)
+    {
+        if (Game.Phase != Phase.Set || who != Game.Attempter || attempt != Game.Attempt || Game.Call.Count > 0) return;
+        if (line.Count is 0 or > CalledLine.MaxTricks) return;
+        var words = CalledLine.Describe(line);
+        if (words.Length > GameState.MaxTrick) return;
+        deadline = clock() + Game.SecondsTotal;
+        Set(Game with { Call = line, Trick = words, SecondsLeft = Game.SecondsTotal, News = $"{Game.NameOf(who)} called their line" });
     }
 
     ulong NextAlive(ulong id)
@@ -208,6 +229,7 @@ internal sealed class SlvshHost
 
     List<ulong> FollowersOf(ulong setter)
     {
+        if (Solo) return new List<ulong> { setter };
         var order = Game.Players.Select(p => p.Id).ToList();
         var alive = Game.Alive;
         var start = Math.Max(0, order.IndexOf(setter));
@@ -216,7 +238,7 @@ internal sealed class SlvshHost
 
     void NextFollower()
     {
-        if (Game.Alive.Count <= 1) { Finish(); return; }
+        if (Solo ? Game.Alive.Count == 0 : Game.Alive.Count <= 1) { Finish(); return; }
         if (followers.Count == 0) { BeginSet(); return; } // everyone tried: the setter sets again
         var next = followers[0];
         followers.RemoveAt(0);
@@ -239,7 +261,9 @@ internal sealed class SlvshHost
     public void Result(ulong who, uint attempt, Outcome outcome)
     {
         if (who != Game.Attempter || attempt != Game.Attempt || Game.Phase is not (Phase.Set or Phase.Match)) return;
-        var detected = Game.Phase == Phase.Set ? outcome.Landed : outcome.Landed && MatchRules.Matches(Game.Trick, outcome.Trick, Game.Rule);
+        if (Game.Call.Count == 0) return; // nothing called yet: tricks don't count
+        // The attempter's PC judged the run against the called line.
+        var detected = outcome.Landed;
         var voters = Game.Players.Where(p => p.Id != who).Select(p => p.Id).ToList();
         var nothingToSet = Game.Phase == Phase.Set && outcome.Trick.Length == 0;
         if (voteSeconds <= 0 || voters.Count == 0 || nothingToSet)
@@ -248,7 +272,7 @@ internal sealed class SlvshHost
             return;
         }
         voteDeadline = clock() + voteSeconds;
-        var what = Game.Phase == Phase.Set ? $"set {outcome.Trick}" : outcome.Trick.Length > 0 ? $"tried {outcome.Trick}" : "bailed";
+        var what = Game.Phase == Phase.Set ? (outcome.Landed ? "landed the set" : "tried the set") : outcome.Trick.Length > 0 ? "tried it" : "bailed";
         Set(Game with
         {
             VotingOn = Game.Phase, Phase = Phase.Vote, Tried = outcome.Trick, Detected = detected, Voters = voters,
@@ -283,7 +307,7 @@ internal sealed class SlvshHost
         {
             if (counted)
             {
-                Set(Game with { Trick = trick, News = $"{name} set {trick}{tally}" });
+                Set(Game with { News = $"{name} landed the set{tally}" });
                 followers.Clear();
                 followers.AddRange(FollowersOf(who));
                 NextFollower();
@@ -345,30 +369,6 @@ internal sealed class SlvshHost
         if (left != Game.SecondsLeft) Game = Game with { SecondsLeft = left };
         if (left > 0) return;
         // Out of time: a miss with nothing to watch, so no vote.
-        Apply(Game.Phase, false, "", " (out of time)");
+        Apply(Game.Phase, false, "", Game.Phase == Phase.Set && Game.Call.Count == 0 ? " (no line called)" : " (out of time)");
     }
-}
-
-/// <summary>Whether a tried trick counts as the set one, by the host's rule.</summary>
-internal static class MatchRules
-{
-    public const string Exact = "Exact trick", Spins = "Same spins (ignore grabs)", Any = "Any landed trick";
-    public static readonly string[] All = { Exact, Spins, Any };
-
-    static readonly HashSet<string> SpinWords = new(StringComparer.Ordinal)
-    {
-        "left", "right", "front", "back", "frontside", "backside", "switch", "fakie", "cab", "zero", "spin", "flip", "cork", "rodeo",
-        "misty", "double", "triple", "on", "out", "to", "-", "underflip", "wildcat", "tamedog",
-    };
-
-    static string[] Split(string s) => s.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-    public static bool Matches(string set, string tried, string rule) => rule switch
-    {
-        Any => true,
-        Spins => Keep(set).SequenceEqual(Keep(tried)),
-        _ => Split(set).SequenceEqual(Split(tried)),
-    };
-
-    static IEnumerable<string> Keep(string s) => Split(s).Where(w => w.All(char.IsAsciiDigit) || SpinWords.Contains(w));
 }

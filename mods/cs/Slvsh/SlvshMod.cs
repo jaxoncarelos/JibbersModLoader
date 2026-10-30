@@ -39,8 +39,8 @@ public sealed class SlvshMod : JibbersMod
     [KeyBinding("Vote: it didn't count", Key.N, Key = "no_key", Section = "Keys", Tooltip = "Only while a vote is open.")]
     public Key VoteNoKey { get; private set; }
 
-    [Choice("A match counts when (host decides)", MatchRules.Exact, MatchRules.Exact, MatchRules.Spins, MatchRules.Any, Key = "match_rule", Section = "Rules")]
-    public string Rule { get; private set; } = MatchRules.Exact;
+    [KeyBinding("Call your set (radial menu)", Key.T, Key = "call_key", Section = "Keys", Tooltip = "On your set, opens the wheel to call the line you'll land. Pick with 1-9 (or the right stick and A), Backspace (or B) goes back. A controller opens it with a right-stick click.")]
+    public Key CallKey { get; private set; }
 
     [Slider("Time for each try (seconds)", 45, 15, 180, 5, Key = "attempt_secs", Section = "Rules")]
     public double AttemptSeconds { get; private set; }
@@ -83,7 +83,11 @@ public sealed class SlvshMod : JibbersMod
     PartyChannel? channel;
     OverlayPanel? overlay;
     Thread? thread;
-    volatile bool stopping, pressedGo, pressedLeave, pressedYes, pressedNo;
+    volatile bool stopping, pressedGo, pressedLeave, pressedYes, pressedNo, pressedCall, pressedBack, pressedSolo;
+    /// <summary>Your Steam ID, or a stand-in when practicing alone outside a party.</summary>
+    ulong myId;
+    volatile int pressedSlice = -1;
+    OverlayPanel? callPanel;
 
     public override void OnLoad()
     {
@@ -95,10 +99,21 @@ public sealed class SlvshMod : JibbersMod
         TrickPerformed.Subscribe(t => tricks.AddTrick(Now, t.Name ?? "", t.SequenceId));
         Respawn.Subscribe(_ => tricks.AddReset(Now));
         Reset.Subscribe(_ => tricks.AddReset(Now));
-        Input.OnPressed(() => GoKey, () => pressedGo = true, Key.Control);
+        // Ctrl+Shift+start (not in the menus or README): practice alone, no party needed.
+        Input.OnPressed(() => GoKey, () => { if (Input.IsDown(Key.Shift)) pressedSolo = true; else pressedGo = true; }, Key.Control);
         Input.OnPressed(() => LeaveKey, () => pressedLeave = true, Key.Control);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteYesKey : 0, () => pressedYes = true);
         Input.OnPressed(() => game?.Phase == Phase.Vote ? VoteNoKey : 0, () => pressedNo = true);
+        Input.OnPressed(() => CanCall ? CallKey : 0, () => pressedCall = true);
+        Input.OnPressed(() => menu is not null ? Key.Backspace : 0, () => pressedBack = true);
+        for (var i = 0; i < 10; i++)
+        {
+            var slice = i;
+            Key Digit(Key first) => menu is not null ? (Key)((int)first + (slice + 1) % 10) : 0;
+            Input.OnPressed(() => Digit(Key.D0), () => pressedSlice = slice);
+            Input.OnPressed(() => Digit(Key.Num0), () => pressedSlice = slice);
+        }
+        callPanel = Overlay.Register("slvsh-call", new OverlayOptions { Anchor = HudAnchor.Center });
         // Every frame: fly the camera behind whoever you're watching.
         Jibbers.Sdk.Game.Env.Manager.UpdateMethod.Before((_, _) =>
         {
@@ -146,13 +161,28 @@ public sealed class SlvshMod : JibbersMod
             catch (Exception e) { Log($"SLVSH: {e}"); Thread.Sleep(1000); }
         }
         overlay?.Hide();
+        callPanel?.Hide();
     }
 
     void Step()
     {
         var now = Now;
-        var me = Party.Local?.Id.Value ?? 0;
-        if (Party.State != PartyState.InParty || !Enabled)
+        var me = Party.Local?.Id.Value ?? (host is { Solo: true } ? myId : 0);
+        if (pressedSolo)
+        {
+            pressedSolo = false;
+            if (Enabled && host is null && (game is null || game.Phase == Phase.Over))
+            {
+                me = myId = me != 0 ? me : 1;
+                host = new SlvshHost(me, Party.Local?.Name ?? "You", (int)Math.Clamp(AttemptSeconds, 15, 180), 0, () => Now, SameLine, (int)Math.Clamp(RunIn, 2, 15), solo: true);
+                host.Start();
+                game = host.Game;
+                lines.Clear();
+                Log("SLVSH: practicing alone");
+            }
+        }
+        myId = me;
+        if ((Party.State != PartyState.InParty && host is not { Solo: true }) || !Enabled)
         {
             if (game is not null) Hint(Party.State != PartyState.InParty ? "You left the party, so the game ended" : "");
             host = null;
@@ -218,6 +248,7 @@ public sealed class SlvshMod : JibbersMod
             Hint("Couldn't join that game (it may have started)");
         }
 
+        Calling(me);
         Judge(me, now);
         Lines(me, now);
         ReportPosition(me, now);
@@ -242,9 +273,12 @@ public sealed class SlvshMod : JibbersMod
                 case "leave" when host?.Game.Id == id:
                     host.Remove(sender);
                     break;
+                case "call" when host?.Game.Id == id:
+                    host.Called(sender, m["attempt"]?.GetValue<uint>() ?? 0, CalledLine.FromJson(m["line"]));
+                    break;
                 case "result" when host?.Game.Id == id:
                     var trick = m["trick"]?.GetValue<string>() ?? "";
-                    if (trick.Length > 80) trick = "";
+                    if (trick.Length > GameState.MaxTried) trick = "";
                     host.Result(sender, m["attempt"]?.GetValue<uint>() ?? 0, new Outcome(m["landed"]?.GetValue<bool>() == true && trick.Length > 0, trick));
                     break;
                 case "vote" when host?.Game.Id == id:
@@ -259,7 +293,7 @@ public sealed class SlvshMod : JibbersMod
                     break;
                 case "line" when game?.Id == id && sender != me && game.SameLine:
                     var lineTrick = m["trick"]?.GetValue<string>() ?? "";
-                    if (lineTrick.Length is > 0 and <= 80 && m["s"]?.GetValue<string>() is { Length: <= 65536 } packed && LineStart.Unpack(packed) is { } state)
+                    if (lineTrick.Length is > 0 and <= GameState.MaxTrick && m["s"]?.GetValue<string>() is { Length: <= 65536 } packed && LineStart.Unpack(packed) is { } state)
                         lines[sender] = (lineTrick, state);
                     break;
                 case "state" when host is null:
@@ -309,7 +343,7 @@ public sealed class SlvshMod : JibbersMod
             else if (game is { Phase: Phase.Over } || (host is null && game is null && invite is null && joining is null))
             {
                 // Start a new game (or the next one, once this one is over).
-                host = new SlvshHost(me, Party.Local?.Name ?? "You", Rule, (int)Math.Clamp(AttemptSeconds, 15, 180), Voting ? (int)Math.Clamp(VoteSeconds, 5, 30) : 0, () => Now,
+                host = new SlvshHost(me, Party.Local?.Name ?? "You", (int)Math.Clamp(AttemptSeconds, 15, 180), Voting ? (int)Math.Clamp(VoteSeconds, 5, 30) : 0, () => Now,
                     SameLine, (int)Math.Clamp(RunIn, 2, 15));
                 lines.Clear();
                 game = host.Game;
@@ -350,10 +384,16 @@ public sealed class SlvshMod : JibbersMod
             if (game is null || game.Attempter != me) judge = null;
             return;
         }
-        if (judge is not { } current || current.Attempt != g.Attempt) judge = current = (g.Attempt, new TrickJudge(tricks, now));
+        // A set counts only once it's called: tricks before then are warm-up.
+        if (g.Call.Count == 0)
+        {
+            judge = null;
+            return;
+        }
+        if (judge is not { } current || current.Attempt != g.Attempt) judge = current = (g.Attempt, new TrickJudge(tricks, now, g.Call));
         if (current.Judge.Step(now) is not { } outcome) return;
         Log($"SLVSH: attempt {g.Attempt}: {outcome}");
-        if (g.Phase == Phase.Set && g.SameLine && outcome.Landed) ShareLine(g, me, current.Judge, outcome.Trick);
+        if (g.Phase == Phase.Set && g.SameLine && outcome.Landed) ShareLine(g, me, current.Judge, g.Trick);
         sentResult = g.Attempt;
         judge = null;
         if (host is not null) host.Result(me, g.Attempt, outcome);
@@ -442,6 +482,73 @@ public sealed class SlvshMod : JibbersMod
         }
     }
 
+    // ---- calling your set: the radial menu ----
+
+    CallMenu? menu;
+    uint menuFor;
+    int lit = -1;
+    PadButton padHeld;
+    OverlayFrame? menuShown;
+
+    /// <summary>Your set, and you haven't called it yet.</summary>
+    bool CanCall => game is { Phase: Phase.Set, Call.Count: 0 } g && g.Attempter == myId;
+
+    /// <summary>Opens the wheel at the start of your set (and on the call key), drives it from the keys and a controller, and sends the line once called.</summary>
+    void Calling(ulong me)
+    {
+        var g = game;
+        var mySet = g is { Phase: Phase.Set, Call.Count: 0 } && g.Attempter == me;
+        var pad = Gamepad.Read().WithDeadzone(0.25f);
+        var pressed = pad.Connected ? pad.Buttons & ~padHeld : PadButton.None;
+        padHeld = pad.Connected ? pad.Buttons : PadButton.None;
+        var toggle = pressedCall || (pressed & PadButton.RightStick) != 0;
+        pressedCall = false;
+        if (!mySet)
+        {
+            menu = null;
+            pressedBack = false;
+            pressedSlice = -1;
+            DrawMenu();
+            return;
+        }
+        if (menuFor != g!.Attempt) { menuFor = g.Attempt; menu = new CallMenu(); lit = -1; } // opens by itself when your set starts
+        else if (toggle) menu = menu is null ? new CallMenu() : null;
+        if (menu is { } m)
+        {
+            var count = m.Labels.Count;
+            if (MathF.Sqrt(pad.RightX * pad.RightX + pad.RightY * pad.RightY) > 0.5f) lit = CallWheel.SliceAt(pad.RightX, pad.RightY, count);
+            if (pressedSlice is >= 0 and var slice) m.Pick(slice);
+            else if ((pressed & PadButton.A) != 0 && lit >= 0) m.Pick(lit);
+            if (pressedBack || (pressed & PadButton.B) != 0) m.Back();
+            if (m.Labels.Count != count) lit = -1;
+            if (m.Cancelled) menu = null;
+            else if (m.Called is { } line)
+            {
+                menu = null;
+                Log($"SLVSH: called {CalledLine.Describe(line)}");
+                if (host is not null) host.Called(me, g.Attempt, line);
+                else channel!.Send(new SteamId(g.Host), new JsonObject { ["t"] = "call", ["id"] = g.Id, ["attempt"] = g.Attempt, ["line"] = CalledLine.ToJson(line) });
+            }
+        }
+        pressedBack = false;
+        pressedSlice = -1;
+        DrawMenu();
+    }
+
+    void DrawMenu()
+    {
+        var frame = menu is { } m ? CallWheel.Build(m, lit, "Backspace / B", $"{CallKey} / R-stick") : null;
+        if (frame is null)
+        {
+            if (menuShown is not null) callPanel!.Hide();
+            menuShown = null;
+            return;
+        }
+        callPanel!.Draw(frame);
+        if (menuShown is null) callPanel.Show();
+        menuShown = frame;
+    }
+
     void Hint(string text)
     {
         hint = text;
@@ -459,6 +566,7 @@ public sealed class SlvshMod : JibbersMod
             Trying = judge?.Judge.Current,
             Hint = Now < hintUntil ? hint : joining is not null ? "Joining the game…" : "",
             Watching = g is not null && g.Attempter != me && g.Watching(g.Attempter) ? watching : SpectateStatus.Off,
+            CallKey = CallKey.ToString(),
             GoKey = $"Ctrl+{GoKey}",
             LeaveKey = $"Ctrl+{LeaveKey}",
             YesKey = VoteYesKey.ToString(),

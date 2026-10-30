@@ -21,6 +21,7 @@ internal sealed record SlvshView
     public string LeaveKey { get; init; } = "Ctrl+Q";
     public string YesKey { get; init; } = "Y";
     public string NoKey { get; init; } = "N";
+    public string CallKey { get; init; } = "T";
 }
 
 /// <summary>
@@ -50,7 +51,7 @@ internal static class Look
 internal static class Scoreboard
 {
     public const float Width = 380, Margin = 8;
-    const float Pad = 16, Row = 32, VoteBlock = 76, Tile = 20, TileGap = 4;
+    const float Pad = 16, Row = 32, VoteBlock = 76, Tile = 20, TileGap = 4, LineRow = 18;
 
     public static OverlayFrame? Build(SlvshView v)
     {
@@ -66,7 +67,9 @@ internal static class Scoreboard
         var voting = g.Phase == Phase.Vote;
         var canVote = voting && g.Voters.Contains(v.Me);
         var players = g.Phase == Phase.Over ? g.Players.OrderBy(p => p.Letters).ToList() : g.Players.ToList();
-        var height = 104f + (voting ? VoteBlock : 0) + 18 + players.Count * Row + 8 + (g.News.Length > 0 ? 24 : 0) + 38;
+        var showLine = g.Call.Count > 0 && g.Phase is Phase.Set or Phase.Match or Phase.Vote;
+        var lineBlock = showLine ? 18 + g.Call.Count * LineRow + 10 : 0;
+        var height = 104f + lineBlock + (voting ? VoteBlock : 0) + 18 + players.Count * Row + 8 + (g.News.Length > 0 ? 24 : 0) + 38;
         var f = new OverlayFrame(Width + Margin * 2, height + Margin * 2).Origin(Margin, Margin);
         f.Rect(0, 0, Width, height, Look.Corner, Look.Panel);
 
@@ -87,7 +90,7 @@ internal static class Scoreboard
         var timed = g.Phase is Phase.Set or Phase.Match or Phase.Vote && total > 0;
         var textW = Width - Pad * 2 - (timed ? 96 : 0);
         f.Text(title, Pad, 36, textW, 30, title.Length > 24 ? 19 : 23, titleColor);
-        f.Text(v.Trying is { } t && mine ? $"Your trick: {t}" : sub, Pad, 66, textW, 18, 13, v.Trying is not null && mine ? Look.Mint : Look.Caption);
+        f.Text(v.Trying is { } t && mine ? $"So far: {t}" : sub, Pad, 66, textW, 18, 13, v.Trying is not null && mine ? Look.Mint : Look.Caption);
         if (timed)
         {
             var timeColor = voting ? Look.Text : left <= 5 ? Look.Bad : left <= 10 ? Look.Gold : Look.Text;
@@ -98,6 +101,20 @@ internal static class Scoreboard
             if (share > 0) f.Rect(Pad, 92, (Width - Pad * 2) * share, 2, 0, timeColor == Look.Text ? Look.Mint : timeColor);
         }
         var y = 104f;
+
+        // The called line, one trick per row.
+        if (showLine)
+        {
+            f.Text("THE LINE", Pad, y, 120, 14, 10, Look.Caption, spacing: Look.Tracked);
+            y += 18;
+            for (var i = 0; i < g.Call.Count; i++)
+            {
+                f.Text($"{i + 1}", Pad, y, 16, LineRow, 12, Look.Mint, bold: true);
+                f.Text(g.Call[i].Describe(), Pad + 18, y, Width - Pad * 2 - 18, LineRow, 13, Look.Text);
+                y += LineRow;
+            }
+            y += 10;
+        }
 
         if (voting)
         {
@@ -137,6 +154,7 @@ internal static class Scoreboard
         {
             Phase.Lobby when g.Host == v.Me => new[] { (v.GoKey, g.Players.Count >= 2 ? "Begin" : "Begin (2+ players)"), (v.LeaveKey, "End") },
             Phase.Vote when canVote => new[] { (v.YesKey, "Yes"), (v.NoKey, "No"), (v.LeaveKey, "Leave") },
+            Phase.Set when mine && g.Call.Count == 0 => new[] { (v.CallKey, "Call set"), (v.LeaveKey, g.Host == v.Me ? "End game" : "Leave") },
             Phase.Over => new[] { (v.GoKey, "New game"), (v.LeaveKey, "Close") },
             _ => new[] { (v.LeaveKey, g.Host == v.Me ? "End game" : "Leave") },
         };
@@ -204,19 +222,21 @@ internal static class Scoreboard
     static (string Title, string Sub, Color Color) Headline(SlvshView v, GameState g, bool mine)
     {
         var who = g.NameOf(g.Attempter);
-        var rule = g.Rule switch { MatchRules.Spins => "Same spins count, any grab", MatchRules.Any => "Any landed trick counts", _ => "Land exactly this trick" };
+        var rule = g.Call.Count == 1 ? "Land it in one run" : "Land them in order, in one run";
         var watch = v.Watching == SpectateStatus.Watching ? $"Watching {First(who)}" : rule;
         var (title, sub) = g.Phase switch
         {
             Phase.Lobby when g.Host == v.Me => (g.Players.Count >= 2 ? "Ready when you are" : "Waiting for players", $"Party members with SLVSH press {v.GoKey} to join"),
             Phase.Lobby => ($"{g.NameOf(g.Host)}'s game", $"{First(g.NameOf(g.Host))} starts when everyone's in"),
-            Phase.Set when mine => ("Land any trick", "Everyone's watching, then they vote on it"),
-            Phase.Set => ($"{who} is setting", v.Watching == SpectateStatus.Watching ? "The trick they land is the one to match" : "Watch for the trick to match"),
-            Phase.Match when mine => (g.Trick, rule),
-            Phase.Match => (g.Trick, $"{First(who)} is trying · {watch}"),
+            Phase.Set when mine && g.Call.Count == 0 => ("Call your set", $"{v.CallKey} or right-stick click opens the wheel"),
+            Phase.Set when mine => ("Land your line", $"{rule} · then they vote"),
+            Phase.Set when g.Call.Count == 0 => ($"{who} is calling a set", "Their line shows here once it's called"),
+            Phase.Set => ($"{who} is setting", v.Watching == SpectateStatus.Watching ? $"Watching {First(who)}" : rule),
+            Phase.Match when mine => ("Your turn: match it", rule),
+            Phase.Match => ($"{who} is trying", watch),
             Phase.Vote when g.Attempter == v.Me => (g.Tried.Length > 0 ? g.Tried : "No trick seen", g.VotingOn == Phase.Set ? "The others are voting on your set" : "The others are voting on your match"),
             Phase.Vote => (g.Tried.Length > 0 ? g.Tried : "No trick seen",
-                g.VotingOn == Phase.Set ? $"Did {First(who)} land it?" : $"Did {First(who)} match {g.Trick}?"),
+                g.VotingOn == Phase.Set ? $"Did {First(who)} land the line?" : $"Did {First(who)} match the line?"),
             _ => (g.Winner == v.Me ? "You win" : $"{g.NameOf(g.Winner)} wins", g.Winner == v.Me ? "Nobody could match you" : "Better luck next game"),
         };
         var color = g.Phase == Phase.Over ? Look.Gold : mine && g.Phase == Phase.Match ? Look.Mint : Look.Text;
