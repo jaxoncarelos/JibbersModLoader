@@ -73,10 +73,15 @@ static class SlvshTests
         Assert.True(h.Start(), "solo starts with just you");
         Call(h);
         h.Result(1, h.Game.Attempt, Landed("Left 180"));
-        Assert.Equal((Phase.Match, 1UL), (h.Game.Phase, h.Game.Attempter)); // nobody to vote; you match your own line
+        Assert.Equal((Phase.Vote, 1UL), (h.Game.Phase, h.Game.Voters.Single())); // alone, you vote on yourself
+        h.Vote(1, h.Game.Attempt, true);
+        Assert.Equal((Phase.Match, 1UL), (h.Game.Phase, h.Game.Attempter)); // then you match your own line
         h.Result(1, h.Game.Attempt, new Outcome(false, "Right 180"));
-        Assert.Equal((Phase.Set, 1, 1UL), (h.Game.Phase, h.Game.Find(1)!.Letters, h.Game.Attempter));
-        for (var i = 0; i < 4; i++)
+        h.Vote(1, h.Game.Attempt, true); // detection missed it, but you know you landed it
+        Assert.Equal((Phase.Set, 0, 1UL), (h.Game.Phase, h.Game.Find(1)!.Letters, h.Game.Attempter));
+        h = new SlvshHost(1, "Ana", 45, 0, () => 0, solo: true); // voting off: detection decides
+        h.Start();
+        for (var i = 0; i < 5; i++)
         {
             Call(h);
             h.Result(1, h.Game.Attempt, Landed("Left 180"));

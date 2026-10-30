@@ -268,7 +268,8 @@ internal sealed class SlvshHost
         if (Game.Call.Count == 0) return; // nothing called yet: tricks don't count
         // The attempter's PC judged the run against the called line.
         var detected = outcome.Landed;
-        var voters = Game.Players.Where(p => p.Id != who).Select(p => p.Id).ToList();
+        // Everyone else votes; practicing alone, you vote on yourself (honor system).
+        var voters = Solo ? new List<ulong> { who } : Game.Players.Where(p => p.Id != who).Select(p => p.Id).ToList();
         var nothingToSet = Game.Phase == Phase.Set && outcome.Trick.Length == 0;
         if (voteSeconds <= 0 || voters.Count == 0 || nothingToSet)
         {

@@ -189,7 +189,7 @@ public sealed class SlvshMod : JibbersMod
             else
             {
                 me = myId = me != 0 ? me : 1;
-                host = new SlvshHost(me, Party.Local?.Name ?? "You", (int)Math.Clamp(AttemptSeconds, 15, 180), 0, () => Now, SameLine, (int)Math.Clamp(RunIn, 2, 15), solo: true);
+                host = new SlvshHost(me, Party.Local?.Name ?? "You", (int)Math.Clamp(AttemptSeconds, 15, 180), Voting ? (int)Math.Clamp(VoteSeconds, 5, 30) : 0, () => Now, SameLine, (int)Math.Clamp(RunIn, 2, 15), solo: true);
                 host.Start();
                 game = host.Game;
                 lines.Clear();
@@ -407,7 +407,11 @@ public sealed class SlvshMod : JibbersMod
             return;
         }
         if (judge is not { } current || current.Attempt != g.Attempt) judge = current = (g.Attempt, new TrickJudge(tricks, now, g.Call));
-        if (current.Judge.Step(now) is not { } outcome) return;
+        var outcome = current.Judge.Step(now);
+        // Time's nearly up and you did ride your line, but detection didn't see it: let the vote decide, rather than timing out with no vote.
+        if (outcome is null && current.Judge.Begun && g.SecondsLeft <= 1 && g.SecondsTotal > 0)
+            outcome = new Outcome(false, current.Judge.Current ?? "");
+        if (outcome is null) return;
         Log($"SLVSH: attempt {g.Attempt}: {outcome}");
         if (g.Phase == Phase.Set && g.SameLine && outcome.Landed) ShareLine(g, me, current.Judge, g.Trick);
         sentResult = g.Attempt;

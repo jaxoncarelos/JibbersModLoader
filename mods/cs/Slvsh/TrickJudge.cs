@@ -73,6 +73,8 @@ internal sealed class TrickJudge
     public double Started => started;
     /// <summary>How many of the line's tricks are landed so far.</summary>
     public int Matched { get; private set; }
+    /// <summary>Whether your run has started (a real trick, or the line's first), so ending it now is a try.</summary>
+    public bool Begun { get; private set; }
 
     sealed record Run(int Sequence, double First, double Last, string Name, bool Going);
 
@@ -102,6 +104,7 @@ internal sealed class TrickJudge
             if (matched == line.Count) return Outcome.Land(tried);
             // The run began with its first real trick (landed or not): respawning now ends it.
             var begun = matched > 0 || segment.Any(r => line[0].Matches(r.Name) || TrickName.IsReal(r.Name));
+            Begun = begun;
             if (ended && begun) return new Outcome(false, Clip(Current!));
             if (!ended && segment.Count > 0 && segment[^1] is { Going: true } last && now - last.Last >= Rail && matched > 0)
                 return new Outcome(false, Clip(Current!));

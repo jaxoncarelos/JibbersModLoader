@@ -234,6 +234,7 @@ internal static class Scoreboard
             Phase.Set => ($"{who} is setting", v.Watching == SpectateStatus.Watching ? $"Watching {First(who)}" : rule),
             Phase.Match when mine => ("Your turn: match it", rule),
             Phase.Match => ($"{who} is trying", watch),
+            Phase.Vote when g.Attempter == v.Me && g.Voters.Contains(v.Me) => (g.Tried.Length > 0 ? g.Tried : "No trick seen", "Did you land it? Honor system: your call"),
             Phase.Vote when g.Attempter == v.Me => (g.Tried.Length > 0 ? g.Tried : "No trick seen", g.VotingOn == Phase.Set ? "The others are voting on your set" : "The others are voting on your match"),
             Phase.Vote => (g.Tried.Length > 0 ? g.Tried : "No trick seen",
                 g.VotingOn == Phase.Set ? $"Did {First(who)} land the line?" : $"Did {First(who)} match the line?"),
