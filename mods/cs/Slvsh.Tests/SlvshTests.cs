@@ -297,14 +297,15 @@ static class SlvshTests
         Assert.True(landed is { Landed: true }, $"{landed}");
         Assert.Equal(11.0, j.TrickAt);
 
-        // Out of order: the cork first is a real trick that isn't the call, so a miss.
+        // Out of order: the cork first takes the rail's place; it's decided once both places are taken.
         j = new TrickJudge(log, 30, line);
         log.AddTrick(31, "Left Dub Cork 1080", 4);
-        Assert.True(j.Step(32) is null, "not ridden away yet");
-        var missed = j.Step(33)!;
+        Assert.True(j.Step(34) is null, "one trick of two: not decided, in case it was misread");
+        log.AddTrick(35, "Left 270 On - Slide", 5);
+        var missed = j.Step(38)!;
         Assert.True(!missed.Landed && missed.Trick.Contains("Left Dub Cork 1080"), missed.Trick);
 
-        // The wrong second trick (a Left 180 where any 360 was called) is a miss too.
+        // The wrong second trick (a Left 180 where any 360 was called) is a miss once it's done.
         var three60 = new CalledTrick { Type = TrickType.Jump, Degrees = 360 };
         j = new TrickJudge(log, 40, new[] { rail, three60 });
         log.AddTrick(41, "Left 270 On - Slide - Back 270 Out", 20);
@@ -325,7 +326,7 @@ static class SlvshTests
         log.AddTrick(58, "Left Dub Cork 1080", 11);
         Assert.True(j.Step(61) is { Landed: true });
 
-        // But a real trick that isn't the call does: resetting to try again is a miss.
+        // But a real trick that isn't the call starts it: resetting to try again is a miss.
         j = new TrickJudge(log, 70, new[] { cork });
         log.AddTrick(71, "Left 540", 12);
         log.AddReset(73);

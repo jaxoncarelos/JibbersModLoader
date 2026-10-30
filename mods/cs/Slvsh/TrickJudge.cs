@@ -45,8 +45,9 @@ internal sealed class TrickLog
 
 /// <summary>
 /// Watches one attempt at a called line: the tricks must be landed in order in one run. Small stuff
-/// in between (straight airs, zero spins, butters, small spins) doesn't matter, but any other trick
-/// that isn't the next one called is a miss. A trick is landed once the rider rides away clean (no respawn,
+/// in between (straight airs, zero spins, butters, small spins) doesn't count; every other trick
+/// takes the next place in the line, and the try is decided once every place is taken (so a misread
+/// trick never ends a run early). A trick is landed once the rider rides away clean (no respawn,
 /// no more combo for <see cref="Settle"/>) or starts the next trick; a rail trick still going when
 /// the next one starts, or for <see cref="Rail"/> seconds, wasn't landed. The run starts at your
 /// first real trick (see <see cref="TrickName.IsReal"/>) or the line's first trick: small stuff on the
@@ -97,13 +98,15 @@ internal sealed class TrickJudge
         {
             var segment = runs.Where(r => r.First >= from && r.First < reset).ToList();
             var ended = !double.IsPositiveInfinity(reset);
-            var (landed, matched, at, wrong) = Judge(segment, ended ? reset : now);
+            var (landed, matched, at, done) = Judge(segment, ended ? reset : now);
             Current = segment.Count > 0 ? string.Join("  /  ", segment.Select(r => r.Name)) : null;
             Matched = matched;
             TrickAt = at;
             var tried = Clip(string.Join("  /  ", landed.Select(r => r.Name)));
             if (matched == line.Count) return Outcome.Land(tried);
-            if (wrong) return new Outcome(false, tried); // a real trick that isn't the next one called
+            // As many tricks as the line has, but not all as called. Not decided before then, so a
+            // misread trick doesn't end your run early; the vote has the last word.
+            if (done) return new Outcome(false, tried);
             // The run began with its first real trick (landed or not): respawning now ends it.
             var begun = matched > 0 || segment.Any(r => line[0].Matches(r.Name) || TrickName.IsReal(r.Name));
             Begun = begun;
@@ -116,10 +119,11 @@ internal sealed class TrickJudge
     }
 
     /// <summary>
-    /// The tricks landed in one run (up to <paramref name="end"/>), how much of the line they match in
-    /// order, and whether a real trick came that wasn't the next one called (small stuff is ignored).
+    /// The tricks landed in one run (up to <paramref name="end"/>). Each real trick (or one matching the
+    /// next called trick) takes the next place in the line; small stuff is ignored. Returns how many
+    /// places hold the called trick, and whether every place is taken.
     /// </summary>
-    (List<Run> Landed, int Matched, double? At, bool Wrong) Judge(List<Run> segment, double end)
+    (List<Run> Landed, int Matched, double? At, bool Done) Judge(List<Run> segment, double end)
     {
         var landed = new List<Run>();
         for (var i = 0; i < segment.Count; i++)
@@ -130,19 +134,18 @@ internal sealed class TrickJudge
             if (next is null && end - r.Last < Settle) break; // not ridden away (or respawned too soon after)
             landed.Add(r);
         }
-        var matched = 0;
+        int place = 0, matched = 0;
         double? at = null;
         foreach (var r in landed)
         {
-            if (matched == line.Count) break;
-            if (line[matched].Matches(r.Name))
-            {
-                if (matched == 0) at = r.First;
-                matched++;
-            }
-            else if (TrickName.IsReal(r.Name)) return (landed, matched, at, true);
+            if (place == line.Count) break;
+            var right = line[place].Matches(r.Name);
+            if (!right && !TrickName.IsReal(r.Name)) continue;
+            if (place == 0) at = r.First;
+            if (right) matched++;
+            place++;
         }
-        return (landed, matched, at, false);
+        return (landed, matched, at, place == line.Count);
     }
 
     static string Clip(string s) => s.Length <= GameState.MaxTried ? s : s[..(GameState.MaxTried - 1)] + "…";
