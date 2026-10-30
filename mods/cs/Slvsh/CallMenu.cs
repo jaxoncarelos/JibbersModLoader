@@ -67,10 +67,10 @@ internal sealed class CallMenu
     List<Slice> Options()
     {
         static Slice S(string label, Func<CalledTrick, CalledTrick> apply, string value = "") => new(label, apply, value.Length > 0 ? value : label);
-        static List<Slice> Degrees(int step, int max, Func<CalledTrick, int?, CalledTrick> set)
+        static List<Slice> Degrees(int from, int step, int max, Func<CalledTrick, int?, CalledTrick> set)
         {
             var list = new List<Slice> { S(Any, t => set(t, null), "any") };
-            for (var d = step; d <= max; d += step) { var x = d; list.Add(S(x.ToString(), t => set(t, x))); }
+            for (var d = from; d <= max; d += step) { var x = d; list.Add(S(x.ToString(), t => set(t, x))); }
             return list;
         }
         var flips = new[] { "frontflip", "backflip" };
@@ -83,15 +83,16 @@ internal sealed class CallMenu
                 .Select(a => S(a == "flat" ? "Flat" : char.ToUpperInvariant(a[0]) + a[1..], t => t with { Axis = a }, a))
                 .Append(S(Any, t => t with { Axis = null }, "any")).ToList(),
             Step.Count => new() { S("Single", t => t with { Count = 1 }), S("Dub", t => t with { Count = 2 }), S("Trip", t => t with { Count = 3 }), S("Quad", t => t with { Count = 4 }), S(Any, t => t with { Count = null }, "any") },
-            Step.Degrees => Degrees(180, 2160, (t, d) => t with { Degrees = d }),
+            Step.Degrees => Degrees(180, 180, 2160, (t, d) => t with { Degrees = d }),
             Step.OnSpin => new() { S("Left", t => t with { Spin = "left" }), S("Right", t => t with { Spin = "right" }), S("Straight on", t => t with { Spin = "none" }, "none"), S(Any, t => t with { Spin = null }, "any") },
-            Step.OnDegrees => Degrees(90, 900, (t, d) => t with { Degrees = d }),
+            // The game names a 90 on just "Regular On", so spins on start at 180.
+            Step.OnDegrees => Degrees(180, 90, 900, (t, d) => t with { Degrees = d }),
             Step.Slide => new() { S("Slide", t => t with { Slide = "slide" }), S("Frontslide", t => t with { Slide = "frontslide" }), S("Backslide", t => t with { Slide = "backslide" }), S("50-50", t => t with { Slide = "5050" }), S("5-0", t => t with { Slide = "5-0" }), S(Any, t => t with { Slide = null }, "any") },
             // The game names spins off a rail front or back ("Back 270 Out"), not left or right.
             Step.Off => new() { S("Front", t => t with { Off = "front" }), S("Back", t => t with { Off = "back" }), S("Straight off", t => t with { Off = "none" }, "none"), S(Any, t => t with { Off = null }, "any") },
             Step.OffAxis => new() { S("Flat", t => t with { OffAxis = "flat" }), S("Cork", t => t with { OffAxis = "cork" }), S("Misty", t => t with { OffAxis = "misty" }), S("Bio", t => t with { OffAxis = "bio" }), S(Any, t => t with { OffAxis = null }, "any") },
             Step.OffCount => new() { S("Single", t => t with { OffCount = 1 }), S("Dub", t => t with { OffCount = 2 }), S("Trip", t => t with { OffCount = 3 }), S(Any, t => t with { OffCount = null }, "any") },
-            Step.OffDegrees => Degrees(90, 1080, (t, d) => t with { OffDegrees = d }),
+            Step.OffDegrees => Degrees(90, 90, 1080, (t, d) => t with { OffDegrees = d }),
             _ => new List<Slice>()
                 .Concat(done.Count < CalledLine.MaxTricks ? new[] { S("Add a trick", t => t, "add") } : Array.Empty<Slice>())
                 .Append(S("Call it", t => t, "call"))

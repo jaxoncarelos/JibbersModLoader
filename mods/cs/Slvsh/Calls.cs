@@ -205,6 +205,19 @@ internal static class TrickName
         return new Segment(kind, isSwitch, dir, axis, count, degrees, rest);
     }
 
+    /// <summary>
+    /// A trick that starts your run: any rail trick, or a jump with a rotation or at least 180 of spin.
+    /// Straight airs, zero spins, butters and small spins on the way to the feature don't.
+    /// </summary>
+    public static bool IsReal(string name)
+    {
+        var parsed = Parse(name);
+        if (parsed.Rail) return true;
+        if (parsed.Segments.Count != 1 || parsed.Segments[0].Kind != SegmentKind.Air) return parsed.Segments.Count > 1;
+        var s = parsed.Segments[0];
+        return s.Axis is not null || s.Degrees >= 180;
+    }
+
     static bool IsSlideWord(string w) => w.Contains("slide") || w is "5050" or "5-0" or "50-50" or "boardslide";
 
     /// <summary>A slide's kind, comparable however it's written ("50-50" = "5050").</summary>

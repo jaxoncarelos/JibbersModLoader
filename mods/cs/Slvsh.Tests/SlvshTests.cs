@@ -307,20 +307,27 @@ static class SlvshTests
         log.AddReset(51.5);
         Assert.True(j.Step(52) is { Landed: false });
 
-        // Warm-up tricks and resets before the line's first trick are free (like resetting after calling).
+        // Small stuff on the way to the feature doesn't start the run; resetting after it is free.
         j = new TrickJudge(log, 55, new[] { cork });
         log.AddTrick(56, "Straight Air", 10);
         log.AddReset(57);
-        Assert.True(j.Step(57.5) is null, "a reset before the first called trick is free");
+        Assert.True(j.Step(57.5) is null, "a reset after a straight air is free");
         log.AddTrick(58, "Left Dub Cork 1080", 11);
         Assert.True(j.Step(61) is { Landed: true });
 
+        // But a real trick that isn't the call does: resetting to try again is a miss.
+        j = new TrickJudge(log, 70, new[] { cork });
+        log.AddTrick(71, "Left 540", 12);
+        log.AddReset(73);
+        Assert.True(j.Step(73.5) is { Landed: false }, "one try");
+        Assert.True(TrickName.IsReal("Regular On - Slide") && TrickName.IsReal("Backflip") && !TrickName.IsReal("Zero Spin") && !TrickName.IsReal("Nose Butter"));
+
         // Bailing off a rail (a new trick while it's still going) doesn't count, but the run goes on.
-        j = new TrickJudge(log, 60, new[] { rail });
-        log.AddTrick(61, "Left 270 On", 7);
-        log.AddTrick(62, "Zero Spin", 8);
-        log.AddTrick(65, "Left 270 On - 5050 - To Regular", 9);
-        Assert.True(j.Step(70) is { Landed: true });
+        j = new TrickJudge(log, 80, new[] { rail });
+        log.AddTrick(81, "Left 270 On", 7);
+        log.AddTrick(82, "Zero Spin", 8);
+        log.AddTrick(85, "Left 270 On - 5050 - To Regular", 9);
+        Assert.True(j.Step(90) is { Landed: true });
     }
 
     [Test]

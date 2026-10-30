@@ -47,9 +47,9 @@ internal sealed class TrickLog
 /// Watches one attempt at a called line: the tricks must be landed in order in one run, and other
 /// tricks in between don't matter. A trick is landed once the rider rides away clean (no respawn,
 /// no more combo for <see cref="Settle"/>) or starts the next trick; a rail trick still going when
-/// the next one starts, or for <see cref="Rail"/> seconds, wasn't landed. The run starts at the
-/// line's first trick: respawning before that (warming up, getting back up to the jump) is free.
-/// Respawning after it, even straight after crashing it, is a miss unless the whole line was landed.
+/// the next one starts, or for <see cref="Rail"/> seconds, wasn't landed. The run starts at your
+/// first real trick (see <see cref="TrickName.IsReal"/>) or the line's first trick: small stuff on the
+/// way to the feature doesn't count. Respawning after that is a miss unless the whole line was landed.
 /// </summary>
 internal sealed class TrickJudge
 {
@@ -100,8 +100,8 @@ internal sealed class TrickJudge
             TrickAt = at;
             var tried = Clip(string.Join("  /  ", landed.Select(r => r.Name)));
             if (matched == line.Count) return Outcome.Land(tried);
-            // The run began with the line's first trick (landed or not): respawning now ends it.
-            var begun = matched > 0 || segment.Any(r => line[0].Matches(r.Name));
+            // The run began with its first real trick (landed or not): respawning now ends it.
+            var begun = matched > 0 || segment.Any(r => line[0].Matches(r.Name) || TrickName.IsReal(r.Name));
             if (ended && begun) return new Outcome(false, Clip(Current!));
             if (!ended && segment.Count > 0 && segment[^1] is { Going: true } last && now - last.Last >= Rail && matched > 0)
                 return new Outcome(false, Clip(Current!));
