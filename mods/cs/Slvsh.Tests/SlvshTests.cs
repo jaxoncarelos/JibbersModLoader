@@ -222,6 +222,44 @@ static class SlvshTests
         Assert.Equal(-1, RiderMatch.Pick(2, "Ben", null, riders));
     }
 
+    [Test]
+    static void ChasingTheWatchedRider()
+    {
+        var chase = new ChaseCamera();
+        chase.Start(new Vector3(0, 0, 0), new Vector3(0, 5, -20));
+        Assert.True(chase.Heading == new Vector3(0, 0, 1), "faces the rider from where the camera was");
+        // Riding along +X at 10 m/s for 3 s: the camera ends up behind (-X) and above them.
+        var at = new Vector3(0, 0, 0);
+        for (var i = 0; i < 180; i++)
+        {
+            at += new Vector3(10f / 60, 0, 0);
+            chase.Step(1f / 60, at);
+        }
+        Assert.True(chase.Heading.X > 0.95f, $"turned to their heading {chase.Heading}");
+        var behind = chase.Eye - at;
+        Assert.True(behind.X < -4 && behind.Y > 1.5f, $"behind and above them {behind}");
+        // Standing still: the camera keeps its heading rather than swinging around.
+        var heading = chase.Heading;
+        for (var i = 0; i < 60; i++) chase.Step(1f / 60, at + new Vector3(0, 0, 0.001f * i));
+        Assert.True(RiderMatch.Distance(heading, chase.Heading) < 0.05f, "keeps heading when slow");
+        // A respawn far away: cut straight there.
+        chase.Step(1f / 60, new Vector3(500, 20, 0));
+        Assert.True(RiderMatch.Distance(chase.Eye, new Vector3(500, 20, 0)) < 8, "cuts to a respawned rider");
+    }
+
+    [Test]
+    static void LookingAlongADirection()
+    {
+        static Vector3 Forward(Quaternion q) => new( // q * (0, 0, 1)
+            2 * (q.X * q.Z + q.W * q.Y), 2 * (q.Y * q.Z - q.W * q.X), 1 - 2 * (q.X * q.X + q.Y * q.Y));
+        Assert.Equal(Quaternion.Identity, ChaseCamera.Look(new Vector3(0, 0, 1)));
+        foreach (var direction in new[] { new Vector3(1, 0, 0), new Vector3(0.3f, -0.5f, -0.8f), new Vector3(-2, 1, 0.5f) })
+        {
+            var expected = direction * (1 / direction.Magnitude);
+            Assert.True(RiderMatch.Distance(Forward(ChaseCamera.Look(direction)), expected) < 1e-4f, $"looks along {direction}");
+        }
+    }
+
     static IEnumerable<(SlvshView View, string Name)> Views()
     {
         var h = Host(voteSeconds: 12);
