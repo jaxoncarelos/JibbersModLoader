@@ -54,6 +54,9 @@ public sealed class SlvshMod : JibbersMod
     [Toggle("Start every try on the setter's line (host decides)", false, Key = "same_line", Section = "Rules", Tooltip = "When it's your turn to match, you start where the setter's run-in began, at their speed.")]
     public bool SameLine { get; private set; }
 
+    [Toggle("Revenge (host decides)", Key = "revenge", Section = "Rules", Tooltip = "When a setter misses their own set, the next player gets one try at it. Land it and the setter gets a letter.")]
+    public bool RevengeRule { get; private set; }
+
     [Slider("Run-in before the trick (seconds)", 6, 2, 15, 1, Key = "run_in", Section = "Rules", Tooltip = "How far back from the setter's trick the line starts.")]
     public double RunIn { get; private set; }
 
@@ -360,7 +363,7 @@ public sealed class SlvshMod : JibbersMod
             {
                 // Start a new game (or the next one, once this one is over).
                 host = new SlvshHost(me, Party.Local?.Name ?? "You", (int)Math.Clamp(AttemptSeconds, 15, 180), Voting ? (int)Math.Clamp(VoteSeconds, 5, 30) : 0, () => Now,
-                    SameLine, (int)Math.Clamp(RunIn, 2, 15));
+                    SameLine, (int)Math.Clamp(RunIn, 2, 15), revenge: RevengeRule);
                 lines.Clear();
                 game = host.Game;
                 lastInvite = -10;

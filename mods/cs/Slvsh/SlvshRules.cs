@@ -43,10 +43,17 @@ internal sealed record GameState
     public string Trick { get; init; } = "";
     /// <summary>The called line: the tricks to land, in order (empty until the setter calls it).</summary>
     public IReadOnlyList<CalledTrick> Call { get; init; } = Array.Empty<CalledTrick>();
+    /// <summary>
+    /// A revenge try: the setter missed their own set, and the next player tries the same line. If
+    /// they land it, the setter (<see cref="Setter"/>) gets a letter; then the next player sets.
+    /// </summary>
+    public bool Revenge { get; init; }
+    /// <summary>Whether a missed set gets a revenge try (the host's rule).</summary>
+    public bool RevengeOn { get; init; } = true;
     /// <summary>The setter's spawn point when they called: everyone matching starts there.</summary>
     public SpawnSpot? Spawn { get; init; }
     /// <summary>The longest a line's words or a tried run may be.</summary>
-    public const int MaxTrick = 400, MaxTried = 200;
+    public const int MaxTrick = 400, MaxTried = 400;
     /// <summary>How long the setter has to call their line.</summary>
     public const int CallSeconds = 90;
     public int SecondsLeft { get; init; }
@@ -86,7 +93,7 @@ internal sealed record GameState
         ["players"] = new JsonArray(Players.Select(p => (JsonNode)new JsonObject { ["id"] = p.Id.ToString(), ["name"] = p.Name, ["letters"] = p.Letters }).ToArray()),
         ["on"] = VotingOn.ToString().ToLowerInvariant(), ["tried"] = Tried, ["detected"] = Detected, ["voters"] = Ids(Voters),
         ["ballots"] = new JsonArray(Ballots.Select(b => (JsonNode)new JsonObject { ["v"] = b.Voter.ToString(), ["yes"] = b.Yes }).ToArray()),
-        ["vsecs"] = VoteSecondsLeft, ["vtotal"] = VoteSecondsTotal, ["line"] = SameLine, ["runin"] = RunIn,
+        ["vsecs"] = VoteSecondsLeft, ["vtotal"] = VoteSecondsTotal, ["line"] = SameLine, ["runin"] = RunIn, ["revenge"] = Revenge, ["revengeon"] = RevengeOn,
     };
 
     /// <summary>Reads a state message; null for anything malformed (it came over the network).</summary>
@@ -124,6 +131,8 @@ internal sealed record GameState
                 VoteSecondsTotal = Math.Clamp(v["vtotal"]?.GetValue<int>() ?? 0, 0, 120),
                 SameLine = v["line"]?.GetValue<bool>() == true,
                 RunIn = Math.Clamp(v["runin"]?.GetValue<int>() ?? 6, 2, 15),
+                Revenge = v["revenge"]?.GetValue<bool>() == true,
+                RevengeOn = v["revengeon"]?.GetValue<bool>() != false,
             };
         }
         catch (Exception e) when (e is InvalidOperationException or FormatException or NullReferenceException)
@@ -160,7 +169,7 @@ internal sealed class SlvshHost
 
     /// <param name="voteSeconds">How long a vote lasts; 0 turns voting off (trick detection decides).</param>
     /// <param name="sameLine">Matchers start on the setter's line (see <see cref="GameState.SameLine"/>).</param>
-    public SlvshHost(ulong me, string myName, int attemptSeconds, int voteSeconds, Func<double> clock, bool sameLine = false, int runIn = 6, bool solo = false)
+    public SlvshHost(ulong me, string myName, int attemptSeconds, int voteSeconds, Func<double> clock, bool sameLine = false, int runIn = 6, bool solo = false, bool revenge = true)
     {
         this.clock = clock;
         Solo = solo;
@@ -169,7 +178,7 @@ internal sealed class SlvshHost
         Game = new GameState
         {
             Id = id, Host = me, Phase = Phase.Lobby, SecondsTotal = attemptSeconds, VoteSecondsTotal = voteSeconds,
-            SameLine = sameLine, RunIn = Math.Clamp(runIn, 2, 15),
+            SameLine = sameLine, RunIn = Math.Clamp(runIn, 2, 15), RevengeOn = revenge && !solo,
             Players = new[] { new Player(me, myName, 0) }, News = $"{myName} started SLVSH",
         };
     }
@@ -320,9 +329,30 @@ internal sealed class SlvshHost
             else
             {
                 var next = NextAlive(who);
+                if (Game.RevengeOn && Game.Call.Count > 0 && next != who)
+                {
+                    // Revenge: the next player tries the missed line; landing it gives the setter a letter.
+                    followers.Clear();
+                    Set(Game with { Phase = Phase.Match, Revenge = true, News = $"{name} missed the set{tally}. Revenge: {Game.NameOf(next)} lands it, {First(name)} gets a letter." });
+                    BeginAttempt(next);
+                    return;
+                }
                 Set(Game with { Setter = next, News = $"{name} missed the set{tally}. {Game.NameOf(next)} sets now." });
                 BeginSet();
             }
+            return;
+        }
+        if (Game.Revenge)
+        {
+            var setter = Game.Setter;
+            var setterName = Game.NameOf(setter);
+            var players = counted ? Game.Players.Select(p => p.Id == setter ? p with { Letters = Math.Min(p.Letters + 1, GameState.Word.Length) } : p).ToList() : Game.Players.ToList();
+            var news = counted
+                ? (players.First(p => p.Id == setter) is var s && s.Letters >= GameState.Word.Length ? $"{name} got revenge: {setterName} spells SLVSH, out!" : $"{name} got revenge: {setterName} gets {string.Join("-", GameState.Spelled(players.First(p => p.Id == setter).Letters).ToCharArray())}")
+                : $"{name} couldn't land it either";
+            Set(Game with { Players = players, Revenge = false, Setter = who, News = $"{news}{tally}. {First(name)} sets now." });
+            if (Game.Alive.Count <= 1) Finish();
+            else BeginSet();
             return;
         }
         if (counted) Set(Game with { News = $"{name} matched it!{tally}" });
@@ -337,6 +367,8 @@ internal sealed class SlvshHost
         NextFollower();
     }
 
+    static string First(string name) => name.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: > 0 } parts ? parts[0] : name;
+
     /// <summary>A player left the party or the game.</summary>
     public void Remove(ulong who)
     {
@@ -346,6 +378,7 @@ internal sealed class SlvshHost
         var wasTrying = Game.Attempter == who;
         var playing = Game.Phase is Phase.Set or Phase.Match or Phase.Vote;
         var turnPhase = Game.Phase == Phase.Vote ? Game.VotingOn : Game.Phase;
+        var revenge = Game.Revenge && playing;
         if (wasSetter && playing) Set(Game with { Setter = NextAlive(who) });
         followers.Remove(who);
         Set(Game with
@@ -354,6 +387,12 @@ internal sealed class SlvshHost
             Ballots = Game.Ballots.Where(b => b.Voter != who).ToList(), News = $"{name} left",
         });
         if (playing && Game.Alive.Count <= 1) Finish();
+        else if (revenge && (wasTrying || wasSetter))
+        {
+            // The revenge try is off: whoever is next sets.
+            Set(Game with { Revenge = false, Setter = wasTrying ? NextAlive(Game.Setter) : Game.Setter });
+            BeginSet();
+        }
         else if (wasTrying && turnPhase == Phase.Set) BeginSet();
         else if (wasTrying && turnPhase == Phase.Match) NextFollower();
         else if (Game.Phase == Phase.Vote && Game.Voters.All(v => Game.Ballots.Any(b => b.Voter == v))) Decide();

@@ -69,7 +69,10 @@ internal static class Scoreboard
         var players = g.Phase == Phase.Over ? g.Players.OrderBy(p => p.Letters).ToList() : g.Players.ToList();
         var showLine = g.Call.Count > 0 && g.Phase is Phase.Set or Phase.Match or Phase.Vote;
         var lineBlock = showLine ? 18 + g.Call.Count * LineRow + 10 : 0;
-        var height = 104f + lineBlock + (voting ? VoteBlock : 0) + 18 + players.Count * Row + 8 + (g.News.Length > 0 ? 24 : 0) + 38;
+        // What was ridden: the run being voted on, or your own run so far. One trick per row, so nothing is cut off.
+        var ridden = voting ? Tricks(g.Tried) : mine && v.Trying is { } so ? Tricks(so) : new List<string>();
+        var riddenBlock = ridden.Count > 0 ? 18 + ridden.Count * LineRow + 10 : 0;
+        var height = 104f + lineBlock + riddenBlock + (voting ? VoteBlock : 0) + 18 + players.Count * Row + 8 + (g.News.Length > 0 ? 24 : 0) + 38;
         var f = new OverlayFrame(Width + Margin * 2, height + Margin * 2).Origin(Margin, Margin);
         f.Rect(0, 0, Width, height, Look.Corner, Look.Panel);
 
@@ -90,7 +93,7 @@ internal static class Scoreboard
         var timed = g.Phase is Phase.Set or Phase.Match or Phase.Vote && total > 0;
         var textW = Width - Pad * 2 - (timed ? 96 : 0);
         f.Text(title, Pad, 36, textW, 30, title.Length > 24 ? 19 : 23, titleColor);
-        f.Text(v.Trying is { } t && mine ? $"So far: {t}" : sub, Pad, 66, textW, 18, 13, v.Trying is not null && mine ? Look.Mint : Look.Caption);
+        f.Text(sub, Pad, 66, textW, 18, 13, Look.Caption);
         if (timed)
         {
             var timeColor = voting ? Look.Text : left <= 5 ? Look.Bad : left <= 10 ? Look.Gold : Look.Text;
@@ -111,6 +114,18 @@ internal static class Scoreboard
             {
                 f.Text($"{i + 1}", Pad, y, 16, LineRow, 12, Look.Mint, bold: true);
                 f.Text(g.Call[i].Describe(), Pad + 18, y, Width - Pad * 2 - 18, LineRow, 13, Look.Text);
+                y += LineRow;
+            }
+            y += 10;
+        }
+
+        if (ridden.Count > 0)
+        {
+            f.Text(voting ? (g.Attempter == v.Me ? "WHAT YOU DID" : "WHAT THEY DID") : "YOUR RUN SO FAR", Pad, y, 200, 14, 10, Look.Caption, spacing: Look.Tracked);
+            y += 18;
+            foreach (var trick in ridden)
+            {
+                f.Text(trick, Pad + 18, y, Width - Pad * 2 - 18, LineRow, 13, voting ? Look.Text : Look.Mint);
                 y += LineRow;
             }
             y += 10;
@@ -166,6 +181,7 @@ internal static class Scoreboard
     {
         Phase.Lobby => "LOBBY",
         Phase.Set => mine ? "YOUR SET" : "SET",
+        Phase.Match when g.Revenge => mine ? "YOUR REVENGE" : "REVENGE",
         Phase.Match => mine ? "YOUR TURN" : "MATCH",
         Phase.Vote => canVote ? "YOUR VOTE" : "VOTING",
         _ => "GAME OVER",
@@ -232,11 +248,13 @@ internal static class Scoreboard
             Phase.Set when mine => ("Land your line", $"{rule} · then they vote"),
             Phase.Set when g.Call.Count == 0 => ($"{who} is calling a set", "Their line shows here once it's called"),
             Phase.Set => ($"{who} is setting", v.Watching == SpectateStatus.Watching ? $"Watching {First(who)}" : rule),
+            Phase.Match when mine && g.Revenge => ("Revenge: land it", $"{First(g.NameOf(g.Setter))} missed it. Land it and they get a letter"),
+            Phase.Match when g.Revenge => ($"{who} goes for revenge", $"If they land it, {First(g.NameOf(g.Setter))} gets a letter"),
             Phase.Match when mine => ("Your turn: match it", rule),
             Phase.Match => ($"{who} is trying", watch),
-            Phase.Vote when g.Attempter == v.Me && g.Voters.Contains(v.Me) => (g.Tried.Length > 0 ? g.Tried : "No trick seen", "Did you land it? Honor system: your call"),
-            Phase.Vote when g.Attempter == v.Me => (g.Tried.Length > 0 ? g.Tried : "No trick seen", g.VotingOn == Phase.Set ? "The others are voting on your set" : "The others are voting on your match"),
-            Phase.Vote => (g.Tried.Length > 0 ? g.Tried : "No trick seen",
+            Phase.Vote when g.Attempter == v.Me && g.Voters.Contains(v.Me) => (g.Tried.Length > 0 ? "Did you land it?" : "No trick seen", "Honor system: your call"),
+            Phase.Vote when g.Attempter == v.Me => (g.Tried.Length > 0 ? "Did it count?" : "No trick seen", g.VotingOn == Phase.Set ? "The others are voting on your set" : "The others are voting on your match"),
+            Phase.Vote => (g.Tried.Length > 0 ? "Did it count?" : "No trick seen",
                 g.VotingOn == Phase.Set ? $"Did {First(who)} land the line?" : $"Did {First(who)} match the line?"),
             _ => (g.Winner == v.Me ? "You win" : $"{g.NameOf(g.Winner)} wins", g.Winner == v.Me ? "Nobody could match you" : "Better luck next game"),
         };
@@ -302,6 +320,9 @@ internal static class Scoreboard
             x += kw + 7 + WhatWidth(what) + 12;
         }
     }
+
+    /// <summary>A run's tricks ("Zero Spin  /  Left Dub Cork 1080") as rows; the last few if it's long.</summary>
+    static List<string> Tricks(string run) => run.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).TakeLast(6).ToList();
 
     static string First(string name) => name.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: > 0 } parts ? parts[0] : name;
 }

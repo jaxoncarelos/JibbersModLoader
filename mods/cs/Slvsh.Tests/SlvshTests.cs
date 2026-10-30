@@ -11,9 +11,9 @@ static class SlvshTests
     static readonly CalledTrick Left180 = new() { Type = TrickType.Jump, Spin = "left", Axis = "flat", Degrees = 180 };
 
     /// <summary>Ana (host), Ben and Cat; voting off unless asked.</summary>
-    static SlvshHost Host(Func<double>? clock = null, int voteSeconds = 0)
+    static SlvshHost Host(Func<double>? clock = null, int voteSeconds = 0, bool revenge = false)
     {
-        var h = new SlvshHost(1, "Ana", 45, voteSeconds, clock ?? (() => 0));
+        var h = new SlvshHost(1, "Ana", 45, voteSeconds, clock ?? (() => 0), revenge: revenge);
         h.Join(2, "Ben");
         h.Join(3, "Cat");
         return h;
@@ -88,6 +88,44 @@ static class SlvshTests
             h.Result(1, h.Game.Attempt, Outcome.Miss);
         }
         Assert.Equal(Phase.Over, h.Game.Phase);
+    }
+
+    [Test]
+    static void RevengeOnAMissedSet()
+    {
+        var h = Host(revenge: true);
+        h.Start();
+        Call(h);
+        h.Result(1, h.Game.Attempt, new Outcome(false, "Right 180")); // Ana misses her own set
+        Assert.Equal((Phase.Match, true, 2UL, 1UL), (h.Game.Phase, h.Game.Revenge, h.Game.Attempter, h.Game.Setter));
+        Assert.Equal("Left 180", h.Game.Trick); // Ben tries the same line
+        h.Result(2, h.Game.Attempt, Landed("Left 180"));
+        Assert.Equal(1, h.Game.Find(1)!.Letters); // he landed it: Ana gets a letter
+        Assert.Equal((Phase.Set, 2UL, false), (h.Game.Phase, h.Game.Setter, h.Game.Revenge)); // and Ben sets
+        Assert.True(h.Game.News.StartsWith("Ben got revenge: Ana gets S"), h.Game.News);
+
+        // Ben misses his set; Cat can't land it either: no letters, Cat sets.
+        Call(h);
+        h.Result(2, h.Game.Attempt, Outcome.Miss);
+        Assert.Equal((true, 3UL), (h.Game.Revenge, h.Game.Attempter));
+        h.Result(3, h.Game.Attempt, Outcome.Miss);
+        Assert.Equal((0, 0, Phase.Set, 3UL), (h.Game.Find(2)!.Letters, h.Game.Find(3)!.Letters, h.Game.Phase, h.Game.Setter));
+
+        // Not calling at all leaves nothing to take revenge on; leaving mid-revenge moves on.
+        h.Tick(); // (clock is 0: nothing happens)
+        Call(h);
+        h.Result(3, h.Game.Attempt, Outcome.Miss);
+        Assert.Equal((true, 1UL), (h.Game.Revenge, h.Game.Attempter));
+        h.Remove(3); // the setter left
+        Assert.Equal((Phase.Set, false), (h.Game.Phase, h.Game.Revenge));
+
+        var off = new SlvshHost(1, "Ana", 45, 0, () => 0, revenge: false);
+        off.Join(2, "Ben");
+        off.Start();
+        Call(off);
+        off.Result(1, off.Game.Attempt, Outcome.Miss);
+        Assert.Equal((Phase.Set, 2UL, false), (off.Game.Phase, off.Game.Setter, off.Game.Revenge)); // revenge off: Ben just sets
+        Assert.True(!new SlvshHost(1, "Ana", 45, 0, () => 0, solo: true).Game.RevengeOn, "no revenge on yourself");
     }
 
     [Test]
