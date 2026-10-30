@@ -29,6 +29,8 @@ static class ServerTests
         public bool InParty => InPartyNow;
         public IReadOnlyList<PartyMember> Members => Party;
         public string PanelKey => "F7";
+        public readonly ConcurrentQueue<string> Logged = new();
+        public void Log(string line) => Logged.Enqueue(line);
         public void Send(SteamId to, byte[] payload, bool reliable)
         {
             // Delivered as the SDK would: to the member with that id, from us as a remote member.
@@ -95,8 +97,24 @@ static class ServerTests
         Assert.Equal("Hosting · 1 joined through Steam", ana.Session.Status);
         Assert.True(ben.Lines.Contains("Joined Ana's server"));
 
+        // The game's client reading stopped for a moment (it does while it connects or logs in)
+        // must not close the tunnel: that is what cut joins off before the handshake finished.
+        ben.Session.Update(new ServerInfo(false, false, 0, ""));
+        Assert.True(!ben.Lines.Contains("Left Ana's server"), "a moment's stop doesn't leave");
+        game.SendTo("still here"u8.ToArray(), new IPEndPoint(IPAddress.Loopback, ben.Connected!.Value.Port));
+        Assert.Equal("still here", Encoding.UTF8.GetString(Receive(server, out _)));
+        ben.Session.Update(new ServerInfo(false, true, 0, ""));
+        ben.Now = 10;
+        ben.Session.Update(new ServerInfo(false, false, 0, ""));
+        Assert.True(!ben.Lines.Contains("Left Ana's server"), "the stop is timed from when it started");
+        Assert.True(ben.Logged.Any(l => l.StartsWith("welcomed by Ana: the game connects to 127.0.0.1:")), "the join is logged");
+        Assert.True(ana.Logged.Any(l => l.StartsWith("Ben is joining: sent the welcome")));
+
+        ben.Now = 13;
         ben.Session.Update(new ServerInfo(false, false, 0, ""));
         Assert.True(ben.Lines.Contains("Left Ana's server"));
+        Assert.True(ben.Logged.Any(l => l.StartsWith("the game's client stopped for 3 s: leaving Ana's server (2 packets sent, 1 received)")), "with the traffic");
+        Assert.True(ana.Logged.Any(l => l.StartsWith("Ben left: closing their tunnel (2 packets to the server, 1 back)")));
         Assert.Equal("", ben.Session.Status);
         Assert.Equal("Hosting your server", ana.Session.Status);
         Assert.True(ben.FastHolds == 0 && ana.FastHolds == 0, "polling slows down again");
@@ -124,7 +142,11 @@ static class ServerTests
         ana.Session.Update(new ServerInfo(true, true, 7770, ""));
         Assert.True(ben.Session.Hosts.Count == 1);
         ana.Session.Update(ServerInfo.None);
+        Assert.True(ben.Session.Hosts.Count == 1, "a moment's stop keeps the server");
+        ana.Now = 3;
+        ana.Session.Update(ServerInfo.None);
         Assert.True(ben.Session.Hosts.Count == 0, "stopping the server tells the party");
+        ana.Now = 0;
 
         ana.Session.Update(new ServerInfo(true, true, 7770, ""));
         ben.Now = 30;

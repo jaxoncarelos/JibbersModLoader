@@ -14,6 +14,8 @@ internal interface IServerSessionHost
     /// <summary>Asks the game to connect to a server (does not wait).</summary>
     void Connect(string address, int port, string password);
     void Announce(string line);
+    /// <summary>A line for the log file only (what happened, for working out a failed join).</summary>
+    void Log(string line);
     /// <summary>Latency-sensitive traffic is flowing (or stopped): poll for messages faster.</summary>
     void Fast(bool on);
     void CreateParty();
@@ -37,6 +39,12 @@ internal sealed class ServerSession : IDisposable
 {
     internal const byte Data = 0, Control = 1;
     const double AnnounceEvery = 2, HostForgetAfter = 7, AskTimeout = 8, ConnectTimeout = 25;
+    /// <summary>
+    /// How long the game must report its client (or server) stopped before the tunnel closes. It
+    /// can read stopped for a moment while it connects or logs in, and closing the tunnel then
+    /// is what ends the connection.
+    /// </summary>
+    const double StoppedFor = 3;
 
     enum Phase { None, Asking, Connecting, Connected }
 
@@ -51,6 +59,7 @@ internal sealed class ServerSession : IDisposable
     Phase phase;
     SteamId target;
     double phaseAt, nextAnnounce;
+    double? clientStoppedAt, serverStoppedAt;
     bool autoJoin, inviteWhenReady, fast;
 
     public ServerSession(IServerSessionHost host, Func<double> clock)
@@ -149,16 +158,22 @@ internal sealed class ServerSession : IDisposable
             var t = clock();
             var was = game;
             game = now;
+            if (was.Hosting != now.Hosting || was.Client != now.Client || (now.Hosting && was.Port != now.Port))
+                host.Log($"game: server {(now.Hosting ? $"on port {now.Port}" : "off")}, client {(now.Client ? "started" : "stopped")}");
+            serverStoppedAt = now.Hosting ? null : serverStoppedAt ?? t;
             if (now.Hosting && relay?.ServerPort != now.Port)
             {
+                if (relay is not null) host.Log($"server port changed from {relay.ServerPort} to {now.Port}: tunnels reopened");
                 relay?.Dispose();
                 relay = new HostRelay(now.Port, (peer, data) => host.Send(peer, Frame(data), reliable: false));
+                host.Log($"hosting on port {now.Port}{(string.IsNullOrEmpty(now.Password) ? "" : " (with a password)")}: party members can join through Steam");
                 lines.Add(host.InParty ? "Hosting: your party can join from the Party panel" : $"Hosting: press {host.PanelKey} to invite friends over Steam");
                 nextAnnounce = 0;
                 changed = true;
             }
-            else if (!now.Hosting && relay is not null)
+            else if (!now.Hosting && relay is not null && t - serverStoppedAt >= StoppedFor)
             {
+                host.Log($"server stopped for {StoppedFor:0} s: closing {relay.Players.Count} tunnel(s)");
                 relay.Dispose();
                 relay = null;
                 foreach (var m in host.Members.Where(m => !m.IsLocal)) SendControl(m.Id, new JsonObject { ["t"] = "stopped" });
@@ -174,24 +189,29 @@ internal sealed class ServerSession : IDisposable
             foreach (var (id, seen) in hosts.ToList())
                 if (t - seen > HostForgetAfter || host.Members.All(m => m.Id != id)) { hosts.Remove(id); toldAbout.Remove(id); changed = true; }
 
+            clientStoppedAt = now.Client ? null : clientStoppedAt ?? t;
             switch (phase)
             {
                 case Phase.Asking when t - phaseAt > AskTimeout:
+                    host.Log($"{NameOf(target)} didn't answer the join request in {AskTimeout:0} s");
                     lines.Add($"{NameOf(target)}'s server didn't answer");
                     EndClient();
                     changed = true;
                     break;
                 case Phase.Connecting when now.Client:
                     phase = Phase.Connected;
+                    host.Log($"the game's client started: joined {NameOf(target)}'s server ({TrafficText()})");
                     lines.Add($"Joined {NameOf(target)}'s server");
                     changed = true;
                     break;
                 case Phase.Connecting when t - phaseAt > ConnectTimeout:
+                    host.Log($"the game didn't connect within {ConnectTimeout:0} s ({TrafficText()})");
                     lines.Add($"Couldn't connect to {NameOf(target)}'s server");
                     EndClient();
                     changed = true;
                     break;
-                case Phase.Connected when !now.Client:
+                case Phase.Connected when !now.Client && t - clientStoppedAt >= StoppedFor:
+                    host.Log($"the game's client stopped for {StoppedFor:0} s: leaving {NameOf(target)}'s server ({TrafficText()})");
                     lines.Add($"Left {NameOf(target)}'s server");
                     SendControl(target, new JsonObject { ["t"] = "bye" });
                     EndClient();
@@ -231,6 +251,7 @@ internal sealed class ServerSession : IDisposable
         try { json = JsonNode.Parse(payload[1..]); }
         catch (System.Text.Json.JsonException) { return; }
         var kind = json?["t"]?.GetValue<string>();
+        if (kind != "hosting") host.Log($"{from.Name}: {kind}");
         string? line = null;
         var changed = false;
         lock (gate)
@@ -248,7 +269,11 @@ internal sealed class ServerSession : IDisposable
                     break;
                 case "join" when game.Hosting:
                     SendControl(from.Id, new JsonObject { ["t"] = "welcome", ["pw"] = game.Password });
+                    host.Log($"{from.Name} is joining: sent the welcome (server port {game.Port})");
                     line = $"{from.Name} is joining your server";
+                    break;
+                case "join":
+                    host.Log($"{from.Name} asked to join, but you aren't hosting");
                     break;
                 case "welcome" when phase == Phase.Asking && from.Id == target:
                     var password = json?["pw"]?.GetValue<string>() ?? "";
@@ -256,10 +281,12 @@ internal sealed class ServerSession : IDisposable
                     client = new ClientRelay(target, (to, data) => host.Send(to, Frame(data), reliable: false));
                     phase = Phase.Connecting;
                     phaseAt = clock();
+                    host.Log($"welcomed by {from.Name}: the game connects to 127.0.0.1:{client.Port}{(password.Length > 0 ? " with the server's password" : "")}");
                     host.Connect("127.0.0.1", client.Port, password);
                     changed = true;
                     break;
                 case "bye":
+                    if (relay?.Traffic(from.Id) is { } traffic) host.Log($"{from.Name} left: closing their tunnel ({traffic.ToServer} packets to the server, {traffic.ToPlayer} back)");
                     relay?.Drop(from.Id);
                     changed = true;
                     break;
@@ -278,6 +305,7 @@ internal sealed class ServerSession : IDisposable
         {
             hosts.Remove(id);
             toldAbout.Remove(id);
+            if (relay?.Traffic(id) is { } traffic) host.Log($"{NameOf(id)} left the party: closing their tunnel ({traffic.ToServer} packets to the server, {traffic.ToPlayer} back)");
             relay?.Drop(id);
             if (phase != Phase.None && target == id)
             {
@@ -289,6 +317,8 @@ internal sealed class ServerSession : IDisposable
         if (line is not null) host.Announce(line);
         Changed?.Invoke();
     }
+
+    string TrafficText() => client is { } c ? $"{c.Traffic.ToHost} packets sent, {c.Traffic.FromHost} received" : "no tunnel";
 
     void EndClient()
     {

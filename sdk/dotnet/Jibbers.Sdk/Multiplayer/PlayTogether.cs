@@ -98,6 +98,7 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     string IServerSessionHost.PanelKey => Party.PanelKey;
     void IServerSessionHost.Send(SteamId to, byte[] payload, bool reliable) => channel?.Send(to, payload, reliable ? Delivery.Reliable : Delivery.Unreliable);
     void IServerSessionHost.Announce(string line) => Party.Announce(line);
+    void IServerSessionHost.Log(string line) => Log(line);
     void IServerSessionHost.CreateParty() => Party.Create();
     void IServerSessionHost.OpenInviteOverlay() => Party.OpenInviteOverlay();
 

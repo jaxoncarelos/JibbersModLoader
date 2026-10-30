@@ -53,6 +53,7 @@ internal sealed class HostRelay : IDisposable
     {
         public readonly Socket Socket = socket;
         public long LastSeen = Environment.TickCount64;
+        public long In, Out;
     }
 
     readonly object gate = new();
@@ -86,13 +87,26 @@ internal sealed class HostRelay : IDisposable
                 var socket = Loopback.Udp();
                 socket.Connect(new IPEndPoint(IPAddress.Loopback, ServerPort));
                 peers[peer] = p = new Peer(socket);
-                var reader = new Thread(() => Loopback.Pump(socket, (data, _) => toPeer(peer, data))) { IsBackground = true, Name = $"Jibbers tunnel {peer}" };
+                var made = p;
+                var reader = new Thread(() => Loopback.Pump(socket, (data, _) =>
+                {
+                    Interlocked.Increment(ref made.Out);
+                    toPeer(peer, data);
+                })) { IsBackground = true, Name = $"Jibbers tunnel {peer}" };
                 reader.Start();
             }
             p.LastSeen = Environment.TickCount64;
+            p.In++;
         }
         try { p.Socket.Send(datagram); }
         catch (Exception e) when (e is SocketException or ObjectDisposedException) { }
+    }
+
+    /// <summary>Datagrams relayed for a player so far: from them to the server, and back; null if they have no socket.</summary>
+    public (long ToServer, long ToPlayer)? Traffic(SteamId peer)
+    {
+        lock (gate)
+            return peers.TryGetValue(peer, out var p) ? (p.In, Interlocked.Read(ref p.Out)) : null;
     }
 
     /// <summary>Closes a player's socket (they left the party or the server).</summary>
@@ -133,6 +147,7 @@ internal sealed class ClientRelay : IDisposable
 {
     readonly Socket socket;
     EndPoint? game;
+    long toHost, fromHost;
 
     public ClientRelay(SteamId host, Action<SteamId, byte[]> toHost, int preferredPort = 0)
     {
@@ -144,6 +159,7 @@ internal sealed class ClientRelay : IDisposable
             // Only the game on this PC talks to the relay.
             if (from is not IPEndPoint ip || !IPAddress.IsLoopback(ip.Address)) return;
             Volatile.Write(ref game, from);
+            Interlocked.Increment(ref this.toHost);
             toHost(Host, data);
         })) { IsBackground = true, Name = "Jibbers tunnel client" };
         reader.Start();
@@ -155,9 +171,13 @@ internal sealed class ClientRelay : IDisposable
     /// <summary>True once the game has sent its first packet.</summary>
     public bool GameSeen => Volatile.Read(ref game) is not null;
 
+    /// <summary>Datagrams relayed so far: from the game to the host, and from the host to the game.</summary>
+    public (long ToHost, long FromHost) Traffic => (Interlocked.Read(ref toHost), Interlocked.Read(ref fromHost));
+
     /// <summary>A datagram from the host: on to the game.</summary>
     public void FromHost(ReadOnlySpan<byte> datagram)
     {
+        Interlocked.Increment(ref fromHost);
         if (Volatile.Read(ref game) is not { } to) return;
         try { socket.SendTo(datagram, SocketFlags.None, to); }
         catch (Exception e) when (e is SocketException or ObjectDisposedException) { }
