@@ -17,6 +17,10 @@ internal sealed unsafe class SteamFlat : ISteamBackend
     const int SendUnreliable = 1 | 32, SendReliable = 8 | 32; // NoNagle / Reliable, with AutoRestartBrokenSession
     const int IdentitySteamId = 16, IdentitySize = 136;
     const int LobbyCreatedId = 513, LobbyEnterId = 504;
+    // k_ESteamNetworkingConfig_SendBufferSize / SendRateMin / SendRateMax.
+    const int SendBufferConfig = 9, SendRateMinConfig = 10, SendRateMaxConfig = 11;
+    // 2 MB/s (16 Mbit/s, within most home uploads) with room to go faster; the buffer holds ~2 s of it.
+    const int SendRateMin = 2 * 1024 * 1024, SendRateMax = 8 * 1024 * 1024, SendBuffer = 4 * 1024 * 1024;
 
     readonly nint user, mm, utils, msgs, friends;
     readonly delegate* unmanaged<nint, ulong> getSteamId;
@@ -106,8 +110,40 @@ internal sealed unsafe class SteamFlat : ISteamBackend
         if (NativeLibrary.TryGetExport(lib, "SteamAPI_SteamNetworkingUtils_SteamAPI_v004", out var nu) && NativeLibrary.TryGetExport(lib, "SteamAPI_ISteamNetworkingUtils_InitRelayNetworkAccess", out var relay))
         {
             var utilsNet = ((delegate* unmanaged<nint>)nu)();
-            if (utilsNet != 0) ((delegate* unmanaged<nint, void>)relay)(utilsNet);
+            if (utilsNet != 0)
+            {
+                ((delegate* unmanaged<nint, void>)relay)(utilsNet);
+                RaiseSendRate(lib, utilsNet);
+            }
         }
+    }
+
+    /// <summary>
+    /// Steam paces each session at its minimum send rate (128 KB/s unless told otherwise), which
+    /// is how fast a map the host's server serves itself (one not on mod.io) reaches a joining
+    /// player through the tunnel: minutes for a large map. Raised for sessions made from now on.
+    /// </summary>
+    static void RaiseSendRate(nint lib, nint utilsNet)
+    {
+        if (!NativeLibrary.TryGetExport(lib, "SteamAPI_ISteamNetworkingUtils_SetGlobalConfigValueInt32", out var set)) return;
+        NativeLibrary.TryGetExport(lib, "SteamAPI_ISteamNetworkingUtils_GetConfigValue", out var get);
+        var setInt = (delegate* unmanaged<nint, int, int, byte>)set;
+        var before = $"{Global(get, utilsNet, SendRateMinConfig) / 1024}-{Global(get, utilsNet, SendRateMaxConfig) / 1024} KB/s, buffer {Global(get, utilsNet, SendBufferConfig) / 1024} KB";
+        var ok = setInt(utilsNet, SendBufferConfig, SendBuffer) != 0
+            & setInt(utilsNet, SendRateMaxConfig, SendRateMax) != 0
+            & setInt(utilsNet, SendRateMinConfig, SendRateMin) != 0;
+        Log.Info("party", $"Steam send rate {before} -> {SendRateMin / 1024}-{SendRateMax / 1024} KB/s, buffer {SendBuffer / 1024} KB{(ok ? "" : " (Steam refused part of it)")}");
+    }
+
+    /// <summary>A global int32 networking setting, or -1 if it can't be read.</summary>
+    static int Global(nint get, nint utilsNet, int config)
+    {
+        if (get == 0) return -1;
+        int value = -1, type = 1; // k_ESteamNetworkingConfig_Int32
+        nuint size = sizeof(int);
+        // GetConfigValue(self, setting, k_ESteamNetworkingConfig_Global, scope object, &type, &value, &size): 1 is OK.
+        var result = ((delegate* unmanaged<nint, int, int, nint, int*, int*, nuint*, int>)get)(utilsNet, config, 1, 0, &type, &value, &size);
+        return result >= 1 ? value : -1;
     }
 
     [DllImport("kernel32", CharSet = CharSet.Unicode)]
