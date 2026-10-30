@@ -40,6 +40,8 @@ mod pump;
 #[path = "modmenu.rs"]
 mod modmenu;
 #[cfg(feature = "release")]
+mod catalog;
+#[cfg(feature = "release")]
 mod release_menu;
 #[cfg(feature = "release")]
 #[path = "../../../sdk/crates/jibbers-mod-sdk/src/unity.rs"]

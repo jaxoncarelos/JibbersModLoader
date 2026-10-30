@@ -180,9 +180,88 @@ pub fn check(root: &Path) {
 
 pub fn set_message(root: &Path, message: String) { session(root).lock().unwrap().message = message; }
 
+// ---- queued changes the loader carries out on the next launch ----
+// The startup updater (in the stable bootstrap) installs every pending update or none, and never
+// touches files it doesn't manage. So queuing an update with auto-update off turns it on for one
+// launch, and an unofficial copy of a catalog mod is set aside by the loader before mods load.
+
+/// Unofficial mod DLLs (paths relative to the game folder) to set aside on the next launch.
+pub fn set_aside_list(root: &Path) -> Vec<String> {
+    path(root, "set_aside.json").and_then(|p| install::read_json(&p)).unwrap_or_default()
+}
+
+/// Queues (or unqueues) setting aside the unofficial mod DLL `rel` on the next launch.
+pub fn set_aside(root: &Path, rel: &str, queued: bool) -> Result<(), String> {
+    if !aside_path_ok(rel) { return Err(format!("{rel} isn't a mod DLL in JibbersMods")); }
+    let mut list = set_aside_list(root);
+    list.retain(|p| p != rel);
+    if queued { list.push(rel.to_string()); }
+    let _lock = install::Lock::acquire(root)?;
+    install::write_json(&path(root, "set_aside.json")?, &list)
+}
+
+fn aside_path_ok(rel: &str) -> bool {
+    rel.starts_with("JibbersMods/") && rel.to_ascii_lowercase().ends_with(".dll") && !rel.contains("..") && !rel.contains('\\') && !rel.starts_with("JibbersMods/system/")
+}
+
+/// Renames each queued unofficial DLL to `<name>.dll.unofficial` (kept, not deleted) so it no longer
+/// loads, and clears the queue. Run by the loader before it loads mods. Returns what was set aside.
+pub fn apply_set_aside(root: &Path) -> Vec<String> {
+    let list = set_aside_list(root);
+    if list.is_empty() { return vec![]; }
+    let mut done = vec![];
+    for rel in list.iter().filter(|r| aside_path_ok(r)) {
+        let (Ok(from), Ok(to)) = (install::safe_path(root, rel), install::safe_path(root, &format!("{rel}.unofficial"))) else { continue };
+        if from.is_file() {
+            let _ = std::fs::remove_file(&to);
+            if std::fs::rename(&from, &to).is_ok() { done.push(rel.clone()); }
+        }
+    }
+    if let Ok(p) = path(root, "set_aside.json") { let _ = std::fs::remove_file(p); }
+    done
+}
+
+/// Whether updates are queued for the next launch only (auto-update is otherwise off).
+pub fn update_queued(root: &Path) -> bool { path(root, "update_once.json").is_ok_and(|p| p.exists()) }
+
+/// Installs every pending update on the next launch, leaving auto-update off afterwards.
+pub fn queue_updates(root: &Path) -> Result<(), String> {
+    if session(root).lock().unwrap().config.auto_update { return Ok(()); }
+    install::write_json(&path(root, "update_once.json")?, &true)?;
+    set_auto_update(root, true)
+}
+
+/// Forgets a queued one-time update (the player set auto-update themselves).
+pub fn cancel_queued_updates(root: &Path) {
+    if let Ok(p) = path(root, "update_once.json") { let _ = std::fs::remove_file(p); }
+}
+
+/// After a launch with queued updates (the updater has run): auto-update back off. Run by the loader.
+pub fn finish_queued_updates(root: &Path) {
+    let Ok(marker) = path(root, "update_once.json") else { return };
+    if marker.exists() && set_auto_update(root, false).is_ok() { let _ = std::fs::remove_file(marker); }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn queued_unofficial_copies_are_set_aside_once() {
+        let root = std::env::temp_dir().join(format!("jibbers-aside-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir_all(root.join("JibbersMods/cs/Rumble")).unwrap();
+        std::fs::create_dir_all(root.join(STATE_DIR)).unwrap();
+        std::fs::write(root.join("JibbersMods/cs/Rumble/Rumble.dll"), b"local build").unwrap();
+        assert!(set_aside(&root, "JibbersMods/system/jibbers_loader.dll", true).is_err(), "never the loader");
+        assert!(set_aside(&root, "JibbersMods/../x.dll", true).is_err());
+        set_aside(&root, "JibbersMods/cs/Rumble/Rumble.dll", true).unwrap();
+        assert_eq!(set_aside_list(&root), ["JibbersMods/cs/Rumble/Rumble.dll"]);
+        assert_eq!(apply_set_aside(&root), ["JibbersMods/cs/Rumble/Rumble.dll"]);
+        assert!(!root.join("JibbersMods/cs/Rumble/Rumble.dll").exists());
+        assert_eq!(std::fs::read(root.join("JibbersMods/cs/Rumble/Rumble.dll.unofficial")).unwrap(), b"local build", "kept, not deleted");
+        assert!(set_aside_list(&root).is_empty() && apply_set_aside(&root).is_empty(), "once");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
     #[test]
     fn first_bootstrap_launch_enrolls_existing_public_mods_only() {
         let root = std::env::temp_dir().join(format!("jibbers-enroll-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));

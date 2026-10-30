@@ -114,9 +114,7 @@ static CONTROLS: Mutex<Vec<Control>> = Mutex::new(Vec::new());
 /// be taken as user edits. (Main thread only, like every callback here.)
 static APPLYING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static SECTIONS: Mutex<Vec<Section>> = Mutex::new(Vec::new());
-static STORE_IDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
-static STORE_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-static STORE_MESSAGE: Mutex<String> = Mutex::new(String::new());
+
 
 // ---- talking to plugins through the loader ---------------------------------------------------
 
@@ -132,6 +130,26 @@ fn has_menu_section(info: &Value) -> bool {
     info.get("ok").and_then(Value::as_bool) == Some(true)
         && info.get("settings").and_then(Value::as_array).is_some()
         && info.get("show_in_menu").and_then(Value::as_bool) != Some(false)
+}
+
+/// The loaded mods that came from DLLs outside the signed catalog: (mod id, name, plugin file stem).
+pub(crate) fn unverified_plugins() -> Vec<(String, String, String)> {
+    unsafe {
+        let (mut p, mut n) = (null_mut(), 0usize);
+        (host().list_plugins)(&mut p, &mut n);
+        let mut out = vec![];
+        for e in take(p, n).as_array().cloned().unwrap_or_default() {
+            let (Some(id), Some(file)) = (e.get("id").and_then(Value::as_u64), e.get("file").and_then(Value::as_str)) else { continue };
+            if !crate::core::is_unverified(file) {
+                continue;
+            }
+            let info = call(id as u32, &json!({"cmd": "plugin.info"}));
+            if let (Some(mod_id), Some(name)) = (info["id"].as_str(), info["name"].as_str()) {
+                out.push((mod_id.to_string(), name.to_string(), file.to_string()));
+            }
+        }
+        out
+    }
 }
 
 fn plugins() -> Vec<(u32, Value)> {
@@ -206,11 +224,11 @@ pub(crate) unsafe fn find(tr: *mut Object, path: &str) -> *mut Object {
     unity::callv(tr, "Find", &mut [il2cpp::string(path) as *mut c_void]).unwrap_or(null_mut())
 }
 
-unsafe fn go_of(tr: *mut Object) -> R<*mut Object> {
+pub(crate) unsafe fn go_of(tr: *mut Object) -> R<*mut Object> {
     unity::callv(tr, "get_gameObject", &mut [])
 }
 
-unsafe fn children(tr: *mut Object) -> Vec<*mut Object> {
+pub(crate) unsafe fn children(tr: *mut Object) -> Vec<*mut Object> {
     let n = unity::call_unbox::<i32>(tr, "get_childCount").unwrap_or(0);
     (0..n)
         .filter_map(|i| {
@@ -270,7 +288,7 @@ pub(crate) unsafe fn set_text(tr: *mut Object, path: &str, text: &str) {
 }
 
 /// The first instance field of `o`'s class (or its parents) whose type name is `ty`.
-unsafe fn field_by_type(o: *mut Object, ty: &str) -> R<*mut il2cpp::Field> {
+pub(crate) unsafe fn field_by_type(o: *mut Object, ty: &str) -> R<*mut il2cpp::Field> {
     if o.is_null() {
         return Err(format!("{ty} field of a null object"));
     }
@@ -303,7 +321,7 @@ unsafe fn unbind(w: *mut Object) {
 }
 
 /// A delegate of class `dk` that calls `f` with `id` as its first argument.
-unsafe fn delegate(dk: *mut Class, f: usize, id: usize) -> R<*mut Object> {
+pub(crate) unsafe fn delegate(dk: *mut Class, f: usize, id: usize) -> R<*mut Object> {
     let a = api();
     let d = (a.object_new)(dk);
     let invoke = il2cpp::method(dk, "Invoke", -1).ok_or("delegate Invoke missing")?;
@@ -317,7 +335,7 @@ unsafe fn delegate(dk: *mut Class, f: usize, id: usize) -> R<*mut Object> {
 
 /// Points the widget's first callback field of type `ty` (e.g. "System.Action<System.Boolean>") at
 /// `f`, which receives `id` first. Replaces whatever the clone carried over.
-unsafe fn hook(w: *mut Object, ty: &str, f: usize, id: usize) -> R<()> {
+pub(crate) unsafe fn hook(w: *mut Object, ty: &str, f: usize, id: usize) -> R<()> {
     let a = api();
     let fld = field_by_type(w, ty)?;
     let d = delegate((a.class_from_type)((a.field_get_type)(fld)), f, id)?;
@@ -340,7 +358,7 @@ unsafe fn resized(arr: *mut Object, n: usize) -> R<*mut Object> {
 }
 
 /// The cursor searches these cached rows, independently of TabMenu's button/page arrays.
-unsafe fn navigation_items(menu: *mut Object) -> R<Vec<*mut Object>> {
+pub(crate) unsafe fn navigation_items(menu: *mut Object) -> R<Vec<*mut Object>> {
     unsafe fn list_items(list: *mut Object) -> R<Vec<*mut Object>> {
         let n = unity::field_val::<i32>(list, "_size")?;
         let items = unity::array_items(unity::field_obj(list, "_items")?);
@@ -917,18 +935,8 @@ pub fn ensure() -> R<bool> {
             // PhoneCanvas initializes its own cache again when opening/recreating the phone.
             // Repair that independently of setting changes, including after map transitions.
             refresh_phone_targets()?;
-            let catalog_sequence = jibbers_distribution::manager::snapshot(&crate::game_dir()).catalog.map(|c| c.sequence).unwrap_or(0);
-            if catalog_sequence != STORE_SEQUENCE.load(std::sync::atomic::Ordering::Relaxed)
-                && !unity::call_unbox::<bool>(go_of(tabs)?, "get_activeInHierarchy").unwrap_or(false) {
-                return build(&Value::Null).map(|_| true);
-            }
             // Reopening Options can restore the last tab without clicking its button again.
-            let message = jibbers_distribution::manager::message(&crate::game_dir());
-            let message_changed = {
-                let mut previous = STORE_MESSAGE.lock().unwrap();
-                let changed = *previous != message; *previous = message; changed
-            };
-            if sync_values() || message_changed {
+            if sync_values() {
                 APPLYING.store(true, std::sync::atomic::Ordering::Relaxed);
                 let refreshed = refresh_form();
                 APPLYING.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -954,6 +962,7 @@ pub fn watch() {
     STOP.store(false, std::sync::atomic::Ordering::Release);
     *w = Some(std::thread::spawn(|| {
         let mut last_err: Option<String> = None;
+        let mut last_catalog_err: Option<String> = None;
         loop {
             for _ in 0..40 {
                 if STOP.load(Acquire) {
@@ -978,6 +987,15 @@ pub fn watch() {
                 Err(e) => {
                     if !repeated_error(&mut last_err, &e) {
                         log::info(format!("mods menu: waiting for the Options window: {e}"));
+                    }
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            match crate::pump::run(crate::catalog::ensure).and_then(|r| r) {
+                Ok(_) => last_catalog_err = None,
+                Err(e) => {
+                    if !repeated_error(&mut last_catalog_err, &e) {
+                        log::info(format!("catalog: {e}"));
                     }
                 }
             }
@@ -1260,86 +1278,15 @@ unsafe fn fill_form(parent: *mut Object) -> R<(*mut Object, usize)> {
         let mut open = false;
         il2cpp::invoke(accordion, form as *mut c_void, &mut [il2cpp::string(&name) as *mut c_void, build as *mut c_void, &mut open as *mut bool as _])?;
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-    let store = arg_delegate(accordion, 1, on_store as *const () as usize, 0)?;
-    let mut closed = false;
-    il2cpp::invoke(accordion, form as _, &mut [il2cpp::string("Install and update mods") as _, store as _, &mut closed as *mut bool as _])?;
-    }
-    STORE_SEQUENCE.store(jibbers_distribution::manager::snapshot(&crate::game_dir()).catalog.map(|c| c.sequence).unwrap_or(0), std::sync::atomic::Ordering::Relaxed);
     Ok((form, made))
 }
 
-unsafe extern "C" fn on_store(_id: usize, _m: *const c_void) {
-    let _ = std::panic::catch_unwind(|| unsafe {
-        if let Err(error) = fill_store() { log::info(format!("mod catalog menu: {error}")); }
-        refresh_soon();
-    });
-}
-
-unsafe fn fill_store() -> R<()> {
-    let form = our_form()?;
-    let snap = jibbers_distribution::manager::snapshot(&crate::game_dir());
-    let info = form_method(Some("Info"), &["System.Func<System.String>", "System.Boolean", "System.String"])?;
-    let status = arg_delegate(info, 0, store_message as *const () as usize, 0)?;
-    let mut wrap = true;
-    il2cpp::invoke(info, form as _, &mut [status as _, &mut wrap as *mut bool as _, il2cpp::string("") as _])?;
-    let button = form_method(Some("Button"), &["System.String", "System.Action"])?;
-    let check = arg_delegate(button, 1, store_check as *const () as usize, 0)?;
-    il2cpp::invoke(button, form as _, &mut [il2cpp::string("Check for updates") as _, check as _])?;
-    let toggle = form_method(None, &["System.String", "System.Func<System.Boolean>", "System.Action<System.Boolean>", "System.Boolean"])?;
-    let mut ids = vec![String::new()]; // index 0 is the auto-update preference
-    let mut entries = vec![("Automatically update on launch".to_string(), snap.config.auto_update)];
-    if let Some(catalog) = snap.catalog {
-        for p in catalog.selectable_packages()? {
-            let installed = snap.installed.packages.get(&p.id).map(|p| p.version.as_str());
-            let state = match installed { Some(v) if v == p.version => "installed", Some(_) => "update available", None => "install" };
-            entries.push((format!("{} {} ({state})", p.name, p.version), snap.config.wanted.contains(&p.id)));
-            ids.push(p.id.clone());
-        }
-    }
-    *STORE_IDS.lock().unwrap() = ids;
-    for (id, (label, mut value)) in entries.into_iter().enumerate() {
-        let get = arg_delegate(toggle, 1, store_get as *const () as usize, id)?;
-        let set = arg_delegate(toggle, 2, store_set as *const () as usize, id)?;
-        il2cpp::invoke(toggle, form as _, &mut [il2cpp::string(&label) as _, get as _, set as _, &mut value as *mut bool as _])?;
-    }
-    Ok(())
-}
-
-unsafe extern "C" fn store_message(_id: usize, _m: *const c_void) -> *mut Object {
-    std::panic::catch_unwind(|| il2cpp::string(&store_text(jibbers_distribution::manager::message(&crate::game_dir()), &crate::core::unverified()))).unwrap_or(null_mut())
-}
 /// The catalog status, then a warning naming every mod DLL that isn't from the signed catalog.
-fn store_text(message: String, unverified: &[String]) -> String {
+pub(crate) fn store_text(message: String, unverified: &[String]) -> String {
     if unverified.is_empty() { return message; }
     let names: Vec<&str> = unverified.iter().map(|p| p.rsplit('/').next().unwrap_or(p)).collect();
     format!("{message}\n\nWarning: not from the signed mod catalog: {}. These run with full access to your PC; keep them only if you trust where they came from.", names.join(", "))
 }
-unsafe extern "C" fn store_check(_id: usize, _m: *const c_void) {
-    let _ = std::panic::catch_unwind(|| jibbers_distribution::manager::check(&crate::game_dir()));
-}
-unsafe extern "C" fn store_get(id: usize, _m: *const c_void) -> bool {
-    std::panic::catch_unwind(|| {
-        let key = STORE_IDS.lock().unwrap().get(id).cloned();
-        if id == 0 { jibbers_distribution::manager::selected(&crate::game_dir(), None) }
-        else { key.is_some_and(|key| jibbers_distribution::manager::selected(&crate::game_dir(), Some(&key))) }
-    }).unwrap_or(false)
-}
-unsafe extern "C" fn store_set(id: usize, value: bool, _m: *const c_void) {
-    let _ = std::panic::catch_unwind(|| {
-        if APPLYING.load(std::sync::atomic::Ordering::Relaxed) { return; }
-        let root = crate::game_dir();
-        let result = if id == 0 { jibbers_distribution::manager::set_auto_update(&root, value) }
-        else {
-            let key = STORE_IDS.lock().unwrap().get(id).cloned();
-            key.ok_or_else(|| "catalog changed; reopen Mods".to_string()).and_then(|key| jibbers_distribution::manager::select(&root, &key, value))
-        };
-        if let Err(error) = result { jibbers_distribution::manager::set_message(&root, error); }
-        refresh_soon();
-    });
-}
-
 /// The game fills an Accordion through this callback (when the section is built or opened): add
 /// that plugin's rows. `id` = section index.
 unsafe extern "C" fn on_section(id: usize, _m: *const c_void) {

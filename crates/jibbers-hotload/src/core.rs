@@ -241,6 +241,13 @@ fn load_plugins(cores: &mut Vec<Core>, only: Option<&str>) {
         .filter(|p| only.is_none_or(|stem| p.file_stem().is_some_and(|s| s.eq_ignore_ascii_case(stem))))
         .collect();
     if only.is_none() {
+        // What the catalog queued last session: unofficial copies of catalog mods out of the way
+        // (renamed, kept) before anything loads them, and auto-update back off after a one-time update.
+        for rel in jibbers_distribution::manager::apply_set_aside(&game_dir()) {
+            log::info(format!("{rel}: unofficial copy set aside (renamed to .unofficial); the catalog's version replaces it"));
+        }
+        files.retain(|f| f.exists());
+        jibbers_distribution::manager::finish_queued_updates(&game_dir());
         let unverified = jibbers_distribution::manager::unverified_mods(&game_dir());
         for path in &unverified {
             log::info(format!("WARNING: {path} is not from the signed mod catalog. It runs with full access to your PC; keep it only if you trust where it came from"));
