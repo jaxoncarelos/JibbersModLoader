@@ -110,7 +110,8 @@ public sealed class ChairLiftMod : JibbersMod
             return;
         var focused = Input.GameFocused && !Input.Typing;
         var pad = focused && UseController ? Gamepad.Read() : default;
-        var keyDown = focused && Input.IsDown(RideKey);
+        // Ctrl+G is SLVSH's call-your-set key: only the plain key rides.
+        var keyDown = focused && Input.IsDown(RideKey) && !Input.IsDown(Key.Control);
         var padDown = focused && pad.Held(PadButton.A);
         var phoneDown = focused && (Input.IsDown(PhoneKey) || pad.Held(PadButton.Y));
         var options = new RideOptions(new SeatFit((float)SeatHeight, (float)SeatForward, (float)SeatSpacing), Sit, HipBend, KneeBend, AutoOff, (float)UnloadDistance);
