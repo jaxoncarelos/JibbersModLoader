@@ -198,7 +198,9 @@ internal sealed class ServerSession : IDisposable
                     EndClient();
                     changed = true;
                     break;
-                case Phase.Connecting when now.Client:
+                // Connected only once the game's own traffic has gone through the tunnel both ways:
+                // its client can already read started (from singleplayer) before it reconnects.
+                case Phase.Connecting when now.Client && client is { GameSeen: true } c && c.Traffic.FromHost > 0:
                     phase = Phase.Connected;
                     host.Log($"the game's client started: joined {NameOf(target)}'s server ({TrafficText()})");
                     lines.Add($"Joined {NameOf(target)}'s server");

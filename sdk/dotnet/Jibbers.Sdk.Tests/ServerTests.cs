@@ -123,6 +123,24 @@ static class ServerTests
     }
 
     [Test]
+    static void TheGameAlreadyRunningAClientIsntAJoin()
+    {
+        // Joining from singleplayer: the game's client reads started before it has reconnected,
+        // then stopped while it does. That must not count as joined and then left.
+        var (ana, ben) = Party();
+        ana.Session.Update(new ServerInfo(true, true, 7770, ""));
+        ben.Session.Join(ana.Me);
+        ben.Session.Update(new ServerInfo(false, true, 0, ""));
+        Assert.Equal("Joining Ana's server…", ben.Session.Status);
+        ben.Session.Update(new ServerInfo(false, false, 0, ""));
+        ben.Now = 10;
+        ben.Session.Update(new ServerInfo(false, false, 0, ""));
+        Assert.True(!ben.Lines.Contains("Left Ana's server") && ben.Session.Status == "Joining Ana's server…", "still joining");
+        ana.Session.Dispose();
+        ben.Session.Dispose();
+    }
+
+    [Test]
     static void AcceptingAnInviteJoinsTheServerByItself()
     {
         var (ana, ben) = Party();
