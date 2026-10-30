@@ -21,6 +21,19 @@ static class OverlayTests
     }
 
     [Test]
+    static void ShortTextBoxesGrowToALineAroundWhereTheTextSits()
+    {
+        OverlayText At(float h, HudTextAlignment align) => new("PARTY", 10, 100, 70, h, 11, Theme.Text, align, false, false, 0);
+        var line = 11 * UnityOverlaySurface.MinLineHeight;
+        Assert.Equal((100f, 20f), UnityOverlaySurface.LineBox(At(20, HudTextAlignment.Left)));
+        var (y, h) = UnityOverlaySurface.LineBox(At(14, HudTextAlignment.Left));
+        Assert.True(Math.Abs(h - line) < 1e-4 && Math.Abs(y + h / 2 - 107) < 1e-4, $"centred on the same line: {y} {h}");
+        Assert.Equal(100f, UnityOverlaySurface.LineBox(At(14, HudTextAlignment.TopLeft)).Y);
+        var (by, bh) = UnityOverlaySurface.LineBox(At(14, HudTextAlignment.BottomRight));
+        Assert.True(Math.Abs(by + bh - 114) < 1e-4, "bottom-aligned keeps its bottom");
+    }
+
+    [Test]
     static void ShapesAreRasterizedOnlyWhenTheyChange()
     {
         var (panel, surface) = Panel("raster-once");

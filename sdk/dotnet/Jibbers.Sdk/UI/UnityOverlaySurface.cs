@@ -167,12 +167,35 @@ internal sealed unsafe class UnityOverlaySurface : IOverlaySurface
             if (!Il2Cpp.ClassOf(text).Method("set_textWrappingMode", 1).IsNull) UnityProperties.Set(text, "set_textWrappingMode", t.Wrap ? 1 : 0);
             else TrySet(text, "set_enableWordWrapping", t.Wrap);
         }
-        if (old is null || (old.X, old.Y, old.W, old.H) != (t.X, t.Y, t.W, t.H))
+        if (old is null || (old.X, old.Y, old.W, old.H, old.Size, old.Align) != (t.X, t.Y, t.W, t.H, t.Size, t.Align))
         {
+            var (y, h) = LineBox(t);
             var rect = Unity.Call(text, "get_rectTransform");
-            UnityProperties.Set(rect, "set_anchoredPosition", new Vector2(t.X, -t.Y));
-            UnityProperties.Set(rect, "set_sizeDelta", new Vector2(t.W, t.H));
+            UnityProperties.Set(rect, "set_anchoredPosition", new Vector2(t.X, -y));
+            UnityProperties.Set(rect, "set_sizeDelta", new Vector2(t.W, h));
         }
+    }
+
+    /// <summary>A line's height relative to its size, with room for Segoe UI's (about 1.33).</summary>
+    internal const float MinLineHeight = 1.4f;
+
+    /// <summary>
+    /// The box a text is laid out in: at least one line tall. Text is clipped with an ellipsis, and a
+    /// box shorter than one line of the font shows nothing at all, so a short box grows around the
+    /// place the text sits in it (its vertical alignment): (top, height).
+    /// </summary>
+    internal static (float Y, float H) LineBox(OverlayText t)
+    {
+        var min = t.Size * MinLineHeight;
+        if (t.H >= min) return (t.Y, t.H);
+        var extra = min - t.H;
+        var y = t.Align switch
+        {
+            HudTextAlignment.TopLeft or HudTextAlignment.Top or HudTextAlignment.TopRight => t.Y,
+            HudTextAlignment.BottomLeft or HudTextAlignment.Bottom or HudTextAlignment.BottomRight => t.Y - extra,
+            _ => t.Y - extra / 2,
+        };
+        return (y, min);
     }
 
     /// <summary>Optional look: a build that stripped the setter shows plain text instead.</summary>
