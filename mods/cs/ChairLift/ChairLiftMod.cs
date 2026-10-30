@@ -54,9 +54,14 @@ public sealed class ChairLiftMod : JibbersMod
     RideRuntime? ride;
     HudPanel? hud;
     HudLabel? prompt;
+    /// <summary>How long A is held to call a chair (it's also a game button, so a tap doesn't).</summary>
+    static readonly TimeSpan PadHold = TimeSpan.FromMilliseconds(400);
+
     readonly List<IDisposable> subscriptions = new();
-    bool active, rideWas, phoneWas;
+    readonly System.Diagnostics.Stopwatch padHeld = new();
+    bool active, keyWas, padWas, padFired, phoneWas;
     Stage shown = (Stage)(-1);
+    (bool, Key, Key) shownInputs;
 
     public override void OnLoad()
     {
@@ -105,26 +110,52 @@ public sealed class ChairLiftMod : JibbersMod
             return;
         var focused = Input.GameFocused && !Input.Typing;
         var pad = focused && UseController ? Gamepad.Read() : default;
-        var rideDown = focused && (Input.IsDown(RideKey) || pad.Held(PadButton.A));
+        var keyDown = focused && Input.IsDown(RideKey);
+        var padDown = focused && pad.Held(PadButton.A);
         var phoneDown = focused && (Input.IsDown(PhoneKey) || pad.Held(PadButton.Y));
         var options = new RideOptions(new SeatFit((float)SeatHeight, (float)SeatForward, (float)SeatSpacing), Sit, HipBend, KneeBend, AutoOff, (float)UnloadDistance);
-        ride.Frame(rideDown && !rideWas, phoneDown && !phoneWas, options);
-        rideWas = rideDown;
+        ride.Frame((keyDown && !keyWas) || PadRide(padDown, ride.Stage), phoneDown && !phoneWas, options);
+        keyWas = keyDown;
+        padWas = padDown;
         phoneWas = phoneDown;
         ShowPrompt(ride.Stage);
     }
 
+    /// <summary>A on the controller: held a moment to call a chair, a tap otherwise (cancel, jump off).</summary>
+    bool PadRide(bool down, Stage stage)
+    {
+        if (!down)
+        {
+            padHeld.Reset();
+            padFired = false;
+            return false;
+        }
+        if (stage is not (Stage.Idle or Stage.Near))
+            return !padWas && !padFired;
+        if (!padHeld.IsRunning)
+            padHeld.Start();
+        if (padFired || padHeld.Elapsed < PadHold)
+            return false;
+        padFired = true;
+        return true;
+    }
+
     void ShowPrompt(Stage stage)
     {
-        if (stage == shown || hud is null || prompt is null)
+        var inputs = (UseController, RideKey, PhoneKey);
+        if ((stage == shown && inputs == shownInputs) || hud is null || prompt is null)
             return;
         shown = stage;
-        var buttons = $"A / Cross / {RideKey}";
+        shownInputs = inputs;
+        // Only the buttons that work: the controller's when the controller setting is on.
+        var buttons = UseController ? $"A / Cross / {RideKey}" : $"{RideKey}";
+        var call = UseController ? $"Hold A / Cross or {RideKey}" : $"{RideKey}";
+        var phone = UseController ? $"Y / {PhoneKey}" : $"{PhoneKey}";
         var text = stage switch
         {
-            Stage.Near => $"{buttons}: ride the chair lift",
+            Stage.Near => $"{call}: ride the chair lift",
             Stage.Waiting => $"Waiting for a chair… ({buttons} to cancel)",
-            Stage.Riding => $"Riding up • {buttons}: jump off • Y / {PhoneKey}: phone",
+            Stage.Riding => $"Riding up • {buttons}: jump off • {phone}: phone",
             Stage.Arrived => "Top of the lift!",
             _ => null,
         };

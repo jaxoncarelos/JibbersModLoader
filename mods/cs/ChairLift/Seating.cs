@@ -149,6 +149,34 @@ internal static class SitPose
     }
 }
 
+/// <summary>
+/// Whose a physics body is. Your rider's ragdoll parts and other riders' (the "shell" parts the
+/// game draws them with) are known exactly, by their bodies; anything else, such as skis and poles,
+/// belongs to the rider whose parts it's nearest. Only your own bodies are held on the seat, and
+/// only other riders' bodies lose their collisions, so a friend on the same chair isn't dragged
+/// along with you and your gear doesn't fall through the chair.
+/// </summary>
+internal sealed record RiderParts(IReadOnlySet<nint> MyBodies, IReadOnlySet<nint> OtherBodies, IReadOnlyList<Vector3> Mine, IReadOnlyList<Vector3> Others)
+{
+    /// <summary>Whether body <paramref name="body"/> (0 if unknown) at <paramref name="at"/> is yours.</summary>
+    public bool Owns(nint body, Vector3 at)
+    {
+        if (body != 0 && MyBodies.Contains(body))
+            return true;
+        if (body != 0 && OtherBodies.Contains(body))
+            return false;
+        return Nearest(Mine, at) <= Nearest(Others, at);
+    }
+
+    static float Nearest(IReadOnlyList<Vector3> parts, Vector3 at)
+    {
+        var best = float.MaxValue;
+        foreach (var p in parts)
+            best = MathF.Min(best, Vec.Distance(p, at));
+        return best;
+    }
+}
+
 /// <summary>Holding the rider between frames: the chair moves once a frame, the physics in fixed steps.</summary>
 internal static class Hold
 {
