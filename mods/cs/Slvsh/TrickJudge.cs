@@ -47,9 +47,9 @@ internal sealed class TrickLog
 /// Watches one attempt at a called line: the tricks must be landed in order in one run, and other
 /// tricks in between don't matter. A trick is landed once the rider rides away clean (no respawn,
 /// no more combo for <see cref="Settle"/>) or starts the next trick; a rail trick still going when
-/// the next one starts, or for <see cref="Rail"/> seconds, wasn't landed. Respawning before the
-/// first trick (to get back up to the jump) is fine; respawning after it ends the run, a miss
-/// unless the whole line was already landed and settled.
+/// the next one starts, or for <see cref="Rail"/> seconds, wasn't landed. The run starts at the
+/// line's first trick: respawning before that (warming up, getting back up to the jump) is free.
+/// Respawning after it, even straight after crashing it, is a miss unless the whole line was landed.
 /// </summary>
 internal sealed class TrickJudge
 {
@@ -65,9 +65,9 @@ internal sealed class TrickJudge
         started = now;
     }
 
-    /// <summary>The tricks so far, once one has started ("Left 540  /  Regular On - Slide").</summary>
+    /// <summary>The tricks since your last respawn, once one has started ("Left 540  /  Regular On - Slide").</summary>
     public string? Current { get; private set; }
-    /// <summary>When the game first reported a trick of the line (it reports on landing).</summary>
+    /// <summary>When the game first reported the line's first trick (it reports on landing).</summary>
     public double? TrickAt { get; private set; }
     /// <summary>When this attempt started.</summary>
     public double Started => started;
@@ -87,32 +87,50 @@ internal sealed class TrickJudge
             if (runs.Count > 0 && runs[^1].Sequence == t.Sequence) runs[^1] = runs[^1] with { Last = t.At, Name = t.Name, Going = t.Going };
             else runs.Add(new Run(t.Sequence, t.At, t.At, t.Name, t.Going));
         }
-        if (runs.Count == 0) return null;
-        var landed = new List<Run>();
-        for (var i = 0; i < runs.Count; i++)
+        // Respawns split the tricks into runs; each is judged on its own.
+        var bounds = resets.OrderBy(r => r).ToList();
+        var from = started;
+        foreach (var reset in bounds.Append(double.PositiveInfinity))
         {
-            var r = runs[i];
-            var next = i + 1 < runs.Count ? runs[i + 1].First : (double?)null;
-            var end = next ?? now;
-            if (resets.Any(x => x >= r.First && x < end)) break; // the run ended on this trick
-            if (r.Going) { if (next is null) break; continue; } // still on the rail, or bailed off it
-            if (next is null && now - r.Last < Settle) break; // not ridden away yet
+            var segment = runs.Where(r => r.First >= from && r.First < reset).ToList();
+            var ended = !double.IsPositiveInfinity(reset);
+            var (landed, matched, at) = Judge(segment, ended ? reset : now);
+            Current = segment.Count > 0 ? string.Join("  /  ", segment.Select(r => r.Name)) : null;
+            Matched = matched;
+            TrickAt = at;
+            var tried = Clip(string.Join("  /  ", landed.Select(r => r.Name)));
+            if (matched == line.Count) return Outcome.Land(tried);
+            // The run began with the line's first trick (landed or not): respawning now ends it.
+            var begun = matched > 0 || segment.Any(r => line[0].Matches(r.Name));
+            if (ended && begun) return new Outcome(false, Clip(Current!));
+            if (!ended && segment.Count > 0 && segment[^1] is { Going: true } last && now - last.Last >= Rail && matched > 0)
+                return new Outcome(false, Clip(Current!));
+            from = reset;
+        }
+        return null;
+    }
+
+    /// <summary>The tricks landed in one run (up to <paramref name="end"/>), and how much of the line they match in order.</summary>
+    (List<Run> Landed, int Matched, double? At) Judge(List<Run> segment, double end)
+    {
+        var landed = new List<Run>();
+        for (var i = 0; i < segment.Count; i++)
+        {
+            var r = segment[i];
+            var next = i + 1 < segment.Count ? segment[i + 1].First : (double?)null;
+            if (r.Going) continue; // still on the rail, or bailed off it
+            if (next is null && end - r.Last < Settle) break; // not ridden away (or respawned too soon after)
             landed.Add(r);
         }
-        Current = string.Join("  /  ", runs.Select(r => r.Name));
-        Matched = 0;
+        var matched = 0;
+        double? at = null;
         foreach (var r in landed)
-            if (Matched < line.Count && line[Matched].Matches(r.Name))
+            if (matched < line.Count && line[matched].Matches(r.Name))
             {
-                if (Matched == 0) TrickAt = r.First;
-                Matched++;
+                if (matched == 0) at = r.First;
+                matched++;
             }
-        var tried = Clip(string.Join("  /  ", landed.Select(r => r.Name)));
-        if (Matched == line.Count) return Outcome.Land(tried);
-        var last = runs[^1];
-        if (resets.Any(x => x >= runs[0].First)) return new Outcome(false, Clip(Current));
-        if (last.Going && now - last.Last >= Rail) return new Outcome(false, Clip(Current));
-        return null;
+        return (landed, matched, at);
     }
 
     static string Clip(string s) => s.Length <= GameState.MaxTried ? s : s[..(GameState.MaxTried - 1)] + "…";

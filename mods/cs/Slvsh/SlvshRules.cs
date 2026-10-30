@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Slvsh.Integration;
 
 namespace Slvsh;
 
@@ -42,6 +43,8 @@ internal sealed record GameState
     public string Trick { get; init; } = "";
     /// <summary>The called line: the tricks to land, in order (empty until the setter calls it).</summary>
     public IReadOnlyList<CalledTrick> Call { get; init; } = Array.Empty<CalledTrick>();
+    /// <summary>The setter's spawn point when they called: everyone matching starts there.</summary>
+    public SpawnSpot? Spawn { get; init; }
     /// <summary>The longest a line's words or a tried run may be.</summary>
     public const int MaxTrick = 400, MaxTried = 200;
     /// <summary>How long the setter has to call their line.</summary>
@@ -79,7 +82,7 @@ internal sealed record GameState
     {
         ["t"] = "state", ["id"] = Id, ["host"] = Host.ToString(), ["phase"] = Phase.ToString().ToLowerInvariant(),
         ["setter"] = Setter.ToString(), ["attempter"] = Attempter.ToString(), ["attempt"] = Attempt,
-        ["trick"] = Trick, ["call"] = CalledLine.ToJson(Call), ["secs"] = SecondsLeft, ["total"] = SecondsTotal, ["news"] = News, ["winner"] = Winner.ToString(),
+        ["trick"] = Trick, ["call"] = CalledLine.ToJson(Call), ["spawn"] = Spawn?.ToJson(), ["secs"] = SecondsLeft, ["total"] = SecondsTotal, ["news"] = News, ["winner"] = Winner.ToString(),
         ["players"] = new JsonArray(Players.Select(p => (JsonNode)new JsonObject { ["id"] = p.Id.ToString(), ["name"] = p.Name, ["letters"] = p.Letters }).ToArray()),
         ["on"] = VotingOn.ToString().ToLowerInvariant(), ["tried"] = Tried, ["detected"] = Detected, ["voters"] = Ids(Voters),
         ["ballots"] = new JsonArray(Ballots.Select(b => (JsonNode)new JsonObject { ["v"] = b.Voter.ToString(), ["yes"] = b.Yes }).ToArray()),
@@ -107,6 +110,7 @@ internal sealed record GameState
                 Attempt = v["attempt"]?.GetValue<uint>() ?? 0,
                 Trick = Clip(v["trick"]?.GetValue<string>() ?? "", MaxTrick),
                 Call = CalledLine.FromJson(v["call"]),
+                Spawn = SpawnSpot.FromJson(v["spawn"]),
                 SecondsLeft = Math.Clamp(v["secs"]?.GetValue<int>() ?? 0, 0, 600),
                 SecondsTotal = Math.Clamp(v["total"]?.GetValue<int>() ?? 0, 0, 600),
                 News = Clip(v["news"]?.GetValue<string>() ?? "", 120),
@@ -199,7 +203,7 @@ internal sealed class SlvshHost
     void BeginSet()
     {
         followers.Clear();
-        Set(Game with { Phase = Phase.Set, Trick = "", Call = Array.Empty<CalledTrick>() });
+        Set(Game with { Phase = Phase.Set, Trick = "", Call = Array.Empty<CalledTrick>(), Spawn = null });
         BeginAttempt(Game.Setter);
         // First the setter calls their line; the clock for landing it starts once they have.
         deadline = clock() + GameState.CallSeconds;
@@ -207,14 +211,14 @@ internal sealed class SlvshHost
     }
 
     /// <summary>The setter calls the line for their set. Only once per set; the clock restarts for landing it.</summary>
-    public void Called(ulong who, uint attempt, IReadOnlyList<CalledTrick> line)
+    public void Called(ulong who, uint attempt, IReadOnlyList<CalledTrick> line, SpawnSpot? spawn = null)
     {
         if (Game.Phase != Phase.Set || who != Game.Attempter || attempt != Game.Attempt || Game.Call.Count > 0) return;
         if (line.Count is 0 or > CalledLine.MaxTricks) return;
         var words = CalledLine.Describe(line);
         if (words.Length > GameState.MaxTrick) return;
         deadline = clock() + Game.SecondsTotal;
-        Set(Game with { Call = line, Trick = words, SecondsLeft = Game.SecondsTotal, News = $"{Game.NameOf(who)} called their line" });
+        Set(Game with { Call = line, Trick = words, Spawn = spawn, SecondsLeft = Game.SecondsTotal, News = $"{Game.NameOf(who)} called their line" });
     }
 
     ulong NextAlive(ulong id)

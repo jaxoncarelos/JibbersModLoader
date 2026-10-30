@@ -51,7 +51,7 @@ public sealed class SlvshMod : JibbersMod
     [Slider("Time to vote (seconds)", 12, 5, 30, 1, Key = "vote_secs", Section = "Rules")]
     public double VoteSeconds { get; private set; }
 
-    [Toggle("Start every try on the setter's line (host decides)", Key = "same_line", Section = "Rules", Tooltip = "When it's your turn to match, you start where the setter's run-in began, at their speed.")]
+    [Toggle("Start every try on the setter's line (host decides)", false, Key = "same_line", Section = "Rules", Tooltip = "When it's your turn to match, you start where the setter's run-in began, at their speed.")]
     public bool SameLine { get; private set; }
 
     [Slider("Run-in before the trick (seconds)", 6, 2, 15, 1, Key = "run_in", Section = "Rules", Tooltip = "How far back from the setter's trick the line starts.")]
@@ -66,6 +66,7 @@ public sealed class SlvshMod : JibbersMod
 
     readonly TrickLog tricks = new();
     readonly SpectateCamera camera;
+    readonly SpawnTeleport spawns;
 
     readonly LineStart line;
     /// <summary>The setters' lines (setter → the trick and where its run-in began).</summary>
@@ -76,6 +77,7 @@ public sealed class SlvshMod : JibbersMod
     public SlvshMod()
     {
         camera = new SpectateCamera(text => Log(text));
+        spawns = new SpawnTeleport(text => Log(text));
         line = new LineStart(() => Now, text => Log(text));
     }
     readonly ConcurrentQueue<(PartyMember From, JsonNode? Message)> inbox = new();
@@ -129,6 +131,8 @@ public sealed class SlvshMod : JibbersMod
         line.Recording = false;
         Party.MemberChanged -= OnMemberChanged;
         thread?.Join(500);
+        try { MainThread.Run(spawns.Restore); }
+        catch (Exception e) { Log($"SLVSH: couldn't put your spawn point back: {e.Message}"); }
         try { MainThread.Run(camera.Restore); }
         catch (Exception e) { Log($"SLVSH: couldn't give the camera back: {e.Message}"); }
     }
@@ -171,7 +175,11 @@ public sealed class SlvshMod : JibbersMod
         if (pressedSolo)
         {
             pressedSolo = false;
-            if (Enabled && host is null && (game is null || game.Phase == Phase.Over))
+            // Free to practice: no game, a finished one, or your own lobby nobody has joined yet.
+            var free = host is null ? game is null || game.Phase == Phase.Over
+                : host.Game.Phase == Phase.Over || host.Game is { Phase: Phase.Lobby, Players.Count: 1 } || host.Solo;
+            if (!Enabled || !free) Log($"SLVSH: can't practice alone now ({(Enabled ? "you're in a game: Ctrl+Q leaves it first" : "the mod is off")})");
+            else
             {
                 me = myId = me != 0 ? me : 1;
                 host = new SlvshHost(me, Party.Local?.Name ?? "You", (int)Math.Clamp(AttemptSeconds, 15, 180), 0, () => Now, SameLine, (int)Math.Clamp(RunIn, 2, 15), solo: true);
@@ -249,6 +257,7 @@ public sealed class SlvshMod : JibbersMod
         }
 
         Calling(me);
+        Spawns(me);
         Judge(me, now);
         Lines(me, now);
         ReportPosition(me, now);
@@ -274,7 +283,7 @@ public sealed class SlvshMod : JibbersMod
                     host.Remove(sender);
                     break;
                 case "call" when host?.Game.Id == id:
-                    host.Called(sender, m["attempt"]?.GetValue<uint>() ?? 0, CalledLine.FromJson(m["line"]));
+                    host.Called(sender, m["attempt"]?.GetValue<uint>() ?? 0, CalledLine.FromJson(m["line"]), SpawnSpot.FromJson(m["spawn"]));
                     break;
                 case "result" when host?.Game.Id == id:
                     var trick = m["trick"]?.GetValue<string>() ?? "";
@@ -526,8 +535,12 @@ public sealed class SlvshMod : JibbersMod
             {
                 menu = null;
                 Log($"SLVSH: called {CalledLine.Describe(line)}");
-                if (host is not null) host.Called(me, g.Attempt, line);
-                else channel!.Send(new SteamId(g.Host), new JsonObject { ["t"] = "call", ["id"] = g.Id, ["attempt"] = g.Attempt, ["line"] = CalledLine.ToJson(line) });
+                // Your set starts from your spawn point: note where it is (the others start there too) and go there.
+                SpawnSpot? spot = null;
+                try { spot = MainThread.Run(() => { var s = spawns.Current(); spawns.Respawn(); return s; }); }
+                catch (Exception e) when (e is TimeoutException or InvalidOperationException or MissingMethodException or Il2CppException) { Log($"SLVSH: couldn't reset you to your spawn: {e.Message}"); }
+                if (host is not null) host.Called(me, g.Attempt, line, spot);
+                else channel!.Send(new SteamId(g.Host), new JsonObject { ["t"] = "call", ["id"] = g.Id, ["attempt"] = g.Attempt, ["line"] = CalledLine.ToJson(line), ["spawn"] = spot?.ToJson() });
             }
         }
         pressedBack = false;
@@ -547,6 +560,39 @@ public sealed class SlvshMod : JibbersMod
         callPanel!.Draw(frame);
         if (menuShown is null) callPanel.Show();
         menuShown = frame;
+    }
+
+    uint spawnedFor;
+    bool spawnMoved;
+
+    /// <summary>On your turn to match, resets you to the setter's spawn point (yours is borrowed for the turn, then put back).</summary>
+    void Spawns(ulong me)
+    {
+        var g = game;
+        var myTry = g is { Phase: Phase.Match } && g.Attempter == me;
+        try
+        {
+            if (myTry && spawnedFor != g!.Attempt)
+            {
+                spawnedFor = g.Attempt;
+                if (g.Spawn is { } spot)
+                {
+                    MainThread.Run(() => spawns.RespawnAt(spot));
+                    spawnMoved = true;
+                    Log($"SLVSH: starting at {g.NameOf(g.Setter)}'s spawn");
+                }
+                else MainThread.Run(spawns.Respawn);
+            }
+            else if (!myTry && spawnMoved && g?.Phase != Phase.Vote)
+            {
+                spawnMoved = false;
+                MainThread.Run(spawns.Restore);
+            }
+        }
+        catch (Exception e) when (e is TimeoutException or InvalidOperationException or MissingMethodException or Il2CppException)
+        {
+            Log($"SLVSH: couldn't reset you to the setter's spawn: {e.Message}");
+        }
     }
 
     void Hint(string text)

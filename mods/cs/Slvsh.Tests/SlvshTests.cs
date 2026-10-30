@@ -307,6 +307,14 @@ static class SlvshTests
         log.AddReset(51.5);
         Assert.True(j.Step(52) is { Landed: false });
 
+        // Warm-up tricks and resets before the line's first trick are free (like resetting after calling).
+        j = new TrickJudge(log, 55, new[] { cork });
+        log.AddTrick(56, "Straight Air", 10);
+        log.AddReset(57);
+        Assert.True(j.Step(57.5) is null, "a reset before the first called trick is free");
+        log.AddTrick(58, "Left Dub Cork 1080", 11);
+        Assert.True(j.Step(61) is { Landed: true });
+
         // Bailing off a rail (a new trick while it's still going) doesn't count, but the run goes on.
         j = new TrickJudge(log, 60, new[] { rail });
         log.AddTrick(61, "Left 270 On", 7);
