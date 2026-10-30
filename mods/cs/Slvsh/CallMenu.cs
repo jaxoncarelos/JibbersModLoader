@@ -91,7 +91,7 @@ internal sealed class CallMenu
             Step.Slide => new() { S("Slide", t => t with { Slide = "slide" }), S("Frontslide", t => t with { Slide = "frontslide" }), S("Backslide", t => t with { Slide = "backslide" }), S("50-50", t => t with { Slide = "5050" }), S("5-0", t => t with { Slide = "5-0" }), S(Any, t => t with { Slide = null }, "any") },
             // The game names spins off a rail front or back ("Back 270 Out"), not left or right.
             Step.Off => new() { S("Front", t => t with { Off = "front" }), S("Back", t => t with { Off = "back" }), S("Straight off", t => t with { Off = "none" }, "none"), S(Any, t => t with { Off = null }, "any") },
-            Step.OffAxis => new() { S("Flat", t => t with { OffAxis = "flat" }), S("Cork", t => t with { OffAxis = "cork" }), S("Misty", t => t with { OffAxis = "misty" }), S("Bio", t => t with { OffAxis = "bio" }), S(Any, t => t with { OffAxis = null }, "any") },
+            Step.OffAxis => new() { S("Flat", t => t with { OffAxis = "flat" }), S("Cork", t => t with { OffAxis = "cork" }), S("Misty", t => t with { OffAxis = "misty" }), S("Bio", t => t with { OffAxis = "bio" }), S("Frontflip", t => t with { OffAxis = "frontflip" }, "frontflip"), S("Backflip", t => t with { OffAxis = "backflip" }, "backflip"), S(Any, t => t with { OffAxis = null }, "any") },
             Step.OffCount => new() { S("Single", t => t with { OffCount = 1 }), S("Dub", t => t with { OffCount = 2 }), S("Trip", t => t with { OffCount = 3 }), S(Any, t => t with { OffCount = null }, "any") },
             Step.OffDegrees => Degrees(90, 90, 1080, (t, d) => t with { OffDegrees = d }),
             _ => new List<Slice>()
@@ -166,8 +166,8 @@ internal sealed class CallMenu
         Step.OnDegrees => Step.Slide,
         Step.Slide => Step.Off,
         Step.Off => value is "left" or "right" or "front" or "back" ? Step.OffAxis : Step.Next,
-        Step.OffAxis => value is "cork" or "misty" or "bio" ? Step.OffCount : Step.OffDegrees,
-        Step.OffCount => Step.OffDegrees,
+        Step.OffAxis => value is "cork" or "misty" or "bio" or "frontflip" or "backflip" ? Step.OffCount : Step.OffDegrees,
+        Step.OffCount => t.OffAxis is "frontflip" or "backflip" ? Step.Next : Step.OffDegrees, // a flip has no degrees
         _ => Step.Next,
     };
 

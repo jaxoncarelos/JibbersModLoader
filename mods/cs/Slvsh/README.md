@@ -55,8 +55,11 @@ of a call: they differ by moveset.
   your run early (and the vote has the last word). A trick
   counts once you ride away clean (no respawn, no more combo for about two seconds), or start the
   next one. Rails count when you come off.
-- Respawning *before* your first trick is fine, so you can get back up to the jump. Respawning after
-  it ends your run: a miss, unless the whole line was already landed.
+- You're placed at the spawn when your turn starts (and frozen there between turns), so you never
+  need to reset during a try: **any reset ends it**, so a bail is a miss (the vote still decides).
+- Flips and spins off a rail count as how you came off it, even when the game reports them as a
+  trick of their own right after the rail ("... - Slide - To Regular" then "Backflip" becomes
+  "... - Backflip Out"). The spin-off wheel has Frontflip and Backflip.
 - Not finishing before the timer runs out is a miss, with no vote.
 - A set where the game saw no trick at all isn't voted on.
 

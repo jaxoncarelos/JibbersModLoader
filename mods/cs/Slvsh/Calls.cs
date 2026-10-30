@@ -63,6 +63,7 @@ internal sealed record CalledTrick
         {
             null => "any way off",
             "none" => "straight off",
+            _ when OffAxis is "frontflip" or "backflip" => $"{CountWord(OffCount)}{Title(OffAxis)} Out",
             _ => $"{Title(Off)} {(OffAxis is not null and not "flat" ? CountWord(OffCount) + Title(OffAxis) + " " : "")}{OffDegrees?.ToString() ?? "any degrees"} Out",
         };
         return $"{on} - {slide} - {off}";
@@ -100,7 +101,9 @@ internal sealed record CalledTrick
         var actualAxis = s.Axis ?? "flat";
         if (axis is "frontflip" or "backflip")
             return actualAxis == axis && (count is null || s.Count == count);
-        if (!Is(axis, actualAxis) || !Is(spin, s.Dir ?? "none")) return false;
+        // A flip goes front or back: that's its direction when only the direction was called.
+        var dir = s.Dir ?? actualAxis switch { "frontflip" => "front", "backflip" => "back", _ => "none" };
+        if (!Is(axis, actualAxis) || !Is(spin, dir)) return false;
         if (count is { } c && actualAxis != "flat" && s.Count != c) return false;
         return degrees is not { } d || s.Degrees == d;
     }

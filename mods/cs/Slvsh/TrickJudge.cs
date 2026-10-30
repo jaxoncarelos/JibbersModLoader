@@ -56,6 +56,10 @@ internal sealed class TrickLog
 internal sealed class TrickJudge
 {
     public const double Settle = 1.8, Rail = 10;
+    /// <summary>A real trick this soon after coming off a rail is how you came off it (a flip or spin out the game reported on its own).</summary>
+    public const double OffRail = 2.5;
+    /// <summary>Resets this soon after the turn starts are ignored.</summary>
+    public const double Grace = 1;
     readonly TrickLog log;
     readonly IReadOnlyList<CalledTrick> line;
     readonly double started;
@@ -91,14 +95,26 @@ internal sealed class TrickJudge
             if (runs.Count > 0 && runs[^1].Sequence == t.Sequence) runs[^1] = runs[^1] with { Last = t.At, Name = t.Name, Going = t.Going };
             else runs.Add(new Run(t.Sequence, t.At, t.At, t.Name, t.Going));
         }
+        // The game sometimes ends a rail trick as you come off and reports the flip or spin out as a
+        // trick of its own: join them ("Regular On - Slide - To Regular - Backflip Out").
+        for (var i = 0; i + 1 < runs.Count; i++)
+        {
+            var (rail, off) = (runs[i], runs[i + 1]);
+            if (rail.Going || !TrickName.Parse(rail.Name).Rail || TrickName.Parse(off.Name).Rail || off.Going) continue;
+            if (off.First - rail.Last > OffRail || !TrickName.IsReal(off.Name) || TrickName.Parse(rail.Name).Segments.Any(s => s.Kind == SegmentKind.Out)) continue;
+            runs[i] = rail with { Last = off.Last, Name = $"{rail.Name} - {off.Name} Out" };
+            runs.RemoveAt(i + 1);
+        }
         // Respawns split the tricks into runs; each is judged on its own.
-        var bounds = resets.OrderBy(r => r).ToList();
+        // A reset in the first moment of the turn is from being placed at the spawn, not a bail.
+        var bounds = resets.Where(r => r >= started + Grace).OrderBy(r => r).ToList();
         var from = started;
         foreach (var reset in bounds.Append(double.PositiveInfinity))
         {
             var segment = runs.Where(r => r.First >= from && r.First < reset).ToList();
             var ended = !double.IsPositiveInfinity(reset);
             var (landed, matched, at, done) = Judge(segment, ended ? reset : now);
+            Begun = segment.Count > 0 || ended;
             Current = segment.Count > 0 ? string.Join("  /  ", segment.Select(r => r.Name)) : null;
             Matched = matched;
             TrickAt = at;
@@ -107,10 +123,9 @@ internal sealed class TrickJudge
             // As many tricks as the line has, but not all as called. Not decided before then, so a
             // misread trick doesn't end your run early; the vote has the last word.
             if (done) return new Outcome(false, tried);
-            // The run began with its first real trick (landed or not): respawning now ends it.
-            var begun = matched > 0 || segment.Any(r => line[0].Matches(r.Name) || TrickName.IsReal(r.Name));
-            Begun = begun;
-            if (ended && begun) return new Outcome(false, Clip(Current!));
+            // You're placed at the spawn when your turn goes live, so a reset now means you bailed (or
+            // gave up): the try is over, and the vote decides.
+            if (ended) return new Outcome(false, Clip(Current ?? ""));
             if (!ended && segment.Count > 0 && segment[^1] is { Going: true } last && now - last.Last >= Rail && matched > 0)
                 return new Outcome(false, Clip(Current!));
             from = reset;
@@ -131,7 +146,7 @@ internal sealed class TrickJudge
             var r = segment[i];
             var next = i + 1 < segment.Count ? segment[i + 1].First : (double?)null;
             if (r.Going) continue; // still on the rail, or bailed off it
-            if (next is null && end - r.Last < Settle) break; // not ridden away (or respawned too soon after)
+            if (next is null && end - r.Last < (TrickName.Parse(r.Name).Rail ? Math.Max(Settle, OffRail) : Settle)) break; // not ridden away (or respawned too soon after)
             landed.Add(r);
         }
         int place = 0, matched = 0;
