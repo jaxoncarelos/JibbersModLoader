@@ -84,7 +84,8 @@ internal sealed class CallMenu
                 .Append(S(Any, t => t with { Axis = null }, "any")).ToList(),
             Step.Count => new() { S("Single", t => t with { Count = 1 }), S("Dub", t => t with { Count = 2 }), S("Trip", t => t with { Count = 3 }), S("Quad", t => t with { Count = 4 }), S(Any, t => t with { Count = null }, "any") },
             Step.Degrees => Degrees(180, 180, 2160, (t, d) => t with { Degrees = d }),
-            Step.OnSpin => new() { S("Left", t => t with { Spin = "left" }), S("Right", t => t with { Spin = "right" }), S("Straight on", t => t with { Spin = "none" }, "none"), S(Any, t => t with { Spin = null }, "any") },
+            // A normal (90) on is what the game names "Regular On" / "Switch On": no spin.
+            Step.OnSpin => new() { S("Normal (90)", t => t with { Spin = "none" }, "none"), S("Left", t => t with { Spin = "left" }), S("Right", t => t with { Spin = "right" }), S(Any, t => t with { Spin = null }, "any") },
             // The game names a 90 on just "Regular On", so spins on start at 180.
             Step.OnDegrees => Degrees(180, 90, 900, (t, d) => t with { Degrees = d }),
             Step.Slide => new() { S("Slide", t => t with { Slide = "slide" }), S("Frontslide", t => t with { Slide = "frontslide" }), S("Backslide", t => t with { Slide = "backslide" }), S("50-50", t => t with { Slide = "5050" }), S("5-0", t => t with { Slide = "5-0" }), S(Any, t => t with { Slide = null }, "any") },

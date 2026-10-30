@@ -266,7 +266,8 @@ static class SlvshTests
         var anyOff = rail with { Off = null, Slide = null };
         Assert.True(anyOff.Matches("Left 270 On - 5-0 - Back Misty 720 Out"));
         var straight = new CalledTrick { Type = TrickType.Rail, Stance = "regular", Spin = "none", Slide = "5-0", Off = "none" };
-        Assert.True(straight.Matches("Regular On - 5-0 - To Regular"));
+        Assert.True(straight.Matches("Regular On - 5-0 - To Regular"), "a normal (90) on");
+        Assert.Equal("Regular On (normal) - 5-0 - straight off", straight.Describe());
         Assert.True(!straight.Matches("Regular On - 5-0 - Front 270 Out"));
     }
 

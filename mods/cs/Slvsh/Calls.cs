@@ -57,7 +57,7 @@ internal sealed record CalledTrick
             return string.Join(" ", words);
         }
         var on = (Stance == "switch" ? "Switch " : Stance == "regular" ? "Regular " : "")
-            + (Spin is "left" or "right" ? $"{Title(Spin)} {Degrees?.ToString() ?? "any degrees"} On" : Spin == "none" ? "On" : "Any way On");
+            + (Spin is "left" or "right" ? $"{Title(Spin)} {Degrees?.ToString() ?? "any degrees"} On" : Spin == "none" ? "On (normal)" : "Any way On");
         var slide = Slide switch { null => "any slide", "5050" => "50-50", "5-0" => "5-0", var s => Title(s) };
         var off = Off switch
         {
