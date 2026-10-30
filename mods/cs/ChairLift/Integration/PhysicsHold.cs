@@ -75,10 +75,11 @@ internal sealed unsafe class PhysicsHold
     public static nint ModelOf(nint scene) => scene == 0 ? 0 : SceneModel.Get<nint>(scene);
 
     /// <summary>
-    /// Starts holding the free bodies within <paramref name="radius"/> metres of <paramref name="seat"/>
-    /// (the rider just placed there, and its gear); the root is the one nearest <paramref name="riderCentre"/>.
+    /// Starts holding your free bodies within <paramref name="radius"/> metres of <paramref name="seat"/>
+    /// (the rider just placed there, and its gear; never another rider sitting alongside); the root
+    /// is the one nearest <paramref name="riderCentre"/>.
     /// </summary>
-    public bool Begin(Vector3 seat, Vector3 riderCentre, float radius)
+    public bool Begin(Vector3 seat, Vector3 riderCentre, float radius, RiderParts parts)
     {
         End();
         var s = Scene();
@@ -92,7 +93,8 @@ internal sealed unsafe class PhysicsHold
             if (joint.IsNull || Unity.IsNull(joint.Ptr))
                 continue;
             var tr = Unity.Transform(joint.Ptr);
-            if (Vec.Distance(Unity.Position(tr), seat) > radius)
+            var at = Unity.Position(tr);
+            if (Vec.Distance(at, seat) > radius)
                 continue;
             var j = new MjBaseJoint(joint.Ptr);
             int qpos = j.get_QposAddress(), dof = j.get_DofAddress();
@@ -100,6 +102,8 @@ internal sealed unsafe class PhysicsHold
             if (qpos < 0 || dof < 0 || qpos + 7 > nq || dof + 6 > nv)
                 continue;
             var parent = j.get_ParentBody();
+            if (!parts.Owns(parent.Ptr, at))
+                continue;
             var body = parent.IsNull ? -1 : new MjComponent(parent.Ptr).get_MujocoId();
             bodies.Add(new FreeBody(tr, qpos, dof, body));
         }
@@ -190,17 +194,23 @@ internal sealed unsafe class PhysicsHold
 
     // ---- the chair's collisions ----
 
+    // mjModel_ is a struct: IL2CPP gives its fields' offsets in the boxed object, after the 16-byte
+    // object header, and the scene's model pointer is the raw struct, so subtract the header.
     static int ModelInt(nint model, string field) => *(int*)(model + Model.Class.Field(field).Offset - 16);
     static int* ModelArray(nint model, string field) => *(int**)(model + Model.Class.Field(field).Offset - 16);
+
+    /// <summary>Whether the model's sizes read sensibly; if a game update moved its fields, write nothing.</summary>
+    static bool Sane(int ngeom, int nbody) => ngeom is > 0 and < 1_000_000 && nbody is > 0 and < 1_000_000;
 
     /// <summary>
     /// Switches off collisions for the chair (every shape under its object: in the physics they're
     /// part of the static world, like the ground, so only the scene hierarchy tells them apart) and
-    /// for anyone else sitting on it (moving bodies near the seat that aren't the held rider and
-    /// gear). The ground, the stations and the rider keep colliding, so nothing falls through the
-    /// floor. Returns how many shapes it switched off.
+    /// for anyone else sitting on it (other riders' bodies near the seat). The ground, the stations,
+    /// the rider and its gear keep colliding, so nothing falls through the floor. Called when you
+    /// board, before you're put on the seat, so you're never placed inside the chair's shapes.
+    /// Returns how many shapes it switched off.
     /// </summary>
-    public int ChairCollisionsOff(nint chair, Vector3 seat, float radius)
+    public int ChairCollisionsOff(nint chair, Vector3 seat, float radius, RiderParts parts)
     {
         RestoreCollisions();
         var model = ModelOf(Scene());
@@ -208,6 +218,8 @@ internal sealed unsafe class PhysicsHold
             return 0;
         var ngeom = ModelInt(model, "ngeom");
         var nbody = ModelInt(model, "nbody");
+        if (!Sane(ngeom, nbody))
+            return 0;
         var contype = ModelArray(model, "geom_contype");
         var conaffinity = ModelArray(model, "geom_conaffinity");
         var bodyOf = ModelArray(model, "geom_bodyid");
@@ -216,7 +228,7 @@ internal sealed unsafe class PhysicsHold
             return 0;
         int Root(int b) => b >= 0 && b < nbody ? rootOf[b] : -1;
         var mine = bodies.Select(b => Root(b.BodyId)).Where(r => r > 0).ToHashSet();
-        var near = new List<(int Id, float Distance, bool OnChair, int Body)>();
+        var near = new List<(int Id, float Distance, bool OnChair, int Body, bool Yours)>();
         foreach (var g in MjGeom.Live())
         {
             if (g.IsNull || Unity.IsNull(g.Ptr))
@@ -228,15 +240,16 @@ internal sealed unsafe class PhysicsHold
             var id = new MjComponent(g.Ptr).get_MujocoId();
             if (id < 0 || id >= ngeom)
                 continue;
-            near.Add((id, d, GameLifts.IsChildOf(tr, chair), bodyOf[id]));
+            near.Add((id, d, GameLifts.IsChildOf(tr, chair), bodyOf[id], parts.Owns(0, Unity.Position(tr))));
         }
         // If the chair's colliders aren't under its object, the static shapes centred right by
         // the seat are the chair's (the ground and stations are big shapes centred far away).
         var chairFound = near.Any(n => n.OnChair);
         savedScene = model;
-        foreach (var (id, distance, onChair, body) in near)
+        foreach (var (id, distance, onChair, body, yours) in near)
         {
-            var mineOrWorld = body <= 0 || mine.Contains(Root(body));
+            // Yours: held, or (skis, poles not held) nearest your rider.
+            var mineOrWorld = body <= 0 || mine.Contains(Root(body)) || yours;
             var chairShape = onChair || (!chairFound && body <= 0 && distance < 1.8f);
             if (!chairShape && mineOrWorld)
                 continue;
@@ -258,7 +271,7 @@ internal sealed unsafe class PhysicsHold
             var ngeom = ModelInt(model, "ngeom");
             var contype = ModelArray(model, "geom_contype");
             var conaffinity = ModelArray(model, "geom_conaffinity");
-            if (contype != null && conaffinity != null)
+            if (contype != null && conaffinity != null && Sane(ngeom, ModelInt(model, "nbody")))
                 foreach (var (id, ct, ca) in saved)
                     if (id < ngeom)
                     {

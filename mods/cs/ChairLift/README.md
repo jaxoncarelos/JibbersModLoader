@@ -2,8 +2,9 @@
 
 Ride the map's chair lifts.
 
-- At the bottom of a chair lift a prompt shows up. Press **A** (controller), or **G** on the
-  keyboard, and you get on the next chair heading up.
+- At the bottom of a chair lift a prompt shows up. Hold **A** for a moment (controller), or press
+  **G** on the keyboard, and you get on the next chair heading up. Ski away from the station and
+  you stop waiting.
 - Each chair has four seats lined up along the bench, so you and three friends (each with the mod)
   can ride together. You take the free seat nearest to where you're standing.
 - You sit down, looking up the lift, and can open the phone on the way up: **Y** or **H** (press
@@ -31,6 +32,9 @@ Chair Lift.
 The rider's `daw()` puts the whole body back in its default stance, so it's only used to sit down.
 After that the free joints of the rider and its gear are moved to the seat and given the chair's
 speed every physics step with MuJoCo's `mj_getState`/`mj_setState`, leaving the joints to the
-sitting pose. The chair's collision shapes are switched off while seated (they're static world
-shapes, picked by being under the carrier's object). Everything written to the physics is tied to
-the scene's model and dropped when the game rebuilds it.
+sitting pose. Only your own bodies are held: your ragdoll parts (and other riders' "shell" parts)
+are known exactly, and skis and poles belong to whichever rider they're nearest, so a friend on the
+same chair isn't dragged along with you. The chair's collision shapes (static world shapes, picked
+by being under the carrier's object) and other riders' are switched off from the moment you board,
+before you're put on the seat; your own gear keeps colliding. Everything written to the physics is
+tied to the scene's model and dropped when the game rebuilds it.

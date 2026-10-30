@@ -87,6 +87,18 @@ internal static unsafe class GameLifts
         return chair;
     }
 
+    /// <summary>How far <paramref name="me"/> is from a lift's bottom station (its wheel or either end), or null if it's gone.</summary>
+    public static float? DistanceToBase(LiftLine lift, Vector3 me)
+    {
+        if (lift.IsNull || Unity.IsNull(lift.Ptr) || Point(lift.baseStation, "wheel") is not { } wheel)
+            return null;
+        var d = Vec.Distance(me, wheel);
+        foreach (var p in new[] { Point(lift.baseStation, "out"), Point(lift.baseStation, "in") })
+            if (p is { } q)
+                d = MathF.Min(d, Vec.Distance(me, q));
+        return d;
+    }
+
     /// <summary>The chair lift whose bottom station is nearest to <paramref name="me"/>, and how far.</summary>
     public static (LiftLine Lift, float Distance)? Nearest(Vector3 me)
     {
@@ -95,12 +107,8 @@ internal static unsafe class GameLifts
         {
             if (lift.IsNull || Unity.IsNull(lift.Ptr) || !IsChairLift(lift))
                 continue;
-            if (Point(lift.baseStation, "wheel") is not { } wheel)
+            if (DistanceToBase(lift, me) is not { } d)
                 continue;
-            var d = Vec.Distance(me, wheel);
-            foreach (var p in new[] { Point(lift.baseStation, "out"), Point(lift.baseStation, "in") })
-                if (p is { } q)
-                    d = MathF.Min(d, Vec.Distance(me, q));
             if (best is not { } b || d < b.Item2)
                 best = (lift, d);
         }

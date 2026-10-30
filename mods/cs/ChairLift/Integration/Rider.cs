@@ -45,6 +45,43 @@ internal sealed unsafe class Rider : IDisposable
         return list;
     }
 
+    /// <summary>
+    /// Every ragdoll part's body and position, sorted into yours (parts of <paramref name="me"/>)
+    /// and other riders' (shell parts, or another controller's).
+    /// </summary>
+    public static RiderParts Parts(RagdollController me)
+    {
+        var all = new List<(nint Body, Vector3 At, bool Shell, bool Ours)>();
+        foreach (var part in RagdollPart.Live())
+        {
+            if (part.IsNull || Unity.IsNull(part.Ptr))
+                continue;
+            all.Add((part._pbx_k__BackingField.Ptr, Unity.Position(part.Ptr), part.IsShell, part._pbw_k__BackingField.Ptr == me.Ptr));
+        }
+        // Should the parts' owner ever read wrong, the non-shell parts are still yours (only your rider has them).
+        var byOwner = all.Any(p => p.Ours && !p.Shell);
+        var myBodies = new HashSet<nint>();
+        var otherBodies = new HashSet<nint>();
+        var mine = new List<Vector3>();
+        var others = new List<Vector3>();
+        foreach (var (body, at, shell, ours) in all)
+        {
+            if (!shell && (ours || !byOwner))
+            {
+                if (body != 0)
+                    myBodies.Add(body);
+                mine.Add(at);
+            }
+            else
+            {
+                if (body != 0)
+                    otherBodies.Add(body);
+                others.Add(at);
+            }
+        }
+        return new RiderParts(myBodies, otherBodies, mine, others);
+    }
+
     // ---- sitting ----
 
     static RagdollPose[] AllPoses()

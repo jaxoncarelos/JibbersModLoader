@@ -22,6 +22,8 @@ internal sealed class RideRuntime : IDisposable
     const float PickupRange = 18;
     /// <summary>How long the rider is placed the hard way before the physics takes over.</summary>
     static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(150);
+    /// <summary>The chair's shapes switched off within this distance (metres) of the seat.</summary>
+    const float ChairRadius = 4;
 
     readonly PhysicsHold physics = new();
     readonly Rider rider = new();
@@ -125,7 +127,16 @@ internal sealed class RideRuntime : IDisposable
             if (dir is { } heading && Vec.Dot(heading, up) > 0.5f && d < PickupRange && !fullChairs.Contains(c) && (pick is not { } best || d < best.Distance))
                 pick = (c, heading, d);
         }
-        if (pick is not { } chosen || Rider.Find() is not { } r)
+        if (Rider.Find() is not { } r)
+            return;
+        // Skied away while waiting: don't teleport onto the lift from wherever you are now.
+        if (GameLifts.DistanceToBase(lift, Rider.Centre(r)) is not { } fromBase || fromBase > BoardRange)
+        {
+            Stage = Stage.Idle;
+            Log.Info("ChairLift", "left the bottom station, stopped waiting for a chair");
+            return;
+        }
+        if (pick is not { } chosen)
             return;
         if (PickSeat(chosen.Chair, chosen.Dir, Rider.Centre(r), options.Fit) is not { } seat)
         {
@@ -141,6 +152,10 @@ internal sealed class RideRuntime : IDisposable
         velocity = default;
         target = null;
         physics.End();
+        // Off before you're put on the seat: placed inside the chair's shapes, the physics would
+        // throw you off it (and the game may count that as a physics error and respawn you).
+        restoreTimer.Reset();
+        physics.ChairCollisionsOff(chair, GameLifts.TransformPoint(chair, seat), ChairRadius, Rider.Parts(r));
         Stage = Stage.Riding;
         since.Restart();
         if (options.Sit)
@@ -206,7 +221,8 @@ internal sealed class RideRuntime : IDisposable
         {
             Log.Info("ChairLift", "the physics scene was rebuilt, holding the rider again");
             physics.End();
-            physics.RestoreCollisions();
+            // The new scene has the chair's shapes on: off again before you're put back on the seat.
+            physics.ChairCollisionsOff(chair, at, ChairRadius, Rider.Parts(me));
             target = null;
             since.Restart();
         }
@@ -219,13 +235,14 @@ internal sealed class RideRuntime : IDisposable
         if (!physics.Holding)
         {
             restoreTimer.Reset();
-            physics.RestoreCollisions();
-            if (!physics.Begin(at, Rider.Centre(me), 1.8f))
+            var parts = Rider.Parts(me);
+            if (!physics.Begin(at, Rider.Centre(me), 1.8f, parts))
             {
                 Rider.Place(me, at, facing, velocity); // no physics access: the old way
                 return;
             }
-            var off = physics.ChairCollisionsOff(chair, at, 4);
+            // Again now the rider's bodies are known exactly (riders who sat down since, too).
+            var off = physics.ChairCollisionsOff(chair, at, ChairRadius, parts);
             Log.Info("ChairLift", $"holding the rider on the chair, {off} of the chair's collision shapes off");
         }
         target = (at, velocity, now);
@@ -267,8 +284,11 @@ internal sealed class RideRuntime : IDisposable
     /// <summary>The phone is the game's pause menu, which the game won't open off the ground: raise the event it listens for.</summary>
     void TogglePhone()
     {
-        Events.Raise(phoneOpen ? "event.unpause" : "event.pause", stackalloc byte[1]);
-        phoneOpen = !phoneOpen;
+        // Raise runs every listener before it returns, this mod's own pause/unpause listener too
+        // (which sets phoneOpen), so decide the new state first rather than flipping it after.
+        var open = !phoneOpen;
+        Events.Raise(open ? "event.pause" : "event.unpause", stackalloc byte[1]);
+        phoneOpen = open;
     }
 
     /// <summary>You respawned: off the chair, collisions straight back on.</summary>

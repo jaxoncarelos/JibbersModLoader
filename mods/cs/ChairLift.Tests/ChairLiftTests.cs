@@ -90,6 +90,30 @@ static class ChairLiftTests
     }
 
     [Test]
+    static void OnlyYourOwnBodiesAreHeld()
+    {
+        // You sit at x = 0, a friend 0.6 m along the bench at x = 0.6.
+        var parts = new RiderParts(new HashSet<nint> { 1, 2 }, new HashSet<nint> { 3 },
+            [new(0, 1, 0), new(0, 0.3f, 0)], [new(0.6f, 1, 0), new(0.6f, 0.3f, 0)]);
+        Assert.True(parts.Owns(1, new(0, 1, 0)), "your own part");
+        Assert.True(!parts.Owns(3, new(0.6f, 1, 0)), "the friend's part");
+        // A part is whoever's it is, wherever it ends up.
+        Assert.True(!parts.Owns(3, new(0, 1, 0)), "the friend's part, even right by you");
+        Assert.True(parts.Owns(2, new(0.6f, 0.3f, 0)), "your part, even by the friend");
+        // Skis and poles aren't parts: they're the nearest rider's.
+        Assert.True(parts.Owns(0, new(0.1f, 0, 0)), "your ski");
+        Assert.True(!parts.Owns(0, new(0.5f, 0, 0)), "the friend's ski");
+    }
+
+    [Test]
+    static void RidingAloneEverythingNearbyIsYours()
+    {
+        var parts = new RiderParts(new HashSet<nint> { 1 }, new HashSet<nint>(), [new(0, 1, 0)], []);
+        Assert.True(parts.Owns(0, new(1.5f, 0, 0)));
+        Assert.True(parts.Owns(7, new(1.5f, 0, 0)));
+    }
+
+    [Test]
     static void YawFacesTheGivenDirection()
     {
         var q = Vec.Yaw(new(1, 0, 0));
