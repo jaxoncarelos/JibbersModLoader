@@ -58,8 +58,12 @@ internal sealed class TrickJudge
     public const double Settle = 1.8, Rail = 10;
     /// <summary>A real trick this soon after coming off a rail is how you came off it (a flip or spin out the game reported on its own).</summary>
     public const double OffRail = 2.5;
-    /// <summary>Resets this soon after the turn starts are ignored.</summary>
-    public const double Grace = 1;
+    /// <summary>
+    /// Tricks and resets this soon after the turn starts are ignored: you're placed at the spawn a
+    /// little above the snow, and the game can report the drop as a trick (a straight air, a zero
+    /// spin, even a 180 if you land turned).
+    /// </summary>
+    public const double Grace = 3;
     readonly TrickLog log;
     readonly IReadOnlyList<CalledTrick> line;
     readonly double started;
@@ -92,6 +96,7 @@ internal sealed class TrickJudge
         var runs = new List<Run>();
         foreach (var t in tricks)
         {
+            if (t.At < started + Grace) continue; // the drop at the spawn
             if (runs.Count > 0 && runs[^1].Sequence == t.Sequence) runs[^1] = runs[^1] with { Last = t.At, Name = t.Name, Going = t.Going };
             else runs.Add(new Run(t.Sequence, t.At, t.At, t.Name, t.Going));
         }
@@ -106,7 +111,7 @@ internal sealed class TrickJudge
             runs.RemoveAt(i + 1);
         }
         // Respawns split the tricks into runs; each is judged on its own.
-        // A reset in the first moment of the turn is from being placed at the spawn, not a bail.
+        // A reset in the first moments of the turn is from being placed at the spawn, not a bail.
         var bounds = resets.Where(r => r >= started + Grace).OrderBy(r => r).ToList();
         var from = started;
         foreach (var reset in bounds.Append(double.PositiveInfinity))

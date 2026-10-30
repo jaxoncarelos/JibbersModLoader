@@ -321,10 +321,12 @@ static class SlvshTests
         var rail = new CalledTrick { Type = TrickType.Rail, Spin = "left", Degrees = 270 };
         var line = new[] { rail, cork };
 
-        // Landed in order, with small stuff in between; a reset in the first second (being placed) is ignored.
+        // Landed in order, with small stuff in between. The drop at the spawn (a trick or reset in the
+        // first seconds, even a 180 from landing turned) is ignored.
         var log = new TrickLog();
-        var j = new TrickJudge(log, 10, line);
-        log.AddReset(10.5);
+        var j = new TrickJudge(log, 7, line);
+        log.AddReset(7.5);
+        log.AddTrick(8, "Switch Right 180", 30);
         log.AddTrick(11, "Left 270 On", 1);
         Assert.True(j.Step(14) is null, "still on the rail");
         log.AddTrick(15, "Left 270 On - Slide - Back 270 Out", 1);
@@ -337,7 +339,7 @@ static class SlvshTests
 
         // Out of order: decided once both places are taken, not before (in case a trick was misread).
         log = new TrickLog();
-        j = new TrickJudge(log, 30, line);
+        j = new TrickJudge(log, 27, line);
         log.AddTrick(31, "Left Dub Cork 1080", 4);
         Assert.True(j.Step(34) is null, "one trick of two: not decided yet");
         log.AddTrick(35, "Left 270 On - Slide", 5);
@@ -346,23 +348,23 @@ static class SlvshTests
 
         // The wrong second trick (a Left 180 where any 360 was called) is a miss once it's done.
         log = new TrickLog();
-        j = new TrickJudge(log, 40, new[] { rail, new CalledTrick { Type = TrickType.Jump, Degrees = 360 } });
+        j = new TrickJudge(log, 37, new[] { rail, new CalledTrick { Type = TrickType.Jump, Degrees = 360 } });
         log.AddTrick(41, "Left 270 On - Slide - Back 270 Out", 20);
         log.AddTrick(44, "Left 180", 21);
         Assert.True(j.Step(47) is { Landed: false }, "wrong second trick");
 
         // You start your turn placed at the spawn, so any reset is a bail: a miss, even before a trick.
         log = new TrickLog();
-        j = new TrickJudge(log, 50, new[] { cork });
+        j = new TrickJudge(log, 47, new[] { cork });
         log.AddTrick(51, "Straight Air", 6);
         log.AddReset(52);
         Assert.True(j.Step(52.5) is { Landed: false }, "reset after a straight air");
         log = new TrickLog();
-        j = new TrickJudge(log, 60, new[] { cork });
+        j = new TrickJudge(log, 57, new[] { cork });
         log.AddReset(63); // crashed with no trick at all
         Assert.True(j.Step(63.5) is { Landed: false, Trick: "" }, "bail with no trick");
         log = new TrickLog();
-        j = new TrickJudge(log, 70, new[] { cork });
+        j = new TrickJudge(log, 67, new[] { cork });
         log.AddTrick(71, "Right Dub Cork 1080", 7);
         log.AddReset(71.5); // landed, but reset before riding away
         Assert.True(j.Step(72) is { Landed: false });
@@ -370,7 +372,7 @@ static class SlvshTests
 
         // Bailing off a rail (a new trick while it's still going) doesn't count, but the run goes on.
         log = new TrickLog();
-        j = new TrickJudge(log, 80, new[] { rail });
+        j = new TrickJudge(log, 77, new[] { rail });
         log.AddTrick(81, "Left 270 On", 8);
         log.AddTrick(82, "Zero Spin", 9);
         log.AddTrick(85, "Left 270 On - 5050 - To Regular", 10);
@@ -380,26 +382,26 @@ static class SlvshTests
         var flipOut = new CalledTrick { Type = TrickType.Rail, Spin = "none", Slide = "slide", Off = "back", OffAxis = "backflip" };
         Assert.Equal("On (normal) - Slide - Backflip Out", flipOut.Describe());
         log = new TrickLog();
-        j = new TrickJudge(log, 100, new[] { flipOut });
+        j = new TrickJudge(log, 97, new[] { flipOut });
         log.AddTrick(101, "Regular On - Slide - To Regular", 11);
         Assert.True(j.Step(102) is null, "waiting to see how you came off");
         log.AddTrick(102.5, "Backflip", 12);
         Assert.True(j.Step(105) is { Landed: true } landedFlip && landedFlip.Trick.Contains("Backflip Out"), "flip out joined");
         var spinOut = new CalledTrick { Type = TrickType.Rail, Off = "back", OffAxis = "flat", OffDegrees = 270 };
         log = new TrickLog();
-        j = new TrickJudge(log, 110, new[] { spinOut });
+        j = new TrickJudge(log, 107, new[] { spinOut });
         log.AddTrick(111, "Regular On - Slide", 13);
         log.AddTrick(112, "Back 270", 14);
         Assert.True(j.Step(115) is { Landed: true }, "spin out joined");
         log = new TrickLog();
-        j = new TrickJudge(log, 120, new[] { rail, cork });
+        j = new TrickJudge(log, 117, new[] { rail, cork });
         log.AddTrick(121, "Left 270 On - Slide - To Regular", 15);
         log.AddTrick(128, "Left Dub Cork 1080", 16); // long after: its own trick
         Assert.True(j.Step(131) is { Landed: true }, "a later jump isn't joined");
 
         // Respawning partway through the line is a miss.
         log = new TrickLog();
-        j = new TrickJudge(log, 200, line);
+        j = new TrickJudge(log, 197, line);
         log.AddTrick(201, "Left 270 On - Slide", 22);
         Assert.True(j.Step(204) is null);
         Assert.Equal(1, j.Matched);
