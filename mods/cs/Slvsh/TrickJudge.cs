@@ -44,8 +44,9 @@ internal sealed class TrickLog
 
 
 /// <summary>
-/// Watches one attempt at a called line: the tricks must be landed in order in one run, and other
-/// tricks in between don't matter. A trick is landed once the rider rides away clean (no respawn,
+/// Watches one attempt at a called line: the tricks must be landed in order in one run. Small stuff
+/// in between (straight airs, zero spins, butters, small spins) doesn't matter, but any other trick
+/// that isn't the next one called is a miss. A trick is landed once the rider rides away clean (no respawn,
 /// no more combo for <see cref="Settle"/>) or starts the next trick; a rail trick still going when
 /// the next one starts, or for <see cref="Rail"/> seconds, wasn't landed. The run starts at your
 /// first real trick (see <see cref="TrickName.IsReal"/>) or the line's first trick: small stuff on the
@@ -96,12 +97,13 @@ internal sealed class TrickJudge
         {
             var segment = runs.Where(r => r.First >= from && r.First < reset).ToList();
             var ended = !double.IsPositiveInfinity(reset);
-            var (landed, matched, at) = Judge(segment, ended ? reset : now);
+            var (landed, matched, at, wrong) = Judge(segment, ended ? reset : now);
             Current = segment.Count > 0 ? string.Join("  /  ", segment.Select(r => r.Name)) : null;
             Matched = matched;
             TrickAt = at;
             var tried = Clip(string.Join("  /  ", landed.Select(r => r.Name)));
             if (matched == line.Count) return Outcome.Land(tried);
+            if (wrong) return new Outcome(false, tried); // a real trick that isn't the next one called
             // The run began with its first real trick (landed or not): respawning now ends it.
             var begun = matched > 0 || segment.Any(r => line[0].Matches(r.Name) || TrickName.IsReal(r.Name));
             Begun = begun;
@@ -113,8 +115,11 @@ internal sealed class TrickJudge
         return null;
     }
 
-    /// <summary>The tricks landed in one run (up to <paramref name="end"/>), and how much of the line they match in order.</summary>
-    (List<Run> Landed, int Matched, double? At) Judge(List<Run> segment, double end)
+    /// <summary>
+    /// The tricks landed in one run (up to <paramref name="end"/>), how much of the line they match in
+    /// order, and whether a real trick came that wasn't the next one called (small stuff is ignored).
+    /// </summary>
+    (List<Run> Landed, int Matched, double? At, bool Wrong) Judge(List<Run> segment, double end)
     {
         var landed = new List<Run>();
         for (var i = 0; i < segment.Count; i++)
@@ -128,12 +133,16 @@ internal sealed class TrickJudge
         var matched = 0;
         double? at = null;
         foreach (var r in landed)
-            if (matched < line.Count && line[matched].Matches(r.Name))
+        {
+            if (matched == line.Count) break;
+            if (line[matched].Matches(r.Name))
             {
                 if (matched == 0) at = r.First;
                 matched++;
             }
-        return (landed, matched, at);
+            else if (TrickName.IsReal(r.Name)) return (landed, matched, at, true);
+        }
+        return (landed, matched, at, false);
     }
 
     static string Clip(string s) => s.Length <= GameState.MaxTried ? s : s[..(GameState.MaxTried - 1)] + "…";

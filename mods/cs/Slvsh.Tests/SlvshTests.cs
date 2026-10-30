@@ -297,15 +297,19 @@ static class SlvshTests
         Assert.True(landed is { Landed: true }, $"{landed}");
         Assert.Equal(11.0, j.TrickAt);
 
-        // Out of order: the cork before the rail doesn't count.
+        // Out of order: the cork first is a real trick that isn't the call, so a miss.
         j = new TrickJudge(log, 30, line);
         log.AddTrick(31, "Left Dub Cork 1080", 4);
-        log.AddTrick(36, "Left 270 On - Slide", 5);
-        Assert.True(j.Step(40) is null);
-        Assert.Equal(1, j.Matched);
-        log.AddReset(41); // respawned before finishing: a miss
-        var missed = j.Step(41.5)!;
+        Assert.True(j.Step(32) is null, "not ridden away yet");
+        var missed = j.Step(33)!;
         Assert.True(!missed.Landed && missed.Trick.Contains("Left Dub Cork 1080"), missed.Trick);
+
+        // The wrong second trick (a Left 180 where any 360 was called) is a miss too.
+        var three60 = new CalledTrick { Type = TrickType.Jump, Degrees = 360 };
+        j = new TrickJudge(log, 40, new[] { rail, three60 });
+        log.AddTrick(41, "Left 270 On - Slide - Back 270 Out", 20);
+        log.AddTrick(44, "Left 180", 21);
+        Assert.True(j.Step(47) is { Landed: false }, "wrong second trick");
 
         // Respawning right after the last trick, before riding away, is a miss.
         j = new TrickJudge(log, 50, new[] { cork });
@@ -334,6 +338,14 @@ static class SlvshTests
         log.AddTrick(82, "Zero Spin", 8);
         log.AddTrick(85, "Left 270 On - 5050 - To Regular", 9);
         Assert.True(j.Step(90) is { Landed: true });
+
+        // Respawning partway through the line is a miss.
+        j = new TrickJudge(log, 200, line);
+        log.AddTrick(201, "Left 270 On - Slide", 22);
+        Assert.True(j.Step(204) is null);
+        Assert.Equal(1, j.Matched);
+        log.AddReset(205);
+        Assert.True(j.Step(205.5) is { Landed: false });
     }
 
     [Test]

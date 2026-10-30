@@ -49,7 +49,9 @@ of a call: they differ by moveset.
 
 ## How a try is detected
 
-- Land the called tricks **in order, in one run**. Other tricks in between don't matter. A trick
+- Land the called tricks **in order, in one run**. Small stuff in between (straight airs, zero
+  spins, butters, small spins) doesn't matter; any other trick that isn't the next one called is a
+  miss. A trick
   counts once you ride away clean (no respawn, no more combo for about two seconds), or start the
   next one. Rails count when you come off.
 - Respawning *before* your first trick is fine, so you can get back up to the jump. Respawning after
