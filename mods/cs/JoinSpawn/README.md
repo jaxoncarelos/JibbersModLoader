@@ -23,7 +23,7 @@ The mod shows a "not from the signed catalog" warning when it loads. This is nor
 ## Usage
 - **F6** (or **Insert**): open/close the panel.
 - Up/Down: choose, Left/Right: adjust, Enter: confirm.
-- **F10**: writes a diagnostic to `jibbers_hotload.log`.
+- **F7**: writes a diagnostic to `jibbers_hotload.log`.
 
 ## Building
 Requirements: .NET 8 SDK and the game with the modloader installed.

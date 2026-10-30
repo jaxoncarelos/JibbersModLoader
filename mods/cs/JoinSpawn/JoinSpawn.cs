@@ -61,7 +61,7 @@ public sealed class JoinSpawnMod : JibbersMod
         Tooltip = "A second keyboard key to open/close the panel, in addition to the first. / Une deuxième touche du clavier pour ouvrir/fermer le panneau, en plus de la première.")]
     public Key OpenKey2 { get; private set; }
 
-    [KeyBinding("Diagnostic (writes to the log / écrit dans le log)", Key.F10, Key = "diagnostic", Section = "Controls / Contrôles",
+    [KeyBinding("Diagnostic (writes to the log / écrit dans le log)", Key.F7, Key = "diagnostic", Section = "Controls / Contrôles",
         Tooltip = "Writes the scene objects that look like players to jibbers_hotload.log. Press it near other players. / Écrit dans jibbers_hotload.log les objets de la scène qui ressemblent à des joueurs. À presser près d'autres joueurs.")]
     public Key DiagnosticKey { get; private set; }
 
@@ -187,6 +187,7 @@ public sealed class JoinSpawnMod : JibbersMod
         if (plate == 0)
         {
             Log($"« {name} » n'est pas dans la session : spawn normal.");
+            Restore();
             return;
         }
         var position = Unity.Position(plate);
@@ -196,6 +197,7 @@ public sealed class JoinSpawnMod : JibbersMod
             if (position.Magnitude < 1)
             {
                 Log($"« {name} » est loin et sa plaque n'a pas de position connue : spawn normal.");
+                Restore();
                 return;
             }
             Log($"« {name} » est loin : dernière position connue de sa plaque ({position.X:0}, {position.Y:0}, {position.Z:0}).");
@@ -472,7 +474,7 @@ public sealed class JoinSpawnMod : JibbersMod
             string.Join(", ", players.Take(40).Select(p => $"[{p.Name}{(p.Active ? "" : " loin")}]")));
     }
 
-    // Lignes de la page Position : 0 joueur, 1 devant, 2 côté, 3 hauteur, 4 réapparition, 5 terminé.
+    // Lignes de la page Position : 0 joueur, 1 devant, 2 côté, 3 hauteur, 4 terminé.
     const int PositionRows = 5;
 
     void Navigate(int step)

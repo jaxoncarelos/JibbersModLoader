@@ -73,8 +73,8 @@
       "modId": "join_spawn",
       "authors": ["jaxoncarelos"],
       "id": "jibbers_join_spawn",
-      "name": "JoinSpawn",
-      "description": "Spawn on another player rather than a spawn point.",
+      "name": "Join Spawn",
+      "description": "Spawn next to a player in your session instead of at a spawn point: pick them from a list (F6), set the offset, and keep their speed and direction.",
       "legacy": false,
       "assets": []
     }
