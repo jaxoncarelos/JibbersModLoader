@@ -150,6 +150,34 @@ fn local_mods_and_user_settings_are_never_overwritten_or_removed() {
 }
 
 #[test]
+fn a_loader_installed_outside_the_channel_is_replaced_and_kept_beside_it() {
+    let root = Sandbox::new(); let (cat, net) = setup();
+    // As after dropping a release zip over an install that already has a record.
+    install::apply(&root.0, &cat, &[], true, &net).unwrap();
+    root.write(crate::LOADER_PATH, b"MZ loader from a zip");
+    let installed = install::apply(&root.0, &cat, &["example".into()], true, &net).unwrap();
+    assert_eq!(root.bytes(crate::LOADER_PATH), b"MZ loader v1");
+    assert_eq!(root.bytes(&format!("{}.replaced", crate::LOADER_PATH)), b"MZ loader from a zip");
+    assert_eq!(root.bytes("JibbersMods/example.dll"), b"MZ example v1");
+    assert_eq!(installed.packages["loader"].version, "1.0.0");
+    // With no record at all, too.
+    std::fs::remove_file(root.0.join(crate::STATE_DIR).join("installed.json")).unwrap();
+    root.write(crate::LOADER_PATH, b"MZ migration seed");
+    install::apply(&root.0, &cat, &[], true, &net).unwrap();
+    assert_eq!(root.bytes(crate::LOADER_PATH), b"MZ loader v1");
+}
+
+#[test]
+fn a_local_loader_build_is_kept_when_asked() {
+    let root = Sandbox::new(); let (cat, net) = setup();
+    root.write(crate::LOADER_PATH, b"MZ my own build");
+    root.write(&format!("{}/{}", crate::STATE_DIR, install::KEEP_LOCAL_LOADER), b"");
+    let error = install::apply(&root.0, &cat, &[], true, &net).unwrap_err();
+    assert!(error.contains("unmanaged or modified"), "{error}");
+    assert_eq!(root.bytes(crate::LOADER_PATH), b"MZ my own build");
+}
+
+#[test]
 fn interrupted_transaction_restores_backup_before_next_load() {
     let root = Sandbox::new(); let path = "JibbersMods/example.dll";
     root.write(path, b"partially installed update");

@@ -26,7 +26,10 @@ populate any newly published mod rows. Automatic updates can be disabled indepen
 
 Offline startup keeps working with installed mods. A cached, signed catalog remains usable when the CDN
 is unavailable. Missing or corrupt downloads leave installed files in place. Modified local binaries are
-not overwritten by updates; settings and manually installed unrelated mods are never removed.
+not overwritten by updates; settings and manually installed unrelated mods are never removed. The one exception
+is the loader, which every install needs: a copy the channel didn't install (from a release zip, the bootstrap
+installer or the SDK migration) is replaced, and the old one kept as `jibbers_loader.dll.replaced`. To keep a
+locally built loader while developing it, create an empty `JibbersMods/system/distribution/keep-local-loader`.
 
 ## How the loader updates itself
 

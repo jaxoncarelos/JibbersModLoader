@@ -5,6 +5,10 @@ use std::path::{Path, PathBuf};
 
 pub trait Fetch { fn get(&self, url: &str, max: usize) -> Result<Vec<u8>, String>; }
 
+/// A file in the state directory that stops updates replacing a loader the channel didn't install
+/// (a locally built one, while developing the loader).
+pub const KEEP_LOCAL_LOADER: &str = "keep-local-loader";
+
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Installed {
@@ -208,7 +212,15 @@ fn stage_package(root: &Path, package: &Package, previous: Option<&InstalledPack
             let existing = std::fs::read(&path).map_err(|e| e.to_string())?;
             if hash(&existing) == file.sha256 { continue; }
             let owned = previous.and_then(|p| p.files.iter().find(|f| f.path == file.path));
-            if !owned.is_some_and(|old| hash(&existing) == old.sha256) { return Err(format!("{} is an unmanaged or modified file; leaving it untouched", file.path)); }
+            if !owned.is_some_and(|old| hash(&existing) == old.sha256) {
+                // The loader is required and only this channel ships it, but release zips, the
+                // bootstrap installer and the SDK migration also write it without a record here.
+                // Replace it rather than block every update, keeping the old bytes beside it.
+                if package.id != "loader" || safe_path(root, &format!("{}/{KEEP_LOCAL_LOADER}", crate::STATE_DIR))?.exists() {
+                    return Err(format!("{} is an unmanaged or modified file; leaving it untouched", file.path));
+                }
+                changes.insert(format!("{}.replaced", file.path), Some(existing));
+            }
         }
         let bytes = net.get(&file.url, file.size as usize)?;
         if bytes.len() as u64 != file.size || hash(&bytes) != file.sha256 { return Err(format!("{} failed download verification", file.path)); }
