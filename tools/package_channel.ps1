@@ -47,12 +47,14 @@ try {
     & python tools/third_party_notices.py --out "$installer/JibbersMods/licenses/THIRD-PARTY-NOTICES.txt" Cargo.toml sdk/crates/jibbers-dotnet-bridge/Cargo.toml
     if ($LASTEXITCODE -ne 0) { throw 'License collection failed' }
     $packages = [Collections.Generic.List[object]]::new()
-    $packages.Add([ordered]@{id='loader'; name='Jibbers Mod Loader'; description='Phone menu, startup updates and C# mod loading.'; version=$Version; dependencies=@('jibbers_dotnet'); files=@('JibbersMods/system/jibbers_loader.dll')})
+    $publicRegistry = Get-Content -LiteralPath (Join-Path $root 'tools/public-mods.json') -Raw | ConvertFrom-Json
+    $defaultMods = @($publicRegistry.mods | Where-Object { $_.defaultInstall } | ForEach-Object { $_.id })
+    $packages.Add([ordered]@{id='loader'; name='Jibbers Mod Loader'; description='Phone menu, startup updates and C# mod loading.'; version=$Version; dependencies=(@('jibbers_dotnet') + $defaultMods); files=@('JibbersMods/system/jibbers_loader.dll')})
     $packages.Add([ordered]@{id='jibbers_dotnet'; name='C# Runtime'; description='Required shared C# SDK and bundled .NET runtime.'; version=$Version; files=@('JibbersMods/packages/jibbers_dotnet/jibbers_dotnet.dll','JibbersMods/packages/jibbers_dotnet/runtime.zip')})
     $mods = [IO.Compression.ZipFile]::OpenRead((Join-Path $root 'dist/JibbersCSharpMods.zip'))
     try {
         # tools/public-mods.json lists the public mods for this script and publish_mod.py alike.
-        foreach ($entry in (Get-Content -LiteralPath (Join-Path $root 'tools/public-mods.json') -Raw | ConvertFrom-Json).mods) {
+        foreach ($entry in $publicRegistry.mods) {
             # Historical paths let the installed bootstrap replace native DLLs atomically.
             # The new loader routes these CLR assemblies to the C# host. Mods that never had a
             # native version install straight into the C# host's folder instead.

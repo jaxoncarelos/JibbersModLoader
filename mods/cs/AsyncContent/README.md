@@ -6,13 +6,13 @@ This is a functional import-path replacement for the supported decoding stages, 
 
 ## Installation
 
-Copy `AsyncContent.dll` into `<game>/JibbersMods/cs/AsyncContent/` and launch Jibbers. Options â†’ Mods â†’ Async Content has an enable switch and a content work budget of 1â€“5 ms (default 2 ms). A new DLL loads on the next game launch.
+Async Content installs automatically with the loader on launch, including existing updater installations. It is enabled by default; its Enabled toggle in Options > Mods can turn it off. Options â†’ Mods â†’ Async Content has an enable switch and a content work budget of 1â€“5 ms (default 2 ms). A new DLL loads on the next game launch.
 
 Before enabling its hooks, the mod runs small, local comparisons against the original Unity loaders. PNG pixels/alpha/mipmap count and OBJ vertices, normals, UVs, indices and tangents must match. A missing API, changed coroutine state layout or parity failure prevents acceleration from loading. Check `jibbers_hotload.log` for the result.
 
 During a content import, the log reports streaming preparation, fallback filenames/reasons, staged uploads, slow texture allocation/pixel copy/mipmap apply, mesh upload/recalculation and registration. The summary separates staged-upload and original-coroutine stalls. `async_content.status` returns counters. Nonzero accelerated texture/mesh counts are required before attributing any performance change to this mod.
 
-Install Async Content from the public mod catalogue in Options > Mods. Selected installations receive signed updates on launch. The source is GPL-3.0-only. Remove the mod through the manager to uninstall it.
+Async Content is a standard loader dependency and receives signed updates on launch. It does not need a separate catalogue selection. The source is GPL-3.0-only. Disable it using its Enabled toggle; an explicitly saved disabled choice is preserved.
 
 ## How it works
 

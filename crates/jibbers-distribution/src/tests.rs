@@ -76,6 +76,27 @@ fn startup_installs_loader_and_selected_mod_then_updates_both() {
 }
 
 #[test]
+fn catalog_adds_default_mod_to_existing_install_without_loader_replacement_or_selection() {
+    let root = Sandbox::new();
+    let (mut cat, mut net) = setup();
+    let first = install::apply(&root.0, &cat, &[], true, &net).unwrap();
+    let loader = root.bytes(crate::LOADER_PATH);
+    let mut default_mod = package(&mut net, "jibbers_async_content", "0.1.5", b"default content mod");
+    default_mod.files[0].path = "JibbersMods/cs/jibbers_async_content.dll".into();
+    cat.packages[0].dependencies.push(default_mod.id.clone());
+    cat.packages.push(default_mod);
+    cat.sequence += 1;
+    root.write("JibbersMods/async_content.settings.json", b"{\"enabled\":false}");
+    let installed = install::apply(&root.0, &cat, &[], true, &net).unwrap();
+    assert!(installed.packages.contains_key("jibbers_async_content"));
+    assert_eq!(root.bytes("JibbersMods/cs/jibbers_async_content.dll"), b"default content mod");
+    assert_eq!(root.bytes(crate::LOADER_PATH), loader);
+    assert_eq!(installed.packages["loader"].version, first.packages["loader"].version);
+    assert_eq!(root.bytes("JibbersMods/async_content.settings.json"), b"{\"enabled\":false}");
+    assert!(!cat.selectable_packages().unwrap().iter().any(|p| p.id == "jibbers_async_content"));
+}
+
+#[test]
 fn native_subscription_migrates_to_managed_with_required_runtime_and_keeps_settings() {
     let root = Sandbox::new(); let mut net = Net::default();
     let loader = package(&mut net, "loader", "0.2.1", b"old loader");
