@@ -1,0 +1,46 @@
+{
+  "symbols": [
+    {
+      "id": "async_content.importer",
+      "summary": "Local session archive importer; original validation and registration remain intact.",
+      "match": { "name": "SessionContent" },
+      "members": {
+        "reset": { "method": { "name": "ResetStatics", "params": [], "return": "System.Void", "static": true } },
+        "text": { "method": { "name": "Text", "params": ["System.IO.Compression.ZipArchiveEntry"], "return": "System.String", "static": true } },
+        "texture": { "method": { "params": ["System.IO.Compression.ZipArchiveEntry"], "return": "UnityEngine.Texture2D", "static": true } },
+        "register": { "method": { "argc": 4, "return": "System.Boolean", "static": true } }
+      }
+    },
+    {
+      "id": "async_content.iterator",
+      "summary": "Archive import coroutine, identified by its archive and byte buffer rather than a compiler-generated name.",
+      "match": {
+        "declaring": "@async_content.importer",
+        "interfaces": ["System.Collections.IEnumerator"],
+        "fields": [{ "type": "System.IO.Compression.ZipArchive", "static": false }, { "type": "System.Byte[]", "static": false }]
+      },
+      "members": {
+        "step": { "method": { "name": "MoveNext", "params": [], "return": "System.Boolean", "static": false } },
+        "bytes": { "field": { "type": "System.Byte[]", "static": false } },
+        "archive": { "field": { "type": "System.IO.Compression.ZipArchive", "static": false } },
+        "current": { "field": { "type": "System.Object", "static": false } },
+        "state": { "field": { "type": "System.Int32", "static": false, "nth": 0 } }
+      }
+    },
+    {
+      "id": "async_content.obj_parser",
+      "summary": "Native OBJ parser. Declaration ordinal verified against native callers in the validated October build.",
+      "match": {
+        "obfuscated": true,
+        "methods": [
+          { "params": ["System.String"], "return": "System.Single", "static": true },
+          { "params": ["System.String", "System.Int32"], "return": "System.Int32", "static": true },
+          { "params": ["System.String[]", "System.String"], "return": "UnityEngine.Mesh", "static": true }
+        ]
+      },
+      "members": {
+        "parse": { "method": { "params": ["System.String", "System.String"], "return": "UnityEngine.Mesh", "static": true, "nth": 1 } }
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>AsyncContent</AssemblyName>
+    <Version>0.1.5</Version>
+    <JibbersNoInstall>true</JibbersNoInstall>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="content_symbols.json" LogicalName="AsyncContent.symbols.json" />
+    <EmbeddedResource Include="Fixtures/*.png" />
+    <EmbeddedResource Include="Fixtures/expected.json" LogicalName="AsyncContent.Fixtures.expected.json" />
+    <InternalsVisibleTo Include="AsyncContent.Tests" />
+  </ItemGroup>
+</Project>

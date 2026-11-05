@@ -87,6 +87,19 @@
       "description": "Ride the chair lifts: sit with friends, use the phone on the way up, get off at the top.",
       "legacy": false,
       "assets": []
+    },
+    {
+      "folder": "AsyncContent",
+      "modId": "async_content",
+      "authors": [
+        "jaxoncarelos"
+      ],
+      "id": "jibbers_async_content",
+      "name": "Async Content",
+      "description": "Reduces server-join stutter by decoding session textures and meshes on a worker and spreading large texture copies across frames.",
+      "legacy": false,
+      "version": "0.1.5",
+      "assets": []
     }
   ]
 }

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><JibbersNoInstall>true</JibbersNoInstall></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AsyncContent/AsyncContent.csproj" />
+    <Reference Update="Jibbers.Sdk"><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>
