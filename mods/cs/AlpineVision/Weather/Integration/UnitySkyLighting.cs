@@ -8,6 +8,8 @@ namespace JibbersAlpineVision.Weather;
 internal static unsafe class UnitySkyLighting
 {
     static GameRef? fallbackSun;
+    // FindObjects scans the whole scene (slow on big maps): after a miss, wait before scanning again.
+    static long nextSunSearch;
 
     /// <summary>The scene's sun, shared by the sky disc and weather glow/shafts. Main thread.</summary>
     public static nint FindSun()
@@ -17,9 +19,12 @@ internal static unsafe class UnitySkyLighting
         if(!Unity.IsNull(light))return light;
         if(fallbackSun is not null && !Unity.IsNull(fallbackSun.Target))return fallbackSun.Target;
         ResetSun();
+        var now=Environment.TickCount64;
+        if(now<nextSunSearch)return 0;
         light=Unity.FindObjects(Unity.Class("UnityEngine.Light"))
             .FirstOrDefault(candidate=>Unity.Call<int>(candidate,"get_type")==1 && Unity.Call<bool>(candidate,"get_enabled"));
         if(!Unity.IsNull(light))fallbackSun=new GameRef(light);
+        else nextSunSearch=now+5000;
         return light;
     }
 

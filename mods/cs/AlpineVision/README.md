@@ -1,8 +1,10 @@
-# Alpine Vision 1.2.8
+# Alpine Vision 1.2.9
 
 Atmosphere extended with sky, lighting styles, native snow, fog, snowfall, storms, sun shafts and a cinematic finish that integrates with the game's URP renderer.
 
 Hardware ray tracing and all mod shadow/AO overrides have been removed. The mod has no ray-tracing setting or hotkey. F9 remains Drone's toggle; F10 cycles weather. Game shadow rendering stays in charge.
+
+1.2.9 removes the snow glitter. Keeping it off riders meant scanning the whole scene every 30 frames, a 40-50 ms hitch several times a second on large maps. The sun lookup no longer rescans the scene every frame when a map has no sun.
 
 ## Options
 

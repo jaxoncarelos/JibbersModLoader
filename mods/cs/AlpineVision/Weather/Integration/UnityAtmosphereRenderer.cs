@@ -6,19 +6,15 @@ namespace JibbersAlpineVision.Weather;
 /// <summary>One native rendering boundary; shader calculation remains game-independent.</summary>
 internal sealed class UnityAtmosphereRenderer : IAtmosphereRenderer
 {
-    readonly CharacterSparkleMask characterMask = new();
     readonly AtmosphereShaderParameters parameters = new(AtmosphereShader.SetVector);
-    public void Apply(AtmosphereRenderSettings settings, AtmosphereFrame frame)
-    {
-        var maskReady = characterMask.Update(settings.Sparkles.Strength > 0, frame.CameraPosition);
-        parameters.Apply(settings, frame with { SparkleMaskReady = maskReady });
-    }
 
-    public void Disable()
-    {
-        characterMask.Update(false, null);
-        parameters.Disable();
-    }
+    // Snow glitter is switched off: its character mask scanned the whole scene for skinned renderers
+    // every 30 frames, a 40-50 ms hitch on big maps (~100k objects). SparkleMaskReady = false makes
+    // the shader draw no glitter.
+    public void Apply(AtmosphereRenderSettings settings, AtmosphereFrame frame) =>
+        parameters.Apply(settings, frame with { SparkleMaskReady = false });
 
-    public void Dispose() => Cleanup.Run(Disable, characterMask.Dispose);
+    public void Disable() => parameters.Disable();
+
+    public void Dispose() => Cleanup.Run(Disable);
 }

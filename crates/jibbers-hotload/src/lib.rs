@@ -36,6 +36,16 @@ mod il2cpp;
 mod log;
 mod proxy;
 mod pump;
+mod perf;
+#[allow(dead_code)]
+#[path = "../../../sdk/crates/jibbers-mod-sdk/src/settings.rs"]
+mod settings;
+/// settings.rs reads a plugin's own store through `crate::plugin::store()`.
+mod plugin {
+    pub fn store() -> Option<&'static crate::settings::Store> {
+        crate::perf::store()
+    }
+}
 #[cfg(feature = "release")]
 #[path = "modmenu.rs"]
 mod modmenu;

@@ -11,7 +11,7 @@
       "name": "Alpine Vision",
       "description": "Atmosphere extended: weather, alpine sky, lighting and a URP cinematic finish. Retains game shadows. Replaces Atmosphere.",
       "legacy": true,
-      "version": "1.2.8",
+      "version": "1.2.9",
       "assets": [
         { "path": "JibbersMods/packages/jibbers_atmosphere/jibbers_alpinevision.bundle", "zip": "jibbers_alpinevision.bundle", "repo": "mods/JibbersAlpineVision/build/jibbers_alpinevision.bundle" }
       ]
@@ -112,6 +112,16 @@
       "assets": [
         { "path": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "zip": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "repo": "mods/cs/HankModPack/Overlay/NLayer/LICENSE.txt" }
       ]
+    },
+    {
+      "folder": "RenderDistance",
+      "modId": "render_distance",
+      "authors": ["jaxoncarelos"],
+      "id": "jibbers_render_distance",
+      "name": "Render Distance",
+      "description": "Uncaps the game's Terrain and Object Render Distance options past 1500 m (up to 50 km).",
+      "legacy": false,
+      "assets": []
     }
   ]
 }
