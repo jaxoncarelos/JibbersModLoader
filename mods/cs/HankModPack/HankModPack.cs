@@ -37,6 +37,11 @@ public abstract class PackPart : JibbersMod
     protected virtual void OnPackSettingChanged(string key, JsonNode value) { }
     protected void Cleanup(params Action[] actions) => CleanupActions.Run(error => Log("cleanup: " + error.Message), actions);
 
+    internal void CameraFailed(Exception error)
+    {
+        Cleanup(() => Log("camera feature stopped after an error: " + error.Message), OnDeactivated);
+    }
+
     protected virtual void OnDeactivated() { }
     protected virtual void OnPackUnload() { }
 

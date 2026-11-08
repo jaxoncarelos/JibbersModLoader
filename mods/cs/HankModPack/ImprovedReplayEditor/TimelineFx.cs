@@ -154,16 +154,19 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     /// <summary>Forgets everything tied to the replay that just ended, so the next replay starts clean.</summary>
     void ResetAll()
     {
-        if (environmentRoot is { } environment && !Unity.IsNull(environment.Target))
+        Cleanup(() =>
         {
-            var previousEnvironment = new EnvManager(environment.Target).Raw;
-            RestoreEnv(previousEnvironment);
-            RestoreSky(previousEnvironment);
-        }
+            if (environmentRoot is { } environment && !Unity.IsNull(environment.Target))
+            {
+                var previousEnvironment = new EnvManager(environment.Target).Raw;
+                Cleanup(() => RestoreEnv(previousEnvironment), () => RestoreSky(previousEnvironment));
+            }
+        });
         envSaved = skySaved = false;
         environmentRoot?.Dispose(); environmentRoot = null;
         try { UndoShake(); } catch { }
-        try { fxView?.Hide(); fxHint?.Hide(); fxHintOn = false; fxWinSig = ""; if (fxMuted) { fxMute?.Restore(); fxMuted = false; } } catch { }
+        Cleanup(() => fxView?.Hide(), () => fxHint?.Hide(), () => fxMute?.Restore());
+        fxHintOn = false; fxWinSig = ""; fxMuted = false;
         dirty = false;
         try { RestoreFx(); } catch (Exception e) { LogOnce("restorefx", e); }
         try { RestoreAlp(); } catch (Exception e) { LogOnce("restorealp", e); }

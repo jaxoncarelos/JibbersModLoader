@@ -80,7 +80,10 @@ static class GameplaySafetyTests
             _ => throw new InvalidOperationException(), _ => afterCalls++, _ => throw new Exception()));
         callbacks.Invoke(123, () => originalCalls++);
         Assert.Equal(1, originalCalls);
-        Assert.Equal(1, afterCalls);
+        Assert.Equal(0, afterCalls);
+        callbacks.Invoke(123, () => originalCalls++);
+        Assert.Equal(2, originalCalls);
+        Assert.Equal(0, afterCalls);
     }
 
     [Test]

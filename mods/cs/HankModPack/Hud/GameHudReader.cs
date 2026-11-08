@@ -109,6 +109,8 @@ sealed class GameHudReader
     {
         hidden.Dispose();
         roots.Dispose();
+        spawnPanel = speedBlock = themeRow = 0;
+        spawnTexts = speedTexts = Array.Empty<nint>();
         var tmpClass = Unity.Class("TMPro.TMP_Text");
         themeRow = 0;
         PlacerOpen = false;
