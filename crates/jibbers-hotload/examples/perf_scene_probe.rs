@@ -61,6 +61,10 @@ unsafe fn build(module: HMODULE, xml: &Path, save: Option<&Path>, label: &str) {
         save_model(model, name.as_ptr(), std::ptr::null_mut(), 0);
         assert!(path.is_file());
     }
+    let rebuilt = compile(spec, std::ptr::null());
+    assert!(!rebuilt.is_null(), "retained-spec recompile failed");
+    println!("{label}: retained-spec recompile passed");
+    delete_model(rebuilt);
     delete_model(model);
     delete_spec(spec);
 }

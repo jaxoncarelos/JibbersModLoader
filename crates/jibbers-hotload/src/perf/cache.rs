@@ -16,10 +16,10 @@
 
 use super::{pcore, say};
 use retour::GenericDetour;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use windows_sys::Win32::Foundation::HMODULE;
 
@@ -63,6 +63,15 @@ struct Load {
     our_vfs: bool,
 }
 static LOADS: Mutex<Option<HashMap<usize, Load>>> = Mutex::new(None);
+// A spec may be compiled repeatedly after the initial load (the game's fast rebuild path).
+// Its rewritten mesh files must remain available until mj_deleteSpec, not just the first compile.
+static VFS_SPECS: LazyLock<Mutex<HashSet<usize>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+
+fn compile_vfs(spec: *mut c_void, original: *const c_void) -> *const c_void {
+    if VFS_SPECS.lock().unwrap_or_else(|e| e.into_inner()).contains(&(spec as usize)) {
+        super::scene::vfs_ptr().map_or(original, |vfs| vfs as *const c_void)
+    } else { original }
+}
 
 fn with_loads<T>(f: impl FnOnce(&mut HashMap<usize, Load>) -> T) -> T {
     let mut loads = LOADS.lock().unwrap_or_else(|e| e.into_inner());
@@ -149,6 +158,7 @@ unsafe extern "C" fn parse(
         _ => (super::scene::parse_with_fast_tree_lists(|| original.call(xml, vfs, error, error_size)), false),
     };
     if !spec.is_null() {
+        if our_vfs { VFS_SPECS.lock().unwrap_or_else(|e| e.into_inner()).insert(spec as usize); }
         with_loads(|l| {
             l.insert(spec as usize, Load { started, xml_mb, save_as: file, saved_model: None, edited: false, our_vfs })
         });
@@ -158,7 +168,7 @@ unsafe extern "C" fn parse(
 
 unsafe extern "C" fn compile(spec: *mut c_void, vfs: *const c_void) -> *mut c_void {
     let Some(load) = with_loads(|l| l.remove(&(spec as usize))) else {
-        return COMPILE.get().unwrap().call(spec, vfs);
+        return COMPILE.get().unwrap().call(spec, compile_vfs(spec, vfs));
     };
     if let Some(model) = load.saved_model {
         say(format!(
@@ -205,6 +215,7 @@ unsafe extern "C" fn delete_element(spec: *mut c_void, element: *mut c_void) -> 
 
 unsafe extern "C" fn delete_spec(spec: *mut c_void) {
     with_loads(|l| l.remove(&(spec as usize)));
+    VFS_SPECS.lock().unwrap_or_else(|e| e.into_inner()).remove(&(spec as usize));
     DELETE_SPEC.get().unwrap().call(spec)
 }
 

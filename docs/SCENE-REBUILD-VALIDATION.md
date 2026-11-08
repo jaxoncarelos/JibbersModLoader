@@ -43,3 +43,18 @@ geometry than this captured scene; these timings do not predict its respawn time
 Not enabled. Appending/removing spec elements can change geometry/contact ordering. A future
 implementation must preserve the full-build order and pass model and motion comparisons for
 insertions, deletions, renames and reset/scene transitions before it can replace the complete parse.
+
+## Retained-spec correction and local map rollback
+
+The in-game test exposed a second compile of the same retained mjSpec. Its rewritten mesh files must
+be supplied on every compile until mj_deleteSpec. The initial load bookkeeping was consumed after
+one compile; preview 2 now tracks VFS-backed specs for their full lifetime and removes tracking only
+when the spec is deleted. The native example explicitly recompiles each spec before destruction.
+A focused native test with rewritten mesh XML passed the initial and repeated compile paths; loader
+70 tests also passed after the fix.
+
+The separate experimental full-collider Mountain Range increased the live scene from about 97k to
+228k geoms. It loaded and rode, but the player reported FPS falling from about 200 to 100. That map
+was rolled back to the original 735,762,964-byte powder map; the standalone scene optimization remains
+installed as 0.1.1-preview.2. No incremental geometry reordering is enabled. The 16.3 s live rebuild
+measurement came from the rejected larger map and is not a before/after FPS or respawn comparison.
