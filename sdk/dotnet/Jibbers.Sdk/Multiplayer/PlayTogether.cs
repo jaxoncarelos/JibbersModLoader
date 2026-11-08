@@ -33,7 +33,7 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     public override void OnLoad()
     {
         var clock = Stopwatch.StartNew();
-        session = new ServerSession(this, () => clock.Elapsed.TotalSeconds);
+        session = new ServerSession(this, () => clock.Elapsed.TotalSeconds, LocalMapIndex.ForThisPc());
         channel = Party.Channel(this);
         channel.Received += message => session.Receive(message.From, message.Data.Span);
         Party.MemberChanged += OnMember;

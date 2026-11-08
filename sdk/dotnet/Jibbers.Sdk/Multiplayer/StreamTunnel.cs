@@ -75,8 +75,9 @@ internal sealed class StreamTunnel : IDisposable
     /// <summary>
     /// Carries a connection made on this PC: tells <paramref name="peer"/> to open its end
     /// (unless <paramref name="announce"/> is false: they opened it), then pumps what the socket reads.
+    /// <paramref name="initial"/> is what was already read from the socket (to look at the request first), sent before the rest.
     /// </summary>
-    public void Attach(SteamId peer, uint id, Socket socket, bool announce)
+    public void Attach(SteamId peer, uint id, Socket socket, bool announce, byte[]? initial = null)
     {
         var pipe = new Pipe(socket);
         // Bytes from the other side are written on the party thread, which also carries the
@@ -89,6 +90,11 @@ internal sealed class StreamTunnel : IDisposable
             pipes[(peer, id)] = pipe;
         }
         if (announce && !Send(peer, Frame(id, Open), pipe)) { Remove(peer, id); return; }
+        if (initial is { Length: > 0 })
+        {
+            if (!Send(peer, Frame(id, Data, initial), pipe)) { Remove(peer, id); return; }
+            Interlocked.Add(ref pipe.Sent, initial.Length);
+        }
         new Thread(() => Pump(peer, id, pipe)) { IsBackground = true, Name = $"Jibbers stream {id}" }.Start();
     }
 

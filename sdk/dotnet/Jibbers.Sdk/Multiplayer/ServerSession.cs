@@ -34,11 +34,21 @@ internal interface IServerSessionHost
 /// </summary>
 /// <remarks>
 /// Payloads on the channel: byte 0 is <see cref="Data"/> (a datagram follows),
-/// <see cref="Control"/> (UTF-8 JSON follows: hosting, stopped, join, welcome, bye) or
+/// <see cref="Control"/> (UTF-8 JSON follows: hosting, stopped, join, welcome, bye, pull, mapq, map) or
 /// <see cref="Stream"/> (a frame of a TCP connection: see <see cref="StreamTunnel"/>).
 /// The party leader can bring everyone to the server they're on ("pull"): a server reached
 /// directly (a public one) by its address, or one hosted in the party by who hosts it.
 /// Only party members can reach the channel (the SDK drops everything else).
+/// <para>
+/// Map downloads: a host that can describe its map says so in its welcome (<c>"maps":1</c>). When
+/// the joining game then asks the relay for the map (<c>GET /map/&lt;name&gt;</c>), the joiner asks the
+/// host <c>{"t":"mapq","req":"GET /map/ruka"}</c> (the exact request), and the host reads that request's
+/// answer from its own server over loopback and replies
+/// <c>{"t":"map","req":…,"name":"ruka","size":…,"sha256":"…","head":"&lt;base64&gt;"}</c> (no <c>sha256</c>:
+/// it got no map). If the joiner has a file of that size and SHA-256 it answers the game itself
+/// (<see cref="ClientRelay"/>); otherwise the request goes through the tunnel as before. Older
+/// SDKs ignore both messages, and a welcome without <c>maps</c> means don't ask.
+/// </para>
 /// </remarks>
 internal sealed class ServerSession : IDisposable
 {
@@ -55,6 +65,7 @@ internal sealed class ServerSession : IDisposable
 
     readonly IServerSessionHost host;
     readonly Func<double> clock;
+    readonly LocalMapIndex? maps;
     readonly object gate = new();
     readonly Dictionary<SteamId, double> hosts = new();
     readonly HashSet<SteamId> toldAbout = new();
@@ -67,10 +78,12 @@ internal sealed class ServerSession : IDisposable
     double? clientStoppedAt, serverStoppedAt;
     bool autoJoin, inviteWhenReady, fast;
 
-    public ServerSession(IServerSessionHost host, Func<double> clock)
+    /// <param name="maps">This PC's map files, to answer a joined server's map download from a local copy (null: always download).</param>
+    public ServerSession(IServerSessionHost host, Func<double> clock, LocalMapIndex? maps = null)
     {
         this.host = host;
         this.clock = clock;
+        this.maps = maps;
     }
 
     /// <summary>Something the panel shows changed.</summary>
@@ -350,7 +363,7 @@ internal sealed class ServerSession : IDisposable
                     toldAbout.Remove(from.Id);
                     break;
                 case "join" when game.Hosting:
-                    SendControl(from.Id, new JsonObject { ["t"] = "welcome", ["pw"] = game.Password });
+                    SendControl(from.Id, new JsonObject { ["t"] = "welcome", ["pw"] = game.Password, ["maps"] = 1 });
                     host.Log($"{from.Name} is joining: sent the welcome (server port {game.Port})");
                     line = $"{from.Name} is joining your server";
                     break;
@@ -360,12 +373,31 @@ internal sealed class ServerSession : IDisposable
                 case "welcome" when phase == Phase.Asking && from.Id == target:
                     var password = json?["pw"]?.GetValue<string>() ?? "";
                     if (password.Length > 256) break;
-                    client = new ClientRelay(target, (to, data) => host.Send(to, Frame(data), reliable: false), reliable: (to, frame) => host.Send(to, frame, reliable: true), log: host.Log);
+                    var joined = target;
+                    var canAsk = json?["maps"] is not null;
+                    client = new ClientRelay(target, (to, data) => host.Send(to, Frame(data), reliable: false), reliable: (to, frame) => host.Send(to, frame, reliable: true), log: host.Log,
+                        maps: maps, askMap: canAsk ? request => SendControl(joined, new JsonObject { ["t"] = "mapq", ["req"] = request }) : null);
                     phase = Phase.Connecting;
                     phaseAt = clock();
                     host.Log($"welcomed by {from.Name}: the game connects to 127.0.0.1:{client.Port}{(password.Length > 0 ? " with the server's password" : "")}");
                     host.Connect("127.0.0.1", client.Port, password);
                     changed = true;
+                    break;
+                case "mapq" when relay is not null:
+                    var req = json?["req"] is JsonValue rv && rv.TryGetValue<string>(out var r) ? r : "";
+                    if (!MapRequests.TryParse(req, out _)) break;
+                    var asker = from.Id;
+                    relay.MapOffer(req).ContinueWith(t =>
+                        SendControl(asker, t.IsCompletedSuccessfully && t.Result is { } answer ? answer.ToJson() : new JsonObject { ["t"] = "map", ["req"] = req }),
+                        TaskScheduler.Default);
+                    break;
+                case "map" when client is not null && from.Id == client.Host:
+                    if (json?["req"] is JsonValue av && av.TryGetValue<string>(out var asked) && MapRequests.TryParse(asked, out _))
+                    {
+                        var offer = MapOffer.FromJson(json);
+                        if (offer is not null && offer.Request != asked) break;
+                        client.MapOffered(asked, offer);
+                    }
                     break;
                 case "bye":
                     if (relay?.Traffic(from.Id) is { } traffic) host.Log($"{from.Name} left: closing their tunnel ({traffic.ToServer} packets to the server, {traffic.ToPlayer} back)");

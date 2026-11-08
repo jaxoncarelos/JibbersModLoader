@@ -105,6 +105,19 @@ host as open/data/close frames on the reliable channel (`StreamTunnel.cs`), wher
 connects to the game's TCP port. Both sides log each step of a join to `jibbers_hotload.log`
 (`jibbers_play:` lines).
 
+Big maps don't have to come through Steam if the joining player already has them. When the joining
+game asks for the map (`GET /map/<name>`), its relay asks the host what its server answers to that
+exact request. The host's SDK sends the request to its own server over loopback, then replies with
+the size and SHA-256 of the bytes the server served (party message `map`, answering `mapq`). If a
+file of that size and hash is in the joiner's maps folder (`%APPDATA%\Jibbers\Maps` and its
+subfolders), the relay sends the game that file and the tunnel carries nothing. The hash is checked
+again as the file goes out, and the last chunk is held back until it matches. Otherwise the request
+goes to the host as before: no local copy, no answer within 5 s, or a host on an older SDK (its
+welcome doesn't offer map info, so nothing is asked). Every other request (`GET /status`) is left
+alone. Hashes of local files are kept in `%LOCALAPPDATA%\Jibbers\PlayTogether\map-hashes.json`,
+keyed by path, size and modification time. The log says which way each map came ("map served
+locally: …" or "no local copy of …: downloading it from the host"). The code is in `LocalMaps.cs`.
+
 The code is in `Multiplayer/ServerSession.cs` (the logic, tested end to end with real sockets),
 `ServerTunnel.cs` and `StreamTunnel.cs` (the relays), `GameServer.cs` (the game's side), `SteamInvites.cs` (Steam's join
 requests: the SDK watches `SteamAPI_ManualDispatch_GetNextCallback`, which the game calls each
