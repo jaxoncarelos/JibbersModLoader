@@ -763,6 +763,14 @@ public sealed class JoinSpawnMod : JibbersMod
 
     // ===================== Cycle de vie =====================
 
+    public override JsonNode? OnCommand(string command, JsonObject request)
+    {
+        if (command != "join_spawn.open") return null;
+        if (!Enabled) return new JsonObject { ["ok"] = false, ["error"] = "Join Spawn is disabled." };
+        MainThread.Later(() => { if (Enabled && page == Page.Closed) ToggleOpen(); });
+        return new JsonObject { ["ok"] = true };
+    }
+
     public override void OnSettingChanged(string key, JsonNode value)
     {
         if (key == "language")

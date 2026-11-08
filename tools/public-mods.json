@@ -91,9 +91,7 @@
     {
       "folder": "AsyncContent",
       "modId": "async_content",
-      "authors": [
-        "jaxoncarelos"
-      ],
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_async_content",
       "defaultInstall": true,
       "name": "Async Content",
@@ -101,6 +99,19 @@
       "legacy": false,
       "version": "0.1.5",
       "assets": []
+    },
+    {
+      "folder": "HankModPack",
+      "modId": "hank_mod_pack_info",
+      "authors": ["hankhulerygit"],
+      "id": "jibbers_hank_mod_pack_info",
+      "name": "Hank Mod Pack",
+      "description": "Controller quick menu, free look, play and replay cameras, HUD themes, replay effects, trick banners and custom media. Integrates the separate Join Spawn mod without duplicating it.",
+      "version": "1.52.9",
+      "legacy": false,
+      "assets": [
+        { "path": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "zip": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "repo": "mods/cs/HankModPack/Overlay/NLayer/LICENSE.txt" }
+      ]
     }
   ]
 }

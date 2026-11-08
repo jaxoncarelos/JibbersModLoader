@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>HankModPack</AssemblyName>
+    <Version>1.52.9</Version>
+  </PropertyGroup>
+  <ItemGroup><InternalsVisibleTo Include="HankModPack.Tests" /></ItemGroup>
+</Project>
