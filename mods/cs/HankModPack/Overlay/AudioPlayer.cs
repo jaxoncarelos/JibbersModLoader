@@ -30,6 +30,8 @@ internal sealed class AudioPlayer
 
     readonly ConcurrentDictionary<string, Entry> cache = new(StringComparer.OrdinalIgnoreCase);
     readonly object gate = new();
+    static readonly object playbackGate = new();
+    static Playback? activePlayback;
     Playback? current;
 
     /// <summary>Vrai tant que le son joue (ou qu'il est en train de démarrer).</summary>
@@ -79,7 +81,7 @@ internal sealed class AudioPlayer
         }
         if (old is null) return;
         old.Cancel.Cancel();
-        old.Thread?.Join(500); // le thread arrête le son et libère la mémoire lui-même
+        // The audio worker owns shutdown and memory. Never join it on a gameplay frame.
     }
 
     static void Run(Playback playback, Entry entry, string name, int volume, Action<string>? log)
@@ -107,14 +109,13 @@ internal sealed class AudioPlayer
             var wav = clip.BuildWav(volume / 100f);
             memory = Marshal.AllocHGlobal(wav.Length);
             Marshal.Copy(wav, 0, memory, wav.Length);
-            if (playback.Cancel.IsCancellationRequested) return;
-
-            if (!PlaySound(memory, IntPtr.Zero, SND_MEMORY | SND_ASYNC | SND_NODEFAULT))
+            lock (playbackGate)
             {
-                log?.Invoke($"Audio: Windows refused to play {name} ({clip.SampleRate} Hz, {clip.Channels} channels).");
-                return;
+                if (playback.Cancel.IsCancellationRequested) return;
+                if (!PlaySound(memory, IntPtr.Zero, SND_MEMORY | SND_ASYNC | SND_NODEFAULT)) return;
+                activePlayback = playback;
+                started = true;
             }
-            started = true;
             log?.Invoke($"Audio: playing {name} ({clip.Seconds:0.0} s, volume {volume})");
 
             // Attend la fin du son (sa durée est connue) ou l'annulation.
@@ -126,7 +127,15 @@ internal sealed class AudioPlayer
         }
         finally
         {
-            if (started) PlaySound(IntPtr.Zero, IntPtr.Zero, 0); // arrête le son avant de libérer sa mémoire
+            lock (playbackGate)
+            {
+                // A canceled older worker must never stop a newer sound.
+                if (started && ReferenceEquals(activePlayback, playback))
+                {
+                    PlaySound(IntPtr.Zero, IntPtr.Zero, 0);
+                    activePlayback = null;
+                }
+            }
             if (memory != IntPtr.Zero) Marshal.FreeHGlobal(memory);
             playback.Done = true;
         }

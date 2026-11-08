@@ -24,7 +24,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
     // ---------------------------------------------------------------- Settings
 
     [Slider("Hold time before the free look starts (seconds)", 0.25f, 0.1f, 1f, 0.05f, Key = "hold", Section = "Free look",
-        Tooltip = "A press shorter than this is a tap: it changes the stance as usual. Holding D-pad down longer starts the free look and keeps the stance as it was.")]
+        Tooltip = "A press shorter than this is a tap: it changes the stance as usual. Holding D-pad down longer starts free look. Stance changes remain controlled by the game.")]
     public float HoldTime { get; private set; } = 0.25f;
 
     [Slider("Look speed (degrees / second)", 140, 40, 360, 10, Key = "speed", Section = "Free look")]
@@ -39,10 +39,6 @@ public sealed unsafe partial class LookAroundMod : PackPart
     [Toggle("Switch the player's controls off while looking around", true, Key = "mute", Section = "Free look",
         Tooltip = "Otherwise the right stick also moves the skier while you orbit the camera.")]
     public bool MutePlayer { get; private set; } = true;
-
-    [Toggle("Keep the stance unchanged when holding D-pad down", true, Key = "keep_stance", Section = "Free look",
-        Tooltip = "A tap on D-pad down changes the stance, a long hold does not.")]
-    public bool KeepStance { get; private set; } = true;
 
     [Choice("Horizontal camera angle", "yAngle", "xAngle", "yAngle", Key = "yaw_field", Section = "Free look",
         Tooltip = "If the camera moves up and down when you push the stick left and right, switch this.")]
@@ -61,7 +57,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
 
     // ---------------------------------------------------------------- State
 
-    bool inReplay;
+    bool inReplay => HankModPack.CameraOwnership.InReplay;
     readonly bool[] connected = new bool[4];
     int frameNumber;
     nint lastSelf;
@@ -72,23 +68,21 @@ public sealed unsafe partial class LookAroundMod : PackPart
     enum Phase { Idle, Pressed, Looking }
     Phase phase = Phase.Idle;
     long pressStart;
-    long guardUntil;         // after a hold, the stance values are kept for a moment (some games react when the button is released)
-    bool guarding;
     float lookYaw, lookPitch;
     float rear;              // 0..1 : how far the camera has swung round to the rear view
     float lastPadYaw, lastPadPitch;
 
+    static LookAroundMod? instance;
+    internal static bool IsLooking => instance is { Enabled: true, phase: Phase.Looking };
+
     public override void OnLoad()
     {
+        instance = this;
         ImportPackSettings();
-        EnterReplay.Subscribe(_ => { inReplay = true; MainThread.Run(() => Stop("replay")); });
-        ExitReplay.Subscribe(_ => { inReplay = false; });
-        Follow.LateUpdateMethod.Around((self, original) =>
-        {
-            try { Before(self); } catch (Exception e) { Once("before", e); }
-            original();
-            try { After(); } catch (Exception e) { Once("after", e); }
-        });
+        EnterReplay.Subscribe(_ => {  MainThread.Run(() => Stop("replay")); });
+        ExitReplay.Subscribe(_ => {  });
+        CameraCallbacks.Follow.Register(this, Before, null);
+        ChangeScene.Subscribe(_ => OnDeactivated());
     }
 
     void Once(string key, Exception e)
@@ -135,13 +129,14 @@ public sealed unsafe partial class LookAroundMod : PackPart
         var dt = lastTick == 0 ? 0.016f : Math.Clamp((now - lastTick) / (float)Stopwatch.Frequency, 0.001f, 0.1f);
         lastTick = now;
 
-        if (!Enabled || inReplay || !Input.GameFocused || Input.Typing)
+        if (!Enabled || !CameraOwnership.CanControlPlayCamera(self))
         {
             if (editorOpen) CloseEditor();
             if (modsOpen) CloseMods();
             if (keysOpen) CloseKeys();
             if (phase != Phase.Idle) Stop("off");
             else if (rearMuted) { try { mute.Restore(); } catch { } rearMuted = false; }
+            upMute.Restore();
             rear = 0;
             return;
         }
@@ -150,18 +145,6 @@ public sealed unsafe partial class LookAroundMod : PackPart
         var down = (pad.Buttons & PadButton.DpadDown) != 0;
         TrackSpawnView(pad.Buttons, down);
         var ms = (now - pressStart) * 1000f / Stopwatch.Frequency;
-
-        // Stance guard: remember the spawner's state every frame the button is NOT held, so a change made by the press can be undone.
-        if (KeepStance)
-        {
-            try
-            {
-                if (phase == Phase.Idle && !down && !guarding && !editorOpen && !modsOpen && !keysOpen) TakeSnapshot();
-                else if (guarding && now > guardUntil) guarding = false;
-                else if (guarding || phase == Phase.Looking || editorOpen || modsOpen || keysOpen) RestoreSnapshot("guard");
-            }
-            catch (Exception e) { Once("stance", e); }
-        }
 
         try { TrackRider(self, dt); } catch (Exception e) { Once("rider", e); }
 
@@ -226,6 +209,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
     bool camOk, idleKnown, refKnown;
     float phiCam, lastIdlePhi, forwardAngle;     // ground angle (degrees) of camera-from-rider, and of the way the rider faces
     nint bonesOf, lSh, rSh;
+    readonly ObjectRoots boneRoots = new();
     bool noBones, bodyDone;
     float bodyAvg, bodySign = 1;
     int bodyN;
@@ -314,6 +298,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
         fx = fz = 0;
         if (bonesOf != rider || (!noBones && (lSh == 0 || Unity.IsNull(lSh) || rSh == 0 || Unity.IsNull(rSh))))
         {
+            boneRoots.Dispose(); boneRoots.Keep(rider);
             bonesOf = rider; lSh = rSh = 0; bodyDone = false; bodyAvg = 0; bodyN = 0; bodySign = 1; noBones = false;
             var tr = Unity.Transform(rider);
             var root = tr == 0 ? 0 : Unity.Call(tr, "get_root");
@@ -328,6 +313,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
                     var right = n.Contains("right") || n.EndsWith("_r") || n.EndsWith(".r") || n.StartsWith("r_");
                     if (left && lSh == 0) lSh = t; else if (right && rSh == 0) rSh = t;
                 }
+            boneRoots.Keep(lSh); boneRoots.Keep(rSh);
             noBones = lSh == 0 || rSh == 0;
             Log($"Free Look: shoulder bones {(noBones ? "not found (using the camera's side)" : "found")}");
         }
@@ -398,11 +384,6 @@ public sealed unsafe partial class LookAroundMod : PackPart
         }
         catch (Exception e) { Once("fields", e); }
 
-        if (KeepStance)
-        {
-            try { RestoreSnapshot("press"); guarding = true; guardUntil = long.MaxValue; }
-            catch (Exception e) { Once("stance", e); }
-        }
         if (MutePlayer)
         {
             var n = rearMuted ? 0 : mute.Mute();
@@ -411,80 +392,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
         }
     }
 
-    // ---------------------------------------------------------------- Stance guard
-
-    readonly Dictionary<string, int> snap = new();
-    readonly Dictionary<nint, List<(Il2CppField f, bool isByte)>> fieldCache = new();
-    nint spawnerCache;
-
-    nint Spawner()
-    {
-        if (spawnerCache != 0 && !Unity.IsNull(spawnerCache)) return spawnerCache;
-        var all = Jibbers.Interop.Game.RagdollSpawner.Live();
-        spawnerCache = all.Length > 0 ? all[0].Ptr : 0;
-        if (spawnerCache != 0) Log("Free Look: spawner found");
-        return spawnerCache;
-    }
-
-    List<(Il2CppField f, bool isByte)> FieldsOf(Il2CppClass k)
-    {
-        if (fieldCache.TryGetValue(k.Ptr, out var l)) return l;
-        l = new();
-        for (var c = k; !c.IsNull; c = c.Parent)
-        {
-            var n = c.FullName;
-            if (n.StartsWith("UnityEngine") || n.StartsWith("System")) break;
-            foreach (var f in c.Fields)
-            {
-                var t = f.TypeName;
-                if (t == "System.Int32" || (f.TypeClass is { IsEnum: true } e && e.ValueSize == 4)) l.Add((f, false));
-                else if (t == "System.Boolean" || t == "System.Byte") l.Add((f, true));
-            }
-        }
-        return fieldCache[k.Ptr] = l;
-    }
-
-    IEnumerable<nint> GuardObjects()
-    {
-        var sp = Spawner();
-        if (sp == 0) yield break;
-        yield return sp;
-        var rs = new Jibbers.Interop.Game.RagdollSpawner(sp);
-        nint a = 0, b = 0;
-        try { a = rs.phf.Ptr; } catch { }
-        try { b = rs.dlz().Ptr; } catch { }
-        if (a != 0 && !Unity.IsNull(a)) yield return a;
-        if (b != 0 && b != a && !Unity.IsNull(b)) yield return b;
-    }
-
-    static int Read((Il2CppField f, bool isByte) x, nint obj) => x.isByte ? x.f.Get<byte>(obj) : x.f.Get<int>(obj);
-    static void Write((Il2CppField f, bool isByte) x, nint obj, int v) { if (x.isByte) x.f.Set(obj, (byte)v); else x.f.Set(obj, v); }
-
-    void TakeSnapshot()
-    {
-        snap.Clear();
-        foreach (var obj in GuardObjects())
-            foreach (var x in FieldsOf(Il2Cpp.ClassOf(obj)))
-                snap[$"{obj}:{x.f.Name}"] = Read(x, x.f.IsStatic ? 0 : obj);
-    }
-
-    void RestoreSnapshot(string why)
-    {
-        if (snap.Count == 0) return;
-        foreach (var obj in GuardObjects())
-        {
-            var k = Il2Cpp.ClassOf(obj);
-            foreach (var x in FieldsOf(k))
-            {
-                if (!snap.TryGetValue($"{obj}:{x.f.Name}", out var old)) continue;
-                var target = x.f.IsStatic ? 0 : obj;
-                var now = Read(x, target);
-                if (now == old) continue;
-                Write(x, target, old);
-                Log($"Free Look: stance guard ({why}): {k.Name}.{x.f.Name} {now} -> {old}");
-            }
-        }
-    }
+    static nint Spawner() => Jibbers.Sdk.Game.Player.RagdollSpawner.First()?.Ptr ?? 0;
 
     void Orbit(nint self, Pads pad, float dt)
     {
@@ -516,8 +424,6 @@ public sealed unsafe partial class LookAroundMod : PackPart
         {
             Log($"Free Look: free look ended ({why})");
             try { mute.Restore(); } catch { }
-            // The stance must not change when the button is let go either: keep guarding for a short moment.
-            if (KeepStance) { guarding = true; guardUntil = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 4 / 10; }
         }
         if (rearMuted) { try { mute.Restore(); } catch { } rearMuted = false; }
         phase = Phase.Idle;
@@ -575,12 +481,6 @@ public sealed unsafe partial class LookAroundMod : PackPart
     long upFlipAt;
     readonly JoinSpawn.RewiredMute upMute = new();
     long upSince; bool upDone;
-
-    void After()
-    {
-        if (inReplay) return;
-        try { PlayCamerasMod.Instance?.Frame(lastSelf, phase == Phase.Looking); } catch (Exception e) { Once("cameras", e); }
-    }
 
     void ApplyRear(nint tr, float d)
     {

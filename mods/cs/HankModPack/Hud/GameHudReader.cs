@@ -18,7 +18,8 @@ sealed class GameHudReader
     nint[] speedTexts = Array.Empty<nint>();
     int countdown, checkIn, readIn, hideIn;
     bool logged;
-    readonly List<nint> hidden = new();
+    readonly UiVisibility hidden = new();
+    readonly ObjectRoots roots = new();
 
     public string SpawnName = "", Stance = "", RespawnSpeed = "";
     public int? Kmh;
@@ -106,6 +107,8 @@ sealed class GameHudReader
 
     void Find(Action<string> log)
     {
+        hidden.Dispose();
+        roots.Dispose();
         var tmpClass = Unity.Class("TMPro.TMP_Text");
         themeRow = 0;
         PlacerOpen = false;
@@ -161,6 +164,8 @@ sealed class GameHudReader
             }
         }
 
+        foreach (var pointer in spawnTexts.Concat(speedTexts).Append(spawnPanel).Append(speedBlock).Append(themeRow)) roots.Keep(pointer);
+
         var state = $"Game HUD: spawn panel {(spawnPanel != 0 ? "found" : "NOT found")}, speed block {(speedBlock != 0 ? "found" : "NOT found")}.";
         if (state != lastState) { lastState = state; log(state); }
     }
@@ -205,8 +210,7 @@ sealed class GameHudReader
             if (tr == 0 || Unity.IsNull(tr)) continue;
             try
             {
-                SetVisible(tr, false);
-                if (!hidden.Contains(tr)) hidden.Add(tr);
+                hidden.Hide(tr);
             }
             catch { /* retenté à la prochaine recherche */ }
         }
@@ -215,34 +219,12 @@ sealed class GameHudReader
     /// <summary>Rend le HUD d'origine visible (HUD du mod coupé ou mod déchargé).</summary>
     public void Restore()
     {
-        if (hidden.Count == 0) return;
-        foreach (var tr in hidden.ToArray())
-        {
-            try { if (!Unity.IsNull(tr)) SetVisible(tr, true); } catch { }
-        }
-        hidden.Clear();
+        hidden.Dispose();
+        roots.Dispose();
+        spawnPanel = speedBlock = themeRow = 0;
+        spawnTexts = speedTexts = Array.Empty<nint>();
         countdown = 0;
     }
 
-    /// <summary>Remet visibles les blocs d'origine trouvés, qu'on les ait cachés ou non (mod coupé).</summary>
-    public void RestoreAll()
-    {
-        Restore();
-        foreach (var tr in new[] { spawnPanel, speedBlock })
-        {
-            if (tr == 0 || Unity.IsNull(tr)) continue;
-            try { SetVisible(tr, true); } catch { }
-        }
-    }
-
-    static void SetVisible(nint transform, bool visible)
-    {
-        var go = Unity.Call(transform, "get_gameObject");
-        var groupClass = Unity.Class("UnityEngine.CanvasGroup");
-        var group = Unity.GetComponent(go, groupClass);
-        if (group == 0 || Unity.IsNull(group)) group = Il2Cpp.ClassOf(go).Method("AddComponent", "System.Type").Invoke(go, groupClass.SystemType);
-        UnityProperties.Set(group, "set_alpha", visible ? 1f : 0f);
-        var s = visible ? 1f : 0f;
-        UnityProperties.Set(transform, "set_localScale", new Vector3(s, s, s));
-    }
+    public void RestoreAll() => Restore();
 }

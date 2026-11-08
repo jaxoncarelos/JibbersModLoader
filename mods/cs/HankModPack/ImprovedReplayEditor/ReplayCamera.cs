@@ -209,11 +209,12 @@ public sealed unsafe class ReplayCameraMod : PackPart
 
     // ---------------------------------------------------------------- State
 
-    volatile bool inReplay;
+    bool inReplay => HankModPack.CameraOwnership.InReplay;
     int lastFrame = -1;
     string activeMode = "Off";
 
     nint camCache;
+    GameRef? cameraRoot, followRoot;
     GameRef? headRef;
     nint headCache;
     GameRef? lampRef;
@@ -249,9 +250,12 @@ public sealed unsafe class ReplayCameraMod : PackPart
     public override void OnLoad()
     {
         ImportPackSettings();
-        EnterReplay.Subscribe(_ => { inReplay = true; MainThread.Run(() => { Reset(); StartFresh(); }); });
-        ExitReplay.Subscribe(_ => { inReplay = false; MainThread.Run(() => { try { Release(); } catch { } Reset(); }); });
+        EnterReplay.Subscribe(_ => {  MainThread.Run(() => { Reset(); StartFresh(); }); });
+        ExitReplay.Subscribe(_ => {  MainThread.Run(() => { try { Release(); } catch { } Reset(); }); });
         Instance = this;
+        CameraCallbacks.Follow.Register(this, null, self => { if (inReplay) ApplyPose(self); }, order: 10);
+        CameraCallbacks.Recorder.Register(this, null, _ => { if (inReplay) ApplyPose(0); }, order: 10);
+        ChangeScene.Subscribe(_ => {  Release(); Reset(); });
 
         // The camera is driven from the Improved Replay Editor's own hooks (TimelineFx), so that the camera shake and the other effects are applied on top of it.
     }
@@ -261,16 +265,19 @@ public sealed unsafe class ReplayCameraMod : PackPart
     {
         try
         {
-            if (follow != 0) followSelf = follow;
+            if (follow != 0 && follow != followSelf) { followRoot?.Dispose(); followRoot = new GameRef(follow); followSelf = follow; }
             Tick();
         }
         catch (Exception e) { LogOnce("pose", e); }
     }
 
-    public override void OnUnload()
+    protected override void OnDeactivated() => Release();
+
+    protected override void OnPackUnload()
     {
-        inReplay = false;
-        try { MainThread.Run(() => { try { Release(); } catch { } }); } catch { }
+
+        followSelf = 0; followRoot?.Dispose(); followRoot = null;
+        try { MainThread.Run(() => { try { Release(); } finally { Reset(); } }); } catch { }
     }
 
     readonly HashSet<string> logged = new();
@@ -298,7 +305,7 @@ public sealed unsafe class ReplayCameraMod : PackPart
     public bool WantsFisheye => inReplay && Enabled && ((activeMode == "Follow cam" && CamFisheye) || (activeMode == "POV" && PovFisheye));
     public float FisheyeAmount => Math.Clamp(K("FisheyeStrength", FisheyeStrength) / 100f, 0, 1);
 
-    public override void OnSettingChanged(string key, JsonNode value)
+    protected override void OnPackSettingChanged(string key, JsonNode value)
     {
         string text;
         try { text = value.GetValue<string>(); } catch { return; }
@@ -415,6 +422,7 @@ public sealed unsafe class ReplayCameraMod : PackPart
         headRef?.Dispose(); headRef = null; headCache = 0;
         lampRef?.Dispose(); lampRef = null;
         camCache = 0;
+        cameraRoot?.Dispose(); cameraRoot = null;
         lastFrame = -1;
         havePose = false;
         poseFov = 0;
@@ -550,6 +558,7 @@ public sealed unsafe class ReplayCameraMod : PackPart
             var cur = GetTimeScale();
             if (want is float w && cur > 0.001f)
             {
+                if (!tsApplied) tsOriginal = cur;
                 w = Math.Clamp(w, 0.02f, 10f);
                 if (MathF.Abs(cur - w) > 0.0005f) SetTimeScale(w);
                 if (!tsApplied) { tsApplied = true; Log($"replay camera: the keyframes' time scale is applied by this mod ({w:0.##})"); }
@@ -579,6 +588,7 @@ public sealed unsafe class ReplayCameraMod : PackPart
     {
         if (camCache != 0 && !Unity.IsNull(camCache) && Unity.Call<byte>(camCache, "get_enabled") != 0) return camCache;
         camCache = 0;
+        cameraRoot?.Dispose(); cameraRoot = null;
         var k = Unity.Class("UnityEngine.Camera");
         nint found = 0;
         if (followSelf != 0 && !Unity.IsNull(followSelf))
@@ -604,6 +614,7 @@ public sealed unsafe class ReplayCameraMod : PackPart
         }
         if (found != 0)
         {
+            cameraRoot?.Dispose(); cameraRoot = new GameRef(found);
             camCache = found;
             origFov = Unity.Call<float>(found, "get_fieldOfView");
             origNear = Unity.Call<float>(found, "get_nearClipPlane");
@@ -642,7 +653,9 @@ public sealed unsafe class ReplayCameraMod : PackPart
         nextHeadScan = Unity.Time + 1f;
         var origin = Unity.Position(rider);
         nint best = 0; var bestD = float.MaxValue;
-        foreach (var t in Unity.FindObjects(Unity.Class("UnityEngine.Transform")))
+        var root = Unity.Call(Unity.Transform(rider), "get_root");
+        if (root == 0 || Unity.IsNull(root)) return 0;
+        foreach (var t in Unity.GetComponentsInChildren(root, Unity.Class("UnityEngine.Transform"), true))
         {
             if (Unity.IsNull(t) || Unity.Name(t) != "QuickRigCharacter_Head") continue;
             var d = (Unity.Position(t) - origin).Magnitude;

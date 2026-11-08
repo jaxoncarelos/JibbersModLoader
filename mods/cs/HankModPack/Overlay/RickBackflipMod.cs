@@ -163,7 +163,7 @@ public sealed class RickBackflipMod : HankModPack.PackPart
         // Un reset ou un respawn juste après l'atterrissage = c'était un crash : on annule.
         Reset.Subscribe(_ => { pending = null; bannerPending = null; });
         Respawn.Subscribe(_ => { pending = null; bannerPending = null; });
-        ChangeScene.Subscribe(_ => { pending = null; bannerPending = null; StopOverlay(); StopBanner(); textFont = 0; });
+        ChangeScene.Subscribe(_ => { OnDeactivated(); textFont = 0; });
         Input.OnPressed(() => TestKey, () =>
         {
             ReloadRulesIfChanged();
@@ -180,7 +180,24 @@ public sealed class RickBackflipMod : HankModPack.PackPart
         Log($"Ready: {AllRules().Count(r => r.Enabled)} event(s). Media folder: {AssetsDir}");
     }
 
-    public override void OnUnload()
+    readonly HankModPack.UiVisibility originalTricks = new();
+    readonly HankModPack.ObjectRoots trickRoots = new();
+
+    protected override void OnDeactivated()
+    {
+        pending = null; bannerPending = null;
+        Cleanup(StopOverlay, StopBanner, originalTricks.Dispose, trickRoots.Dispose);
+        gameTrickLists = Array.Empty<nint>();
+        hideCountdown = 0;
+    }
+
+    protected override void OnPackSettingChanged(string key, System.Text.Json.Nodes.JsonNode value)
+    {
+        if (key is "hide_game_tricks" or "banner_on")
+            MainThread.Later(() => { if (!HideGameTricks || !BannerOn) originalTricks.Dispose(); });
+    }
+
+    protected override void OnPackUnload()
     {
         try
         {
@@ -487,13 +504,15 @@ public sealed class RickBackflipMod : HankModPack.PackPart
     int hideApplyIn;
     void HideGameTrickList()
     {
-        if (!HideGameTricks || !BannerOn) return;
+        if (!HideGameTricks || !BannerOn) { originalTricks.Dispose(); return; }
         if (hideCountdown-- <= 0)
         {
             hideCountdown = 60; // on cherche de nouveau toutes les secondes (changement de map...)
             try
             {
+                trickRoots.Dispose();
                 gameTrickLists = Jibbers.Interop.Game.zo.Live().Select(z => z.Ptr).ToArray();
+                foreach (var pointer in gameTrickLists) trickRoots.Keep(pointer);
                 if (gameTrickLists.Length > 0) LogOnce($"Game trick display found ({gameTrickLists.Length}): hidden while banners are on.");
             }
             catch (Exception e) { LogOnce("Cannot find the game trick display: " + e.Message); gameTrickLists = Array.Empty<nint>(); }
@@ -507,12 +526,7 @@ public sealed class RickBackflipMod : HankModPack.PackPart
                 if (Unity.IsNull(list)) continue;
                 var rect = new Jibbers.Interop.Game.zo(list).uhc.Ptr;
                 if (rect == 0 || Unity.IsNull(rect)) continue;
-                var go = Unity.Call(rect, "get_gameObject");
-                var groupClass = Unity.Class("UnityEngine.CanvasGroup");
-                var group = Unity.GetComponent(go, groupClass);
-                if (group == 0 || Unity.IsNull(group)) group = Il2Cpp.ClassOf(go).Method("AddComponent", "System.Type").Invoke(go, groupClass.SystemType);
-                UnityProperties.Set(group, "set_alpha", 0f);
-                UnityProperties.Set(rect, "set_localScale", new Vector3(0, 0, 0));
+                originalTricks.Hide(rect);
             }
             catch (Exception e) { LogOnce("Hide trick display: " + e.Message); hideCountdown = 600; }
         }
@@ -603,6 +617,8 @@ public sealed class RickBackflipMod : HankModPack.PackPart
         try { bannerOverlay.Dispose(); textBanner.Dispose(); }
         catch (Exception e) { Log("Banner cleanup: " + e.Message); }
     }
+
+    internal void StopFun() { pending = null; StopOverlay(); }
 
     void StopOverlay()
     {

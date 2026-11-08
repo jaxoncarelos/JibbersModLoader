@@ -23,9 +23,9 @@ internal static class Shared
     const string ReadmeText = """
         # Hank Mod Pack
 
-        Five mods in one DLL (`Hank Mod Pack.dll`), each with its own entry in Options > Mods:
+        Eight features in one DLL (`Hank Mod Pack.dll`), each with its own entry in Options > Mods:
 
-        - **Hank Mod Pack: Improved Spawn** - pick an online player and spawn next to them (offset, speed and angle copied, spectator camera).
+        - **Join Spawn** is a separate catalog mod. The quick menu opens it when installed.
         - **Hank Mod Pack: Improved Replay Editor** - time of day, camera shake and an FX timeline in the replay editor.
         - **Hank Mod Pack: Overlay** - trick banners and sounds after a clean landing.
         - **Hank Mod Pack: Fun** - up to 5 events that show a GIF or video and play a sound when a trick is landed.
@@ -188,6 +188,8 @@ public sealed class RickBackflipEventsMod : HankModPack.PackPart
     public override string Description => "Up to 5 events: each shows the GIF or video (and plays the sound) found in its numbered folder inside \"Fun Overlay\". The folders are created automatically in JibbersMods.";
 
     public RickBackflipEventsMod() { Shared.Events = this; }
+
+    protected override void OnDeactivated() => Shared.Main?.StopFun();
 
     public override void OnLoad()
     {

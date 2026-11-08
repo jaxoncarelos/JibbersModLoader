@@ -117,16 +117,23 @@ public sealed class HankHudMod : PackPart
     {
         ImportPackSettings();
         Instance = this;
+        Jibbers.Sdk.Game.Event.ChangeScene.Subscribe(_ => OnDeactivated());
         EnvManager.UpdateMethod.Before((_, _) => Frame());
         Log("HUD ready.");
     }
 
-    public override void OnSettingChanged(string key, JsonNode value)
+    protected override void OnPackSettingChanged(string key, JsonNode value)
     {
         if (key is "scale" or "show" or "hidden" or "enabled" or "theme" or "flames") { needRebuild = true; lastBuildTry = 0; }
     }
 
-    public override void OnUnload()
+    protected override void OnDeactivated()
+    {
+        Cleanup(Teardown, game.Restore);
+        InterfaceUp = false;
+    }
+
+    protected override void OnPackUnload()
     {
         try
         {

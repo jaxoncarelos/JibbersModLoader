@@ -97,7 +97,23 @@ public sealed unsafe partial class LookAroundMod
         Log($"quick menu: open (pictures: {style}, camera: {PlayCamerasMod.Instance?.CurrentName ?? "-"})");
     }
 
-    public override void OnUnload()
+    protected override void OnDeactivated()
+    {
+        Cleanup(
+            () => { if (editorOpen) CloseEditor(); },
+            () => { if (modsOpen) CloseMods(); },
+            () => { if (keysOpen) CloseKeys(); },
+            () => Stop("disabled or scene changed"),
+            mute.Restore, upMute.Restore, Pointer.Restore, Unfreeze);
+        menuOpen = false; lingerEnd = 0; needRelease = true;
+        upFlipAt = 0; upSince = 0; spawnPrev = 0;
+        lastSelf = 0; bonesOf = 0; lSh = 0; rSh = 0;
+        boneRoots.Dispose();
+        haveRider = false; natKnown = false; bodyDone = false;
+        overlay.Hide();
+    }
+
+    protected override void OnPackUnload()
     {
         try { MainThread.Run(() => { if (editorOpen) CloseEditor(); if (modsOpen) CloseMods(); if (keysOpen) CloseKeys(); overlay.Dispose(); }); } catch { }
     }
@@ -251,7 +267,12 @@ public sealed unsafe partial class LookAroundMod
         overlay.Hide();
         Stop("menu");
         needRelease = true;     // the D-pad is still held: do not start the free look again until it is let go
-        try { JoinSpawn.JoinSpawnMod.Instance?.OpenFromMenu(); }
+        try
+        {
+            var spawn = LoadedMods().FirstOrDefault(mod => mod.Id == "join_spawn" && mod.Enabled);
+            if (spawn?.OnCommand("join_spawn.open", new JsonObject()) is null)
+                Log("Install Join Spawn from the catalog to use the spawn menu.");
+        }
         catch (Exception e) { Once("spawn", e); }
     }
 
@@ -281,7 +302,7 @@ public sealed unsafe partial class LookAroundMod
             rows.Add(new(PadBtn.RightStick, "Free look", "", false, false));
             if (Parse(RearButtonName) is not null) rows.Add(R(RearButtonName, "Look behind", "", false, "rear") with { Highlight = rear > 0.05f });
             if (cams is not null) Add(CameraButtonName, "Camera: " + cams.CurrentName, "", false, "camera");
-            Add(SpawnButtonName, "Spawn menu", "", false, "spawn");
+            if (LoadedMods().Any(mod => mod.Id == "join_spawn" && mod.Enabled)) Add(SpawnButtonName, "Spawn menu", "", false, "spawn");
             if (cams is not null) Add(EditorButtonName, "Camera editor", "", false, "editor");
             Add(ModsButtonName, "Mods", "", false, "mods");
             if (Shared.Events is { } fun) Add(FunButtonName, "Fun overlays", fun.Enabled ? "ON" : "OFF", fun.Enabled, "fun");

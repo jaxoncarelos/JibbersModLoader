@@ -42,7 +42,6 @@ public sealed unsafe partial class LookAroundMod
         Pointer.Restore();
         if (keysMuted) { try { mute.Restore(); } catch { } keysMuted = false; }
         needRelease = true;
-        if (KeepStance) { guarding = true; guardUntil = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 4 / 10; }
         Log("quick menu: key assignment window closed");
     }
 

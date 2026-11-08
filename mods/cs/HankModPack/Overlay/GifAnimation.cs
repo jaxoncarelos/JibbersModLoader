@@ -43,6 +43,7 @@ internal sealed class GifAnimation
 
     public static GifAnimation Load(string path, Action<string>? log = null)
     {
+        if (new FileInfo(path).Length > 32L * 1024 * 1024) throw new InvalidDataException("GIF files must be at most 32 MiB.");
         var data = File.ReadAllBytes(path);
         return Decode(data, log);
     }

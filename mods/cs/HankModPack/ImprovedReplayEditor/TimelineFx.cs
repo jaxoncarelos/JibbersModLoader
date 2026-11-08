@@ -83,8 +83,10 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     bool dirty; float nextSave;
 
     // ---- state (main thread) ----
-    volatile bool inReplay;
+    bool inReplay => HankModPack.CameraOwnership.InReplay;
     bool needInit, envSaved;
+    GameRef? environmentRoot;
+    readonly HankModPack.ObjectRoots cameraRoots = new();
     float playhead, maxSeen;
     float savedT, savedSpeed; bool savedFixed, savedUpdate;
     float phase;
@@ -107,32 +109,18 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         current = this;
         Input.OnPressed(() => DeleteKey, () => { if (inReplay) DeleteHere(); });
         Input.OnPressed(() => SavePresetKey, () => { if (inReplay) SavePresetNamed(WhatFromOption(PresetContent), DefaultPresetName()); });
-        EnterReplay.Subscribe(_ => { MainThread.Run(ResetAll); inReplay = true; needInit = true; Log("TLFX: EnterReplay"); });
-        ExitReplay.Subscribe(_ => { inReplay = false;  Log($"TLFX: ExitReplay (max playhead seen {maxSeen:0.###})"); MainThread.Run(ResetAll); });
+        EnterReplay.Subscribe(_ => { MainThread.Run(ResetAll);  needInit = true; Log("TLFX: EnterReplay"); });
+        ExitReplay.Subscribe(_ => {   Log($"TLFX: ExitReplay (max playhead seen {maxSeen:0.###})"); MainThread.Run(ResetAll); });
         LoadReplayClip.Subscribe(_ => { clipKey = ""; });
 
         EnvManager.UpdateMethod.Before((self, _) => { try { OnEnvUpdate(self); } catch (Exception e) { LogOnce("env", e); } });
-        Follow.LateUpdateMethod.Around((self, original) =>
-        {
-            hitFollow++;
-            try { UndoShake(); } catch (Exception e) { LogOnce("undo", e); }
-            original();
-            try { HankModPack.ReplayCameraMod.Instance?.ApplyPose(self); } catch (Exception e) { LogOnce("camera", e); }
-            try { ApplyShake("follow", self); } catch (Exception e) { LogOnce("shake", e); }
-            try { ApplySunLight(); } catch (Exception e) { LogOnce("sunlight", e); }
-            try { InjectPlayMenus(); } catch (Exception e) { LogOnce("playinject", e); }
-        });
-        Jibbers.Interop.Game.Recorder.Update_Method.Around((self, original) =>
-        {
-            hitRecorder++;
-            try { UndoShake(); } catch (Exception e) { LogOnce("undo2", e); }
-            original();
-            try { HankModPack.ReplayCameraMod.Instance?.ApplyPose(0); } catch (Exception e) { LogOnce("camera2", e); }
-            try { ApplyShake("recorder"); } catch (Exception e) { LogOnce("shake2", e); }
-            try { InjectMenus(); } catch (Exception e) { LogOnce("inject", e); }
-            try { TimelineStrip(); } catch (Exception e) { LogOnce("strip", e); }
-            try { FxWindow(); } catch (Exception e) { LogOnce("fxwindow", e); }
-        });
+        HankModPack.CameraCallbacks.Follow.Register(this,
+            _ => { hitFollow++; UndoShake(); },
+            self => { ApplyShake("follow", self); ApplySunLight(); InjectPlayMenus(); }, order: 20);
+        HankModPack.CameraCallbacks.Recorder.Register(this,
+            _ => { hitRecorder++; UndoShake(); },
+            _ => { ApplyShake("recorder"); InjectMenus(); TimelineStrip(); FxWindow(); }, order: 20);
+        ChangeScene.Subscribe(_ => {  ResetAll(); });
 
         // Menus we add our rows to: the Camera Effects menu, and the game's "Keyframe #N" panels.
         Hooks.Before(RawFormMenu.Title_Method.Method, (self, arg0) =>
@@ -153,15 +141,27 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         });
     }
 
-    public override void OnUnload()
+    protected override void OnDeactivated() => ResetAll();
+
+    protected override void OnPackUnload()
     {
-        try { fxView?.Dispose(); fxView = null; fxHint?.Dispose(); fxHint = null; } catch { }
-        try { MainThread.Run(UndoShake); } catch { }
+        ResetAll();
+        fxView?.Dispose(); fxView = null;
+        fxHint?.Dispose(); fxHint = null;
+        current = null;
     }
 
     /// <summary>Forgets everything tied to the replay that just ended, so the next replay starts clean.</summary>
     void ResetAll()
     {
+        if (environmentRoot is { } environment && !Unity.IsNull(environment.Target))
+        {
+            var previousEnvironment = new EnvManager(environment.Target).Raw;
+            RestoreEnv(previousEnvironment);
+            RestoreSky(previousEnvironment);
+        }
+        envSaved = skySaved = false;
+        environmentRoot?.Dispose(); environmentRoot = null;
         try { UndoShake(); } catch { }
         try { fxView?.Hide(); fxHint?.Hide(); fxHintOn = false; fxWinSig = ""; if (fxMuted) { fxMute?.Restore(); fxMuted = false; } } catch { }
         dirty = false;
@@ -173,10 +173,11 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         try { DropLights(); } catch { }
         lightMode = "Off";
         menuTitle.Clear(); menuTouched.Clear(); injected.Clear(); injectedCount = 0;
-        lock (bindings) { bindings.Clear(); }
+        lock (bindings) { for (var index = 0; index < bindings.Count; index++) bindings[index] = default; }
         foreach (var g in keep) { try { g.Dispose(); } catch { } }
         keep.Clear();
         camCache = 0; lastCam = 0; camLogged = false;
+        cameraRoots.Dispose();
         previewTod = -1; previewShake = null; previewUntil = 0;
         maxSeen = 0; curFrame = 0; playhead = 0;
         lastCam = 0; lastPosOffset = default; lastRotOffset = Quaternion.Identity;
@@ -186,7 +187,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     readonly HashSet<string> logged = new();
     void LogOnce(string where, Exception e)
     {
-        if (logged.Add(where + e.GetType().Name)) Log($"TLFX error in {where}: {e}");
+        lock (logged) { if (logged.Add(where + e.GetType().Name)) Log($"TLFX error in {where}: {e}"); }
     }
 
     // ================= the clip and its keyframes =================
@@ -931,13 +932,13 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     }
 
     /// <summary>A camera value at the playhead: blended between the keyframes that have it, null when the clip has none (then the setting applies).</summary>
-    public static float? CameraKey(string label) => current?.EvalSky(label);
+    public static float? CameraKey(string label) => current is { Enabled: true, inReplay: true } ? current.EvalSky(label) : null;
 
     /// <summary>The camera mode at the playhead (0 off, 1 follow cam, 2 POV): the last keyframe before the playhead, no blending.</summary>
-    public static int? CameraModeKey() => current?.EvalCamMode();
+    public static int? CameraModeKey() => current is { Enabled: true, inReplay: true } ? current.EvalCamMode() : null;
 
     /// <summary>The Time Scale keyed in the replay's own (game) keyframes at the playhead: null when none is keyed (before the first one too), the last value after the last one.</summary>
-    public static float? GameTimeScaleKey() => current?.EvalGameTimeScale();
+    public static float? GameTimeScaleKey() => current is { Enabled: true, inReplay: true } ? current.EvalGameTimeScale() : null;
 
     List<(float F, float V)>? tsPts; long tsScanAt;
     float? EvalGameTimeScale()
@@ -1157,6 +1158,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     // Alpine Vision settings changed during a replay (window or keyframe panel): the value it had before, put back when the replay ends.
     readonly Dictionary<string, System.Text.Json.Nodes.JsonNode> alpOrig = new();
     JibbersMod? alpMod;
+    readonly HankModPack.BackgroundActions alpineChanges = new();
 
     void RememberAlp(JibbersMod mod, string key)
     {
@@ -1181,7 +1183,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         if (alpOrig.Count == 0 || alpMod == null) return;
         var mod = alpMod; var list = alpOrig.ToList(); alpOrig.Clear();
         // SetSetting waits for the main thread, which is this one: sent from another thread.
-        Task.Run(() => { foreach (var (k, v) in list) { try { mod.SetSetting(k, v); } catch (Exception e) { LogOnce("alpine-restore", e); } } });
+        alpineChanges.Enqueue(() => { foreach (var (k, v) in list) { try { mod.SetSetting(k, v); } catch (Exception e) { LogOnce("alpine-restore", e); } } });
     }
 
     /// <summary>The Alpine Vision mod, if the player has it (found through the loader's list of mods).</summary>
@@ -1201,7 +1203,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     {
         var mod = FindMod("alpinevision");
         if (mod == null) { menu.Info(GS(() => "Alpine Vision is not loaded."), false, null); return; }
-        void Put(string key, System.Text.Json.Nodes.JsonNode v) { RememberAlp(mod, key); try { mod.SetSetting(key, v); } catch (Exception e) { LogOnce("alpine-set", e); } }
+        void Put(string key, System.Text.Json.Nodes.JsonNode v) { RememberAlp(mod, key); alpineChanges.Enqueue(() => { try { mod.SetSetting(key, v); } catch (Exception e) { LogOnce("alpine-set", e); } }); }
         foreach (var st in mod.Settings.ToList())
         {
             var s = st;
@@ -1341,6 +1343,11 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     void OnEnvUpdate(nint self)
     {
         frame++;
+        if (environmentRoot?.Target != self)
+        {
+            envSaved = skySaved = false;
+            environmentRoot?.Dispose(); environmentRoot = new GameRef(self);
+        }
         var env = new EnvManager(self).Raw;
 
         if (!inReplay || !Enabled) { RestoreEnv(env); RestoreSky(env); if (camLight != null || headLights.Count > 0) DropLights(); return; }
@@ -1472,7 +1479,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
                 if (d > best) { best = d; found = c; how = "highest-depth enabled camera"; }
             }
         }
-        if (found != 0) { camCache = found; Log($"TLFX: shaking camera '{Unity.Name(found)}' (found {how})"); }
+        if (found != 0) { cameraRoots.Keep(found); camCache = found; Log($"TLFX: shaking camera '{Unity.Name(found)}' (found {how})"); }
         return found;
     }
 
@@ -1569,7 +1576,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     {
         if (fxDirty) pushPending = true;
         fxDirty = false;
-        if (!pushPending || pushing || Unity.Time < fxHoldUntil) return;
+        if (!pushPending || pushing || !force && Unity.Time < fxHoldUntil) return;
         if (!force && Unity.Time < nextPush) return;
         pushing = true;
         try
@@ -1777,7 +1784,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         foreach (var p in fx)
             if (fxOrig.TryGetValue(p.Label, out var o)) { try { FxWriteRaw(p, o); } catch { } }
         fxOrig.Clear(); lastFx.Clear();
-        PushFx();
+        PushFx(force: true);
     }
 
     // ================= rows in the game's keyframe panel =================
@@ -2500,7 +2507,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         if (FindMod("alpinevision") is { } alp)
         {
             // Alpine Vision (the other mod), changed live. SetSetting waits for the main thread, which is this one: it is sent from another thread.
-            void PutAlp(string key, System.Text.Json.Nodes.JsonNode v) { KfMark(); RememberAlp(alp, key); Task.Run(() => { try { alp.SetSetting(key, v); } catch (Exception e) { LogOnce("alpine-set", e); } }); }
+            void PutAlp(string key, System.Text.Json.Nodes.JsonNode v) { KfMark(); RememberAlp(alp, key); alpineChanges.Enqueue(() => { try { alp.SetSetting(key, v); } catch (Exception e) { LogOnce("alpine-set", e); } }); }
             var rows = new List<WRow>();
             foreach (var st in alp.Settings.ToList())
             {

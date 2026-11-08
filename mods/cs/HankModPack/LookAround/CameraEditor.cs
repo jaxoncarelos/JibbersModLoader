@@ -37,7 +37,7 @@ public sealed unsafe partial class LookAroundMod
         try
         {
             var cur = GetTimeScale();
-            if (!edFrozen) { edTimeScale = cur > 0.01f ? cur : 1f; edFrozen = true; Log("camera editor: game stopped"); }
+            if (!edFrozen) { edTimeScale = cur; edFrozen = true; Log("camera editor: game stopped"); }
             if (cur > 0.0002f || cur < 0.00005f) SetTimeScale(FrozenScale);
         }
         catch (Exception e) { Once("editor-freeze", e); }
@@ -47,7 +47,7 @@ public sealed unsafe partial class LookAroundMod
     {
         if (!edFrozen) return;
         edFrozen = false;
-        try { if (GetTimeScale() < 0.01f) SetTimeScale(edTimeScale); Log("camera editor: game running again"); }
+        try { if (Math.Abs(GetTimeScale() - FrozenScale) < 0.00001f) SetTimeScale(edTimeScale); Log("camera editor: game running again"); }
         catch (Exception e) { Once("editor-unfreeze", e); }
     }
 
@@ -81,7 +81,6 @@ public sealed unsafe partial class LookAroundMod
         if (edMuted) { try { mute.Restore(); } catch { } edMuted = false; }
         needRelease = true;
         // The stance must not change when the buttons are let go: keep guarding for a short moment.
-        if (KeepStance) { guarding = true; guardUntil = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 4 / 10; }
         Log("camera editor: closed");
     }
 

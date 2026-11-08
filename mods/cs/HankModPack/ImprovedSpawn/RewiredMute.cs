@@ -10,7 +10,8 @@ namespace JoinSpawn;
 internal sealed unsafe class RewiredMute
 {
     readonly Dictionary<(nint, string, int, string), Il2CppMethod> methods = new();
-    readonly List<(GameRef Map, bool Original)> muted = new();
+    readonly List<(GameRef Map, IDisposable Lease)> muted = new();
+    static readonly HankModPack.StateOverrides<nint, bool> overrides = new();
 
     public bool Active => muted.Count > 0;
     public string? LastError { get; private set; }
@@ -169,8 +170,9 @@ internal sealed unsafe class RewiredMute
                         Categories.Add($"{category}/{(kind == 0 ? "clavier" : "manette")}");
                         var original = AsBool(Call(map.Target, "get_enabled"));
                         // Vue spectateur : les commandes de replay du jeu sont allumées, tout le reste reste coupé.
-                        SetEnabled(map.Target, isReplay);
-                        muted.Add((map, original));
+                        var pointer = map.Target;
+                        var lease = overrides.Acquire(pointer, () => original, enabled => SetEnabled(pointer, enabled), isReplay);
+                        muted.Add((map, lease));
                         keep = true;
                     }
                     finally
@@ -186,6 +188,7 @@ internal sealed unsafe class RewiredMute
         catch (Exception e)
         {
             LastError = e.Message;
+            Restore(); // Partial setup must not strand a subset of the player's controls.
         }
         return muted.Count;
     }
@@ -193,9 +196,9 @@ internal sealed unsafe class RewiredMute
     /// <summary>Remet les commandes de jeu comme elles étaient.</summary>
     public void Restore()
     {
-        foreach (var (map, original) in muted)
+        foreach (var (map, lease) in muted)
         {
-            try { if (!Unity.IsNull(map.Target)) SetEnabled(map.Target, original); }
+            try { lease.Dispose(); }
             catch (Exception e) { LastError = e.Message; }
             map.Dispose();
         }

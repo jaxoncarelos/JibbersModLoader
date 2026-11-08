@@ -106,9 +106,12 @@
       "authors": ["hankhulerygit"],
       "id": "jibbers_hank_mod_pack_info",
       "name": "Hank Mod Pack",
-      "description": "Nine mods for JibbersModLoader for Jibbers Playtest, built into a single DLL: Hank Mod Pack.dll. Gamepad first, everything customizable from Options / Mods. Quick Menu Free Look Play Cameras HUD Improved Spawn Improved Replay Editor Replay Camera Overlay Fun",
+      "description": "Controller quick menu, free look, play and replay cameras, HUD themes, replay effects, trick banners and custom media. Integrates the separate Join Spawn mod without duplicating it.",
+      "version": "1.52.9",
       "legacy": false,
-      "assets": []
+      "assets": [
+        { "path": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "zip": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "repo": "mods/cs/HankModPack/Overlay/NLayer/LICENSE.txt" }
+      ]
     }
   ]
 }

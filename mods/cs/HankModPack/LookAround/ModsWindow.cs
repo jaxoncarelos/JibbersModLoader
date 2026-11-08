@@ -53,7 +53,6 @@ public sealed unsafe partial class LookAroundMod
         overlay.Hide();
         if (modsMuted) { try { mute.Restore(); } catch { } modsMuted = false; }
         needRelease = true;
-        if (KeepStance) { guarding = true; guardUntil = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 4 / 10; }
         Log("mods window: closed");
     }
 
