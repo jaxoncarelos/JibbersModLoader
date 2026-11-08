@@ -91,15 +91,23 @@
     {
       "folder": "AsyncContent",
       "modId": "async_content",
-      "authors": [
-        "jaxoncarelos"
-      ],
+      "authors": ["jaxoncarelos"],
       "id": "jibbers_async_content",
       "defaultInstall": true,
       "name": "Async Content",
       "description": "Reduces server-join stutter by decoding session textures and meshes on a worker and spreading large texture copies across frames.",
       "legacy": false,
       "version": "0.1.5",
+      "assets": []
+    },
+    {
+      "folder": "HankModPack",
+      "modId": "hank_mod_pack_info",
+      "authors": ["hankhulerygit"],
+      "id": "jibbers_hank_mod_pack_info",
+      "name": "Hank Mod Pack",
+      "description": "Nine mods for JibbersModLoader for Jibbers Playtest, built into a single DLL: Hank Mod Pack.dll. Gamepad first, everything customizable from Options / Mods. Quick Menu Free Look Play Cameras HUD Improved Spawn Improved Replay Editor Replay Camera Overlay Fun",
+      "legacy": false,
       "assets": []
     }
   ]
