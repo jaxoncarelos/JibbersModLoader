@@ -34,6 +34,20 @@ const NOP5: [u8; 5] = [0x0F, 0x1F, 0x44, 0x00, 0x00];
 /// mjCBody::Add*) and checks every site calls the same two functions. Nothing is changed yet: see
 /// `parse_with_fast_tree_lists`.
 pub fn find_tree_lists(pcore: HMODULE) -> Result<usize, String> {
+    if super::pcore::version(pcore)? != "3.3.6" {
+        return Err("scene optimization requires MuJoCo 3.3.6".into());
+    }
+    // Validate the native layout on an empty spec before changing any code.
+    unsafe {
+        let make: unsafe extern "C" fn() -> *mut c_void = std::mem::transmute(super::pcore::function(pcore, "mj_makeSpec")?);
+        let delete: unsafe extern "C" fn(*mut c_void) = std::mem::transmute(super::pcore::function(pcore, "mj_deleteSpec")?);
+        let spec = make();
+        if spec.is_null() { return Err("could not allocate a probe spec".into()); }
+        let model = *(spec as *const *mut c_void);
+        let supported = !model.is_null() && *((model as *const u8).add(MODEL_SPEC) as *const *mut c_void) == model;
+        delete(spec);
+        if !supported { return Err("unsupported mjSpec/model layout".into()); }
+    }
     let code = super::pcore::code(pcore)?;
     let mut sites = Vec::new();
     let mut i = 0;
@@ -52,7 +66,7 @@ pub fn find_tree_lists(pcore: HMODULE) -> Result<usize, String> {
         }
     }
     let Some(&(_, _, r, m)) = sites.first() else { return Err("unknown version of pcore.dll (no tree-list calls)".into()) };
-    if sites.iter().any(|s| s.2 != r || s.3 != m) || sites.len() > 32 {
+    if sites.iter().any(|s| s.2 != r || s.3 != m) || sites.len() != 9 {
         return Err("unknown version of pcore.dll (tree-list calls differ)".into());
     }
     let mut saved = Vec::new();
@@ -77,12 +91,18 @@ pub unsafe fn parse_with_fast_tree_lists(parse: impl FnOnce() -> *mut c_void) ->
     let Some(sites) = SITES.get() else { return parse() };
     static LOCK: Mutex<()> = Mutex::new(());
     let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    for &(at, _) in sites {
-        let _ = super::fast_parse::overwrite(at as *mut u8, &NOP5);
+    for (changed, &(at, _)) in sites.iter().enumerate() {
+        if let Err(error) = super::fast_parse::overwrite(at as *mut u8, &NOP5) {
+            for &(address, original) in &sites[..changed] {
+                super::fast_parse::overwrite(address as *mut u8, &original).expect("restore tree-list call");
+            }
+            super::say(format!("tree-list optimization skipped: {error}"));
+            return parse();
+        }
     }
     let spec = std::panic::catch_unwind(std::panic::AssertUnwindSafe(parse));
     for &(at, orig) in sites {
-        let _ = super::fast_parse::overwrite(at as *mut u8, &orig);
+        super::fast_parse::overwrite(at as *mut u8, &orig).expect("restore tree-list call");
     }
     let spec = match spec {
         Ok(s) => s,
@@ -117,12 +137,16 @@ struct Vfs {
     vfs: Box<[u64; 8]>, // mjVFS is one pointer (impl_) in 3.3.6; room to spare
     files: HashSet<[u8; 20]>,
     add: AddBufferVfs,
+    bytes: usize,
 }
 unsafe impl Send for Vfs {}
 static VFS: Mutex<Option<Vfs>> = Mutex::new(None);
 
 /// Sets up the persistent in-memory file system and MuJoCo's mesh cache size.
 pub fn enable_mesh_cache(pcore: HMODULE, cache_bytes: usize) -> Result<(), String> {
+    if super::pcore::version(pcore)? != "3.3.6" {
+        return Err("mesh cache requires MuJoCo 3.3.6".into());
+    }
     unsafe {
         let default_vfs: DefaultVfs = std::mem::transmute(super::pcore::function(pcore, "mj_defaultVFS")?);
         let add: AddBufferVfs = std::mem::transmute(super::pcore::function(pcore, "mj_addBufferVFS")?);
@@ -135,7 +159,7 @@ pub fn enable_mesh_cache(pcore: HMODULE, cache_bytes: usize) -> Result<(), Strin
             return Err("MuJoCo has no asset cache".into());
         }
         set_cap(cache, cache_bytes);
-        *VFS.lock().unwrap_or_else(|e| e.into_inner()) = Some(Vfs { vfs, files: HashSet::new(), add });
+        *VFS.lock().unwrap_or_else(|e| e.into_inner()) = Some(Vfs { vfs, files: HashSet::new(), add, bytes: 0 });
     }
     Ok(())
 }
@@ -149,7 +173,10 @@ pub fn vfs_ptr() -> Option<*mut c_void> {
 /// the files to the VFS. None when nothing was rewritten or the cache is off.
 pub fn rewrite_meshes(xml: &[u8]) -> Option<(Vec<u8>, usize)> {
     let mut guard = VFS.lock().ok()?;
-    let v = guard.as_mut()?;
+    rewrite_with_vfs(xml, guard.as_mut()?)
+}
+
+fn rewrite_with_vfs(xml: &[u8], v: &mut Vfs) -> Option<(Vec<u8>, usize)> {
     let mut out = Vec::with_capacity(xml.len() / 2);
     let (mut last, mut n, mut pos) = (0usize, 0usize, 0usize);
     while let Some(off) = find(&xml[pos..], b"<mesh ") {
@@ -158,7 +185,7 @@ pub fn rewrite_meshes(xml: &[u8]) -> Option<(Vec<u8>, usize)> {
         let end = start + end_off;
         let el = &xml[start..end];
         pos = end;
-        if find(el, b" face=").is_some() || find(el, b" file=").is_some() {
+        if [b" face=".as_slice(), b" file=", b" normal=", b" texcoord=", b" plugin="].iter().any(|attribute| find(el, attribute).is_some()) {
             continue; // faces or a real file: leave as is
         }
         let Some(va) = find(el, b" vertex=\"") else { continue };
@@ -170,14 +197,14 @@ pub fn rewrite_meshes(xml: &[u8]) -> Option<(Vec<u8>, usize)> {
         let mut ok = true;
         for t in text.split_ascii_whitespace() {
             match t.parse::<f64>() {
-                Ok(x) => verts.push(x as f32),
-                Err(_) => {
+                Ok(x) if x.is_finite() && (x as f32).is_finite() => verts.push(x as f32),
+                _ => {
                     ok = false;
                     break;
                 }
             }
         }
-        if !ok || verts.is_empty() || verts.len() % 3 != 0 {
+        if !ok || verts.len() < 12 || verts.len() % 3 != 0 || verts.len() > (i32::MAX as usize - 16) / 4 {
             continue;
         }
         // MSH: int32 nvertex, nnormal, ntexcoord, nface, then float32 vertices
@@ -190,9 +217,15 @@ pub fn rewrite_meshes(xml: &[u8]) -> Option<(Vec<u8>, usize)> {
         }
         let h = sha1(&body);
         let name: String = h.iter().map(|b| format!("{b:02x}")).collect::<String>() + ".msh";
-        if v.files.insert(h) {
+        if !v.files.contains(&h) {
+            // Specs can outlive their parse; retain files, but stop growing the VFS at 512 MiB.
+            // New meshes fall back to their original inline representation when full.
+            if v.bytes.saturating_add(body.len()) > 512 << 20 { continue; }
             let cname = std::ffi::CString::new(name.clone()).unwrap();
-            unsafe { (v.add)(v.vfs.as_mut_ptr() as *mut c_void, cname.as_ptr(), body.as_ptr() as *const c_void, body.len() as c_int) };
+            let added = unsafe { (v.add)(v.vfs.as_mut_ptr() as *mut c_void, cname.as_ptr(), body.as_ptr() as *const c_void, body.len() as c_int) };
+            if added != 0 { continue; }
+            v.files.insert(h);
+            v.bytes += body.len();
         }
         out.extend_from_slice(&xml[last..start + va]);
         out.extend_from_slice(b" file=\"");
@@ -289,4 +322,50 @@ mod tests {
         assert_eq!(find(b"abc<mesh x", b"<mesh "), Some(3));
         assert_eq!(find(b"abc", b"<mesh "), None);
     }
+    unsafe extern "C" fn accept_file(_: *mut c_void, _: *const c_char, _: *const c_void, _: c_int) -> c_int { 0 }
+    unsafe extern "C" fn reject_file(_: *mut c_void, _: *const c_char, _: *const c_void, _: c_int) -> c_int { 2 }
+    fn fake_vfs(add: AddBufferVfs) -> Vfs {
+        Vfs { vfs: Box::new([0; 8]), files: HashSet::new(), add, bytes: 0 }
+    }
+
+    #[test]
+    fn mesh_rewrite_reuses_identical_payloads_and_preserves_other_attributes() {
+        let xml = br#"<asset><mesh name="one" scale="2 3 4" vertex="0 0 0 1 0 0 0 1 0 0 0 1"/><mesh name="two" vertex="0 0 0 1 0 0 0 1 0 0 0 1"/></asset>"#;
+        let mut vfs = fake_vfs(accept_file);
+        let (result, count) = rewrite_with_vfs(xml, &mut vfs).unwrap();
+        let result = String::from_utf8(result).unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(vfs.files.len(), 1);
+        assert_eq!(vfs.bytes, 64);
+        assert!(result.contains("scale=\"2 3 4\""));
+        assert_eq!(result.matches("file=").count(), 2);
+        assert!(!result.contains("vertex="));
+    }
+
+    #[test]
+    fn failed_or_over_budget_vfs_write_leaves_original_xml_unchanged() {
+        let xml = br#"<mesh name="one" vertex="0 0 0 1 0 0 0 1 0 0 0 1"/>"#;
+        let mut failed = fake_vfs(reject_file);
+        assert!(rewrite_with_vfs(xml, &mut failed).is_none());
+        assert!(failed.files.is_empty());
+        assert_eq!(failed.bytes, 0);
+        let mut full = fake_vfs(accept_file);
+        full.bytes = 512 << 20;
+        assert!(rewrite_with_vfs(xml, &mut full).is_none());
+        assert!(full.files.is_empty());
+    }
+
+    #[test]
+    fn unsupported_mesh_data_and_invalid_vertices_are_not_rewritten() {
+        let vertices = "0 0 0 1 0 0 0 1 0 0 0 1";
+        for attribute in ["face=\"0 1 2\"", "file=\"original.obj\"", "normal=\"0 1 0\"", "texcoord=\"0 1\""] {
+            let xml = format!("<mesh name=\"one\" {attribute} vertex=\"{vertices}\"/>");
+            assert!(rewrite_with_vfs(xml.as_bytes(), &mut fake_vfs(accept_file)).is_none());
+        }
+        for vertices in ["0 0 0 1", "NaN 0 0 1 0 0 0 1 0 0 0 1", "1e100 0 0 1 0 0 0 1 0 0 0 1", "bad"] {
+            let xml = format!("<mesh name=\"one\" vertex=\"{vertices}\"/>");
+            assert!(rewrite_with_vfs(xml.as_bytes(), &mut fake_vfs(accept_file)).is_none());
+        }
+    }
+
 }

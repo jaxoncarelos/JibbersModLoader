@@ -86,12 +86,14 @@ pub fn init() {
                     Err(e) => say(format!("fast map loading not available: {e}")),
                 }
             }
-            match scene::find_tree_lists(pcore) {
-                Ok(n) => say(format!("faster scene parsing on ({n} tree-list call sites)")),
-                Err(e) => say(format!("faster scene parsing not available: {e}")),
-            }
-            if let Err(e) = scene::enable_mesh_cache(pcore, 3usize << 30) {
-                say(format!("mesh cache not available: {e}"));
+            if on("fast_parse") {
+                match scene::find_tree_lists(pcore) {
+                    Ok(n) => say(format!("faster scene parsing on ({n} tree-list call sites)")),
+                    Err(e) => say(format!("faster scene parsing not available: {e}")),
+                }
+                if let Err(e) = scene::enable_mesh_cache(pcore, 3usize << 30) {
+                    say(format!("mesh cache not available: {e}"));
+                }
             }
             let gb = store().and_then(|s| s.get("cache_gb")).and_then(|v| v.as_f64()).unwrap_or(4.0).max(1.0);
             let folder = on("cache").then(cache::folder).flatten();
