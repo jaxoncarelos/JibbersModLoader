@@ -23,6 +23,22 @@ The workflow is prepared in `.github/workflows/mod-channel.yml`; publishing requ
 environment's signing secret. Original project code is licensed under [GPL-3.0-only](LICENSE).
 Third-party components retain their own licenses.
 
+## Built-in performance
+
+The loader makes big maps load faster and run smoother for everyone, with the game's physics left
+exactly as it is (`crates/jibbers-hotload/src/perf`, **Options > Mods > Performance**):
+
+- **Fast map loading**, from Fast Map Load by xhail39 (GPL-3.0): skips two redundant
+  per-element steps in MuJoCo's XML parsing and remembers each big map's built physics in
+  `%LOCALAPPDATA%\Jibbers\FastMapLoad`, so a map that took minutes to build loads in seconds.
+- **Static collider skipping**: MuJoCo recomputes the world pose of every collider each physics step,
+  including the map's static ones. The loader computes those once and runs MuJoCo's own kinematics
+  over just the colliders that can move. On a ~100k-collider map the step went from 1.9 to 0.6 ms
+  with bit-identical collider positions, which stops the catch-up stutter big maps had.
+
+Both refuse any MuJoCo but the game's 3.3.6, and a standalone `fast_map_load.dll` or
+`physics_boost.dll` in JibbersMods turns the matching built-in part off.
+
 ## Build and test
 
 ```powershell

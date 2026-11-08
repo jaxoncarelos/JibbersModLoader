@@ -292,6 +292,9 @@ pub fn reload() -> Result<(), String> {
 pub fn attach() -> Result<(), String> {
     let mut cores = CORES.write().unwrap();
     let dev = if game_dir().join(CORE_FILE).exists() { swap_developer(&mut cores) } else { Ok(()) };
+    // Built-in performance features: before the map's physics is ever built.
+    crate::perf::init();
+    take_pending(&mut cores);
     load_plugins(&mut cores, None);
     attach_outcome(dev, cfg!(feature = "release"))
 }
