@@ -59,6 +59,8 @@ struct Load {
     save_as: Option<PathBuf>,
     saved_model: Option<usize>,
     edited: bool,
+    /// Parsed from a rewritten scene: its meshes are files in scene.rs's VFS.
+    our_vfs: bool,
 }
 static LOADS: Mutex<Option<HashMap<usize, Load>>> = Mutex::new(None);
 
@@ -130,17 +132,25 @@ unsafe extern "C" fn parse(
             with_loads(|l| {
                 l.insert(
                     empty_spec as usize,
-                    Load { started, xml_mb, save_as: None, saved_model: Some(model), edited: false },
+                    Load { started, xml_mb, save_as: None, saved_model: Some(model), edited: false, our_vfs: false },
                 )
             });
             return empty_spec;
         }
     }
 
-    let spec = original.call(xml, vfs, error, error_size);
+    // Big scenes: inline meshes become cached in-memory files (only when the game brings no VFS).
+    let rewritten = if vfs.is_null() && xml_bytes.len() > 1_000_000 { super::scene::rewrite_meshes(xml_bytes) } else { None };
+    let (spec, our_vfs) = match (rewritten, super::scene::vfs_ptr()) {
+        (Some((rx, _n)), Some(ours)) => {
+            let rx = CString::new(rx).unwrap_or_default();
+            (super::scene::parse_with_fast_tree_lists(|| original.call(rx.as_ptr(), ours, error, error_size)), true)
+        }
+        _ => (super::scene::parse_with_fast_tree_lists(|| original.call(xml, vfs, error, error_size)), false),
+    };
     if !spec.is_null() {
         with_loads(|l| {
-            l.insert(spec as usize, Load { started, xml_mb, save_as: file, saved_model: None, edited: false })
+            l.insert(spec as usize, Load { started, xml_mb, save_as: file, saved_model: None, edited: false, our_vfs })
         });
     }
     spec
@@ -159,6 +169,10 @@ unsafe extern "C" fn compile(spec: *mut c_void, vfs: *const c_void) -> *mut c_vo
         return model as *mut c_void;
     }
 
+    let vfs = match (load.our_vfs, super::scene::vfs_ptr()) {
+        (true, Some(ours)) => ours as *const c_void,
+        _ => vfs,
+    };
     let model = COMPILE.get().unwrap().call(spec, vfs);
     let mut note = String::new();
     if let (false, Some(file)) = (model.is_null(), load.save_as) {

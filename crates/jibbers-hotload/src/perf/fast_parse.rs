@@ -159,3 +159,8 @@ fn overwrite_code(at: *mut u8, bytes: &[u8]) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Overwrites code (used by scene.rs to switch the tree-list calls off and on).
+pub fn overwrite(at: *mut u8, bytes: &[u8]) -> Result<(), String> {
+    overwrite_code(at, bytes)
+}
