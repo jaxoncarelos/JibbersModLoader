@@ -19,10 +19,10 @@ static class ServerTests
         public bool InPartyNow = true, OverlayOpened, PartyMade;
         public double Now;
 
-        public FakePlayer(ulong id, string name)
+        public FakePlayer(ulong id, string name, LocalMapIndex? maps = null)
         {
             Self = new PartyMember(new SteamId(id), name, false, true, new Dictionary<string, string>(), 0);
-            Session = new ServerSession(this, () => Now);
+            Session = new ServerSession(this, () => Now, maps);
         }
 
         public SteamId Me => Self.Id;
@@ -34,10 +34,16 @@ static class ServerTests
         public void Log(string line) => Logged.Enqueue(line);
         /// <summary>Reliable sends to refuse, as Steam does when its send buffer is full.</summary>
         public int RefuseReliable;
+        /// <summary>Payloads sent that never arrive: an older SDK on the other end, or a lost answer.</summary>
+        public Func<byte[], bool>? Drop;
+        /// <summary>Bytes of TCP connections sent through the tunnel.</summary>
+        public long StreamBytes;
         readonly object deliver = new();
         public bool Send(SteamId to, byte[] payload, bool reliable)
         {
             if (reliable && Interlocked.Decrement(ref RefuseReliable) >= 0) return false;
+            if (Drop?.Invoke(payload) == true) return true; // lost on the way (or never understood)
+            if (StreamTunnel.TryParse(payload, out _, out var op, out var data) && op == StreamTunnel.Data) Interlocked.Add(ref StreamBytes, data.Length);
             // Delivered as the SDK would: to the member with that id, from us as a remote member, one at a time.
             if (Peer is not null && Peer.Me == to)
                 lock (deliver) Peer.Session.Receive(Peer.Party.Single(m => m.Id == Me), payload);
@@ -51,10 +57,10 @@ static class ServerTests
         public void OpenInviteOverlay() => OverlayOpened = true;
     }
 
-    static (FakePlayer Ana, FakePlayer Ben) Party()
+    static (FakePlayer Ana, FakePlayer Ben) Party(LocalMapIndex? benMaps = null)
     {
         var ana = new FakePlayer(1, "Ana");
-        var ben = new FakePlayer(2, "Ben");
+        var ben = new FakePlayer(2, "Ben", benMaps);
         ana.Peer = ben;
         ben.Peer = ana;
         ana.Party.AddRange(new[] { ana.Self with { IsHost = true }, ben.Self with { IsLocal = false } });
@@ -175,6 +181,204 @@ static class ServerTests
         Assert.True(served.Join(5000), "the server's side closes too");
         ana.Session.Dispose();
         ben.Session.Dispose();
+    }
+
+    /// <summary>A fake game server on TCP: answers "GET /map/ruka" with the map and "GET /status" with a line, then closes, as often as asked.</summary>
+    sealed class MapServer : IDisposable
+    {
+        readonly Socket listener = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        public readonly Socket Udp = Loopback.Udp();
+        public int Port => ((IPEndPoint)Udp.LocalEndPoint!).Port;
+        public int MapsServed;
+        public MapServer(byte[] map)
+        {
+            listener.Bind(new IPEndPoint(IPAddress.Loopback, Port));
+            listener.Listen(8);
+            new Thread(() =>
+            {
+                while (true)
+                {
+                    Socket c;
+                    try { c = listener.Accept(); }
+                    catch { return; }
+                    new Thread(() =>
+                    {
+                        using (c)
+                        {
+                            var request = new byte[256];
+                            var n = c.Receive(request);
+                            var text = Encoding.ASCII.GetString(request, 0, n);
+                            if (text == "GET /map/ruka") { Interlocked.Increment(ref MapsServed); c.Send(map); }
+                            else if (text == "GET /status") c.Send("ruka 1234"u8.ToArray());
+                            c.Shutdown(SocketShutdown.Send);
+                            try { while (c.Receive(request) > 0) { } } catch (SocketException) { }
+                        }
+                    }) { IsBackground = true }.Start();
+                }
+            }) { IsBackground = true }.Start();
+        }
+        public void Dispose()
+        {
+            listener.Dispose();
+            Udp.Dispose();
+        }
+    }
+
+    static byte[] Fetch(int port, string request)
+    {
+        using var game = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { ReceiveTimeout = 15000 };
+        game.Connect(new IPEndPoint(IPAddress.Loopback, port));
+        game.Send(Encoding.ASCII.GetBytes(request));
+        var got = new MemoryStream();
+        var buffer = new byte[65536];
+        int read;
+        while ((read = game.Receive(buffer)) > 0) got.Write(buffer, 0, read);
+        return got.ToArray();
+    }
+
+    /// <summary>A joining player with a maps folder (and hash cache) of their own; the host serves <paramref name="map"/>.</summary>
+    static void WithLocalMaps(byte[] map, byte[]? localCopy, Action<FakePlayer, FakePlayer, MapServer, string> test)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "jibbers-playmap-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "Maps"));
+        try
+        {
+            File.WriteAllBytes(Path.Combine(dir, "Maps", "other.jbrmap"), new byte[1000]);
+            if (localCopy is not null) File.WriteAllBytes(Path.Combine(dir, "Maps", "Ruka copy.jbrmap"), localCopy);
+            var maps = new LocalMapIndex([Path.Combine(dir, "Maps")], Path.Combine(dir, "cache", "map-hashes.json"));
+            var (ana, ben) = Party(maps);
+            using var server = new MapServer(map);
+            ana.Session.Update(new ServerInfo(true, true, server.Port, ""));
+            ben.Session.Join(ana.Me);
+            try { test(ana, ben, server, dir); }
+            finally
+            {
+                ana.Session.Dispose();
+                ben.Session.Dispose();
+            }
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
+
+    static byte[] RandomMap(int seed)
+    {
+        var map = new byte[2 * 1024 * 1024 + 77];
+        new Random(seed).NextBytes(map);
+        return map;
+    }
+
+    [Test]
+    static void AMapAlreadyOnDiskIsServedLocally()
+    {
+        var map = RandomMap(11);
+        WithLocalMaps(map, map, (ana, ben, server, dir) =>
+        {
+            var got = Fetch(ben.Connected!.Value.Port, "GET /map/ruka");
+            Assert.True(got.AsSpan().SequenceEqual(map), "the game gets the map, byte for byte");
+            Assert.True(Interlocked.Read(ref ana.StreamBytes) == 0 && Interlocked.Read(ref ben.StreamBytes) == 0, "nothing went through the tunnel");
+            Assert.Equal(1, server.MapsServed); // the host reading it over loopback
+            Assert.True(ben.Logged.Any(l => l.StartsWith("map served locally: ruka 2.0 MB from ") && l.EndsWith("Ruka copy.jbrmap")), "the decision is logged");
+            Assert.True(ana.Logged.Any(l => l.StartsWith("map ruka as the server serves it: 2.0 MB, sha256 ")));
+            Assert.True(File.Exists(Path.Combine(dir, "cache", "map-hashes.json")), "hashes are kept for next time");
+
+            // Everything else still goes to the host's server.
+            Assert.Equal("ruka 1234", Encoding.ASCII.GetString(Fetch(ben.Connected!.Value.Port, "GET /status")));
+            Assert.True(Interlocked.Read(ref ben.StreamBytes) == "GET /status".Length);
+
+            // A second download (another join) uses the cached hash, and still matches.
+            Assert.True(Fetch(ben.Connected!.Value.Port, "GET /map/ruka").AsSpan().SequenceEqual(map));
+            Assert.True(Interlocked.Read(ref ana.StreamBytes) == "ruka 1234".Length, "only the status came back through the tunnel");
+        });
+    }
+
+    [Test]
+    static void ADifferentLocalMapIsNotServed()
+    {
+        // Same size, different bytes (an edited copy): the hash tells them apart.
+        var map = RandomMap(12);
+        var edited = (byte[])map.Clone();
+        edited[^5] ^= 1;
+        WithLocalMaps(map, edited, (ana, ben, server, _) =>
+        {
+            var got = Fetch(ben.Connected!.Value.Port, "GET /map/ruka");
+            Assert.True(got.AsSpan().SequenceEqual(map), "the server's map arrives through the tunnel");
+            Assert.True(Interlocked.Read(ref ana.StreamBytes) == map.Length, "downloaded from the host");
+            Assert.True(ben.Logged.Any(l => l == "no local copy of ruka (2.0 MB): downloading it from the host"));
+            Assert.Equal(2, server.MapsServed);
+        });
+    }
+
+    [Test]
+    static void NoWordFromTheHostMeansDownloading()
+    {
+        var map = RandomMap(13);
+        var wait = ClientRelay.OfferWait;
+        ClientRelay.OfferWait = TimeSpan.FromMilliseconds(300);
+        try
+        {
+            // The host's answer never arrives: the join must not hang on it.
+            WithLocalMaps(map, map, (ana, ben, server, _) =>
+            {
+                ana.Drop = p => p[0] == ServerSession.Control && Encoding.UTF8.GetString(p, 1, p.Length - 1).Contains("\"t\":\"map\"");
+                var got = Fetch(ben.Connected!.Value.Port, "GET /map/ruka");
+                Assert.True(got.AsSpan().SequenceEqual(map));
+                Assert.True(Interlocked.Read(ref ana.StreamBytes) == map.Length, "downloaded from the host");
+                Assert.True(ben.Logged.Any(l => l.StartsWith("no word on the map ruka from the host within")));
+            });
+        }
+        finally { ClientRelay.OfferWait = wait; }
+
+        // A host with an older SDK doesn't offer map info in its welcome: nothing is asked or awaited.
+        var dir = Path.Combine(Path.GetTempPath(), "jibbers-playmap-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllBytes(Path.Combine(dir, "ruka.jbrmap"), map);
+            var (ana, ben) = Party(new LocalMapIndex([dir], null));
+            var asked = 0;
+            ana.Drop = p =>
+            {
+                if (p[0] != ServerSession.Control) return false;
+                var text = Encoding.UTF8.GetString(p, 1, p.Length - 1);
+                if (!text.Contains("\"t\":\"welcome\"")) return false;
+                ben.Session.Receive(ben.Party.Single(m => m.Id == ana.Me), Encoding.UTF8.GetBytes("\u0001{\"t\":\"welcome\",\"pw\":\"\"}"));
+                return true;
+            };
+            ben.Drop = p => p[0] == ServerSession.Control && Encoding.UTF8.GetString(p, 1, p.Length - 1).Contains("mapq") && Interlocked.Increment(ref asked) > 0;
+            using var server = new MapServer(map);
+            ana.Session.Update(new ServerInfo(true, true, server.Port, ""));
+            ben.Session.Join(ana.Me);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            Assert.True(Fetch(ben.Connected!.Value.Port, "GET /map/ruka").AsSpan().SequenceEqual(map));
+            Assert.True(asked == 0 && Interlocked.Read(ref ana.StreamBytes) == map.Length, "downloaded without asking");
+            Assert.True(clock.Elapsed < TimeSpan.FromSeconds(3), "without waiting");
+            ana.Session.Dispose();
+            ben.Session.Dispose();
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Test]
+    static void TheHostMeasuresWhatItsServerServes()
+    {
+        // Raw bytes: the whole answer is the map.
+        var map = RandomMap(14);
+        using var server = new MapServer(map);
+        var offer = MapRequests.Probe(server.Port, "GET /map/ruka", CancellationToken.None)!;
+        Assert.True(offer.Size == map.Length && offer.Head.Length == 0 && offer.Name == "ruka");
+        Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(map)).ToLowerInvariant(), offer.Sha256);
+        Assert.True(MapRequests.Probe(server.Port, "GET /map/nothing", CancellationToken.None) is null, "no answer, no offer");
+
+        // Round trip through the party message, and junk is refused.
+        var back = MapOffer.FromJson(System.Text.Json.Nodes.JsonNode.Parse(offer.ToJson().ToJsonString()))!;
+        Assert.True(back.Sha256 == offer.Sha256 && back.Size == offer.Size && back.Request == offer.Request);
+        Assert.True(MapOffer.FromJson(System.Text.Json.Nodes.JsonNode.Parse("{\"t\":\"map\",\"req\":\"GET /map/ruka\"}")) is null);
+        Assert.True(MapOffer.FromJson(System.Text.Json.Nodes.JsonNode.Parse("{\"t\":\"map\",\"req\":\"GET /status\",\"size\":5,\"sha256\":\"" + offer.Sha256 + "\"}")) is null);
+        Assert.True(MapRequests.TryParse("GET /map/MLNZ Park\r\n", out var name) && name == "MLNZ Park");
+        Assert.True(!MapRequests.TryParse("GET /status", out _));
     }
 
     static void Bring(FakePlayer leader) => leader.Session.PanelActions().Single(a => a.Label == "Bring everyone to this server").Run();
