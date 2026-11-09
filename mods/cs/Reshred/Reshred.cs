@@ -23,8 +23,10 @@ public sealed class ReshredMod : JibbersMod
     RewindOptions ReadOptions() => new(Enabled, GetKey("key"), GetBool("controller"), (float)GetDouble("holdTime"), (float)GetDouble("speed"), GetBool("indicator"));
     public override void OnLoad()
     {
-        runtime = new RewindRuntime(new RewindGameLoop(), new RewindInputReader(), new RewindIndicator(Log), ReadOptions, Log);
+        runtime = new RewindRuntime(new RewindGameLoop(() => Enabled), new RewindInputReader(), new RewindIndicator(Log), ReadOptions, Log);
         runtime.Start();
+        Jibbers.Sdk.Game.Event.ChangeScene.Subscribe(_ => runtime?.Reset());
+        Events.Subscribe("event.player_spawn", _ => runtime?.Reset());
     }
 
     public override void OnSettingChanged(string key, JsonNode value)

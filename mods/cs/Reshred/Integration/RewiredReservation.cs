@@ -6,7 +6,27 @@ namespace Reshred;
 /// <summary>Owns reversible gameplay-binding masks; discovery and native invocation have separate owners.</summary>
 internal sealed class RewiredReservation
 {
-    static readonly TimeSpan Rescan = TimeSpan.FromMilliseconds(750);
+    readonly BindingRefreshPolicy refresh = new();
+    bool topologyAvailable = true;
+    int connectedJoystickCount, coveredControllerCount;
+    bool controllersConnected;
+    readonly Func<object> topologyProbe;
+    public bool HasControllerCoverage => topologyAvailable && controllersConnected && connectedJoystickCount > 0 && coveredControllerCount >= connectedJoystickCount;
+    readonly record struct Topology(nint Players, nint Mapping, int Controllers, bool Paused, bool Focused, bool CursorVisible, int CursorLock);
+    object ProbeTopology()
+    {
+        var count = 0;
+        if (topologyAvailable)
+        {
+            try { connectedJoystickCount = count = api.Int(api.ReInput("get_controllers"), "get_joystickCount"); }
+            catch { topologyAvailable = false; }
+        }
+        if (!topologyAvailable) count = unchecked((int)(Environment.TickCount64 / 10000));
+        var cursor = Unity.Class("UnityEngine.Cursor");
+        return new Topology(api.ReInput("get_players"), api.ReInput("get_mapping"), count,
+            Jibbers.Sdk.Game.Physics.Scene.IsPaused, Input.GameFocused,
+            Il2Cpp.Unbox<bool>(Unity.CallStatic(cursor, "get_visible")), Il2Cpp.Unbox<int>(Unity.CallStatic(cursor, "get_lockState")));
+    }
     sealed record Mask(GameRef Element, bool Original)
     {
         public bool Active = true;
@@ -17,7 +37,6 @@ internal sealed class RewiredReservation
     readonly List<Mask> masks = new();
     List<RewiredButton> controllers = new();
     (int Key, bool Controller)? configurationKey;
-    DateTime? lastScanTime;
     string? scanError;
     public string? LastError { get; private set; }
 
@@ -25,6 +44,7 @@ internal sealed class RewiredReservation
     {
         api = new RewiredApi();
         inventory = new RewiredBindingInventory(api);
+        topologyProbe = ProbeTopology;
     }
 
     void RestoreMasks()
@@ -50,7 +70,9 @@ internal sealed class RewiredReservation
         foreach (var pad in controllers)
             pad.Dispose();
         controllers.Clear();
-        lastScanTime = null;
+        coveredControllerCount = 0;
+        controllersConnected = false;
+        refresh.Invalidate();
         scanError = null;
         if (error is not null)
         {
@@ -107,6 +129,7 @@ internal sealed class RewiredReservation
         }
 
         controllers = configuration.Controller ? inventorySnapshot.TakeControllers() : new List<RewiredButton>();
+        coveredControllerCount = controllers.Select(button => button.Controller.Target).Distinct().Count();
         if (restoreError is not null)
         {
             throw new InvalidOperationException("Rewired obsolete map restoration pending: " + restoreError);
@@ -123,6 +146,8 @@ internal sealed class RewiredReservation
     {
         try
         {
+            if (!enabled && configurationKey is null && masks.Count == 0 && controllers.Count == 0)
+            { LastError = null; return; }
             if (!enabled || configurationKey != (key, controller))
             {
                 configurationKey = null;
@@ -136,9 +161,8 @@ internal sealed class RewiredReservation
                 configurationKey = (key, controller);
             }
 
-            if (lastScanTime is not { } scanTime || DateTime.UtcNow - scanTime >= Rescan)
+            if (refresh.ShouldRefresh(Environment.TickCount64, topologyProbe))
             {
-                lastScanTime = DateTime.UtcNow;
                 try
                 {
                     DoRescan((key, controller));
@@ -147,12 +171,14 @@ internal sealed class RewiredReservation
                 catch (Exception exception)
                 {
                     scanError = exception.Message;
+                    refresh.RetryAfter(Environment.TickCount64);
                 }
             }
 
             // A game context change may re-enable an element: reassert cheaply.
-            foreach (var mask in masks.Where(mask => mask.Active))
+            foreach (var mask in masks)
             {
+                if (!mask.Active) continue;
                 if (api.Bool(mask.Element.Target, "get_enabled"))
                 {
                     api.SetEnabled(mask.Element.Target, false);
@@ -185,6 +211,7 @@ internal sealed class RewiredReservation
     /// <summary>Held state of the raw west buttons (reading the raw value bypasses the masked bindings).</summary>
     public bool PadDown()
     {
+        controllersConnected = false;
         if (configurationKey is not { Controller: true })
         {
             return false;
@@ -194,7 +221,13 @@ internal sealed class RewiredReservation
         {
             try
             {
-                if (api.Bool(controller.Controller.Target, "get_isConnected") && api.Bool(controller.Button.Target, "get_value"))
+                if (!api.Bool(controller.Controller.Target, "get_isConnected"))
+                {
+                    refresh.Invalidate();
+                    continue;
+                }
+                controllersConnected = true;
+                if (api.Bool(controller.Button.Target, "get_value"))
                 {
                     return true;
                 }
@@ -208,6 +241,6 @@ internal sealed class RewiredReservation
         return false;
     }
 
-    public int MaskedCount => masks.Count(mask => mask.Active);
+    public int MaskedCount { get { var count = 0; foreach (var mask in masks) if (mask.Active) count++; return count; } }
     public int PadCount => controllers.Count;
 }

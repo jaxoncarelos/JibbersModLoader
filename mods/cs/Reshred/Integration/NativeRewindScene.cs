@@ -14,6 +14,9 @@ internal sealed class NativeRewindScene(MujocoStateAccess physics, MujocoStateAc
 
     public object Identity { get; } = new SceneIdentity(context, liveObjects.Rider, liveObjects.Clip);
 
+    public bool Matches(MujocoStateAccess.Context next, RiderStateCapture.LiveObjects live) =>
+        context == next && Identity is SceneIdentity identity && identity.Rider == live.Rider && identity.Clip == live.Clip;
+
     public IRewindSnapshot Capture(IRewindSnapshot? reusableSnapshot)
     {
         var snapshot = reusableSnapshot as Snapshot ?? new Snapshot(context.StateLength);

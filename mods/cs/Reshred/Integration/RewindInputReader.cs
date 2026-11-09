@@ -13,8 +13,8 @@ internal sealed class RewindInputReader : IRewindInput
     public RewindInputState Read(RewindOptions options)
     {
         reservation.Update(options.Enabled, options.KeyboardKey, options.UseController);
-        var held = options.Enabled && Input.GameFocused && ((options.KeyboardKey != 0 && Input.IsDown(options.KeyboardKey)) || (options.UseController && (reservation.PadDown() || WestButtonHeld())));
-        return new(held, Input.Typing);
+        var held = options.Enabled && Input.GameFocused && ((options.KeyboardKey != 0 && Input.IsDown(options.KeyboardKey)) || (options.UseController && (reservation.PadDown() || (!reservation.HasControllerCoverage && WestButtonHeld()))));
+        return new(held, held && Input.Typing);
     }
 
     bool WestButtonHeld()
