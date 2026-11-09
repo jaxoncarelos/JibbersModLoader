@@ -72,7 +72,7 @@ internal sealed class RewiredReservation
         controllers.Clear();
         coveredControllerCount = 0;
         controllersConnected = false;
-        refresh.Invalidate();
+        refresh.ForgetControllers();
         scanError = null;
         if (error is not null)
         {
@@ -221,11 +221,9 @@ internal sealed class RewiredReservation
         {
             try
             {
-                if (!api.Bool(controller.Controller.Target, "get_isConnected"))
-                {
-                    refresh.Invalidate();
-                    continue;
-                }
+                var connected = api.Bool(controller.Controller.Target, "get_isConnected");
+                refresh.ObserveController(controller.Controller.Target, connected);
+                if (!connected) continue;
                 controllersConnected = true;
                 if (api.Bool(controller.Button.Target, "get_value"))
                 {
@@ -234,7 +232,7 @@ internal sealed class RewiredReservation
             }
             catch (Exception)
             {
-            // a disconnected controller
+                refresh.ObserveController(controller.Controller.Target, false);
             }
         }
 

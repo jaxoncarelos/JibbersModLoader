@@ -33,6 +33,25 @@ static class BindingRefreshTests
     }
 
     [Test]
+    static void RetainedDisconnectedControllersCannotCauseInventoryScanLoops()
+    {
+        var policy = new BindingRefreshPolicy();
+        Func<object> probe = () => 1;
+        Assert.True(policy.ShouldRefresh(0, probe));
+        policy.ObserveController(42, false);
+        Assert.True(policy.ShouldRefresh(1, probe));
+        for (var now = 2; now < 10000; now++)
+        {
+            policy.ObserveController(42, false);
+            Assert.True(!policy.ShouldRefresh(now, probe));
+        }
+        policy.ObserveController(42, true);
+        Assert.True(policy.ShouldRefresh(10000, probe));
+        policy.ObserveController(42, true);
+        Assert.True(!policy.ShouldRefresh(10001, probe));
+    }
+
+    [Test]
     static void InventoryFailureCannotBecomeAPerFrameRetryLoop()
     {
         var policy = new BindingRefreshPolicy();
