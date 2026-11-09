@@ -53,16 +53,7 @@ public sealed class HankHudMod : PackPart
     int cursorBaseline = -1, cursorLogs;
     int lastCursorKey = -2;
     long lastFrame;
-    bool rootShown = true;
-    unsafe void ShowRoot(bool shown)
-    {
-        if (rootShown == shown || root is null || Unity.IsNull(root.Target)) return;
-        Unity.Call(root.Target, "SetActive", (nint)(&shown));
-        rootShown = shown;
-    }
-
     long disabledSince;
-    long nextDisabledRefresh;
     readonly List<GameRef> textures = new();
     bool needRebuild;
     long lastBuildTry;
@@ -126,23 +117,16 @@ public sealed class HankHudMod : PackPart
     {
         ImportPackSettings();
         Instance = this;
-        Jibbers.Sdk.Game.Event.ChangeScene.Subscribe(_ => OnDeactivated());
         EnvManager.UpdateMethod.Before((_, _) => Frame());
         Log("HUD ready.");
     }
 
-    protected override void OnPackSettingChanged(string key, JsonNode value)
+    public override void OnSettingChanged(string key, JsonNode value)
     {
         if (key is "scale" or "show" or "hidden" or "enabled" or "theme" or "flames") { needRebuild = true; lastBuildTry = 0; }
     }
 
-    protected override void OnDeactivated()
-    {
-        Cleanup(Teardown, game.Restore);
-        InterfaceUp = false;
-    }
-
-    protected override void OnPackUnload()
+    public override void OnUnload()
     {
         try
         {
@@ -186,12 +170,8 @@ public sealed class HankHudMod : PackPart
                 if (root is not null) Teardown();
                 var t0 = Stopwatch.GetTimestamp();
                 if (disabledSince == 0) disabledSince = t0;
-                if (Stopwatch.GetElapsedTime(disabledSince, t0).TotalSeconds < 6 && t0 >= nextDisabledRefresh)
-                {
-                    nextDisabledRefresh = t0 + Stopwatch.Frequency;
-                    game.Refresh(Log);
-                    game.RestoreAll();
-                }
+                if (Stopwatch.GetElapsedTime(disabledSince, t0).TotalSeconds < 6) { game.Refresh(Log); game.RestoreAll(); }
+                else game.Restore();
                 return;
             }
             disabledSince = 0;
@@ -203,7 +183,7 @@ public sealed class HankHudMod : PackPart
             // HUD caché complètement (D-pad bas + L2) : ni nos fenêtres ni celles du jeu ; seule l'aperçu des options reste.
             if (Hidden && !optionsRow)
             {
-                ShowRoot(false);
+                if (root is not null) Teardown();
                 if (inGame) game.HideOriginals();
                 InterfaceUp = false;
                 return;
@@ -227,13 +207,12 @@ public sealed class HankHudMod : PackPart
             InterfaceUp = ui;
             if (ui && HideOnMenus || PlayCamerasMod.EditorHold)   // the camera editor window hides the HUD, which comes back when it closes
             {
-                ShowRoot(false);
+                if (root is not null) Teardown();
                 return;
             }
 
             if (root is not null && (Unity.IsNull(root.Target) || leftText is null || rightText is null)) Teardown();
-            if (root is null) { rootShown = true; if (!Build()) return; }
-            ShowRoot(true);
+            if (root is null && !Build()) return;
 
             var look = HudThemes.Get(Theme);
             var computed = (int)Math.Round(Math.Min(velocity.Magnitude * 3.6f, 999));

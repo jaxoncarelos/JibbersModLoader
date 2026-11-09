@@ -19,7 +19,6 @@ internal sealed class SoundClip
 
     public static SoundClip Load(string path)
     {
-        if (new FileInfo(path).Length > 64L * 1024 * 1024) throw new InvalidDataException("Audio files must be at most 64 MiB.");
         var ext = Path.GetExtension(path).ToLowerInvariant();
         return ext switch
         {
@@ -35,7 +34,7 @@ internal sealed class SoundClip
     {
         using var mpeg = new NLayer.MpegFile(path);
         int rate = mpeg.SampleRate, channels = mpeg.Channels;
-        if (rate < 8000 || rate > 192000 || channels is < 1 or > 2) throw new InvalidDataException("not a valid mp3 file");
+        if (rate <= 0 || channels <= 0) throw new InvalidDataException("not a valid mp3 file");
 
         var limit = rate * channels * MaxSeconds;
         var output = new short[Math.Min(limit, Math.Max(rate * channels, (int)(mpeg.Length / 4 + rate)))];
@@ -75,7 +74,7 @@ internal sealed class SoundClip
             var id = Ascii(d, pos);
             var len = BitConverter.ToInt32(d, pos + 4);
             pos += 8;
-            if (len < 0 || len > d.Length - pos) len = d.Length - pos; // « data » d'un fichier tronqué ou en flux
+            if (len < 0 || pos + len > d.Length) len = d.Length - pos; // « data » d'un fichier tronqué ou en flux
             if (id == "fmt " && len >= 16)
             {
                 format = BitConverter.ToUInt16(d, pos);
@@ -91,7 +90,7 @@ internal sealed class SoundClip
             }
             pos += len + (len & 1);
         }
-        if (dataPos < 0 || channels is < 1 or > 2 || rate < 8000 || rate > 192000) throw new InvalidDataException("unreadable WAV header");
+        if (dataPos < 0 || channels <= 0 || rate <= 0) throw new InvalidDataException("unreadable WAV header");
         if (!((format == 1 && bits is 8 or 16 or 24 or 32) || (format == 3 && bits == 32)))
             throw new NotSupportedException($"WAV format not supported (format {format}, {bits} bits): use 16-bit PCM");
 

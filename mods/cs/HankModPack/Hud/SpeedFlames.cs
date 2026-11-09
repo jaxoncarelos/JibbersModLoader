@@ -99,8 +99,7 @@ sealed class SpeedFlames : IDisposable
         while (spawnAcc >= 1)
         {
             spawnAcc -= 1;
-            Particle? p = null;
-            foreach (var candidate in pool) if (!candidate.Active) { p = candidate; break; }
+            var p = pool.FirstOrDefault(x => !x.Active);
             if (p is null) break;
             Spawn(p);
         }
