@@ -81,6 +81,7 @@ internal sealed class RideRuntime : IDisposable
                 if (!ridePressed && lastNearCheck.Elapsed < TimeSpan.FromMilliseconds(250))
                     break;
                 lastNearCheck.Restart();
+                if (ridePressed) GameLifts.RefreshLifts();
                 var me = Rider.Find() is { } r ? Rider.Centre(r) : (Vector3?)null;
                 var nearest = me is { } m ? GameLifts.Nearest(m) : null;
                 if (nearest is { } n && n.Distance <= BoardRange)
@@ -328,5 +329,6 @@ internal sealed class RideRuntime : IDisposable
             Leave(Rider.Find());
         physics.RestoreCollisions();
         rider.Dispose();
+        GameLifts.Reset();
     }
 }

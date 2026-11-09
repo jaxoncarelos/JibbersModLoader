@@ -18,13 +18,15 @@ internal sealed unsafe class Rider : IDisposable
     GameRef? previousLook;
     bool lookingAhead;
 
-    public static RagdollController? Find()
+    static readonly SceneObjectCache<RagdollController> localRider = new(() =>
     {
-        foreach (var r in RagdollController.Live())
-            if (!r.IsNull && !Unity.IsNull(r.Ptr))
-                return r;
+        foreach (var candidate in RagdollController.Live())
+            if (!candidate.IsNull && !Unity.IsNull(candidate.Ptr)) return candidate;
         return null;
-    }
+    });
+
+    public static RagdollController? Find() => localRider.Get();
+    public static void ResetLookup() => localRider.Invalidate();
 
     /// <summary>Where the rider's body is (its root transform).</summary>
     public static Vector3 Centre(RagdollController r) => Unity.Position(r.Ptr);

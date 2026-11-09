@@ -142,6 +142,8 @@ public sealed class SlvshMod : JibbersMod
         {
             if (!stopping) camera.Frame();
         });
+        ChangeScene.Subscribe(_ => camera.ResetScene());
+        Events.Subscribe("event.player_spawn", _ => camera.ResetScene());
         thread = new Thread(Run) { IsBackground = true, Name = "SLVSH" };
         thread.Start();
     }
@@ -154,7 +156,7 @@ public sealed class SlvshMod : JibbersMod
         thread?.Join(500);
         try { MainThread.Run(spawns.Restore); }
         catch (Exception e) { Log($"SLVSH: couldn't put your spawn point back: {e.Message}"); }
-        try { MainThread.Run(camera.Restore); }
+        try { MainThread.Run(camera.ResetScene); }
         catch (Exception e) { Log($"SLVSH: couldn't give the camera back: {e.Message}"); }
     }
 

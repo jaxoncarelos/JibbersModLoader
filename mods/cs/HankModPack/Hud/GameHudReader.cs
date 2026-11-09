@@ -18,6 +18,7 @@ sealed class GameHudReader
     nint[] speedTexts = Array.Empty<nint>();
     int countdown, checkIn, readIn, hideIn;
     bool logged;
+    long nextSceneSearch;
     readonly UiVisibility hidden = new();
     readonly ObjectRoots roots = new();
 
@@ -82,8 +83,9 @@ sealed class GameHudReader
                 checkIn = 20;
                 if ((speedBlock != 0 && !Active(speedBlock)) || (spawnPanel != 0 && !Active(spawnPanel))) countdown = 0;
             }
-            if (countdown-- <= 0)
+            if (countdown-- <= 0 && Environment.TickCount64 >= nextSceneSearch)
             {
+                nextSceneSearch = Environment.TickCount64 + 1000;
                 Find(log);
                 hideIn = 0;
                 // Found: no need to search again for a long time (a destroyed block is noticed above). Not found (menus): once every 3 seconds.

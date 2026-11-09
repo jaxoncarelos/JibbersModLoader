@@ -51,9 +51,7 @@ public static unsafe class Gamepad
 
     static delegate* unmanaged<uint, XInputState*, uint> getState;
     static bool loaded;
-    static int slot = -1;
-    static long nextProbe;
-    static readonly object Lock = new();
+    static readonly GamepadStateCache readings = new(Poll, () => Environment.TickCount64);
 
     static bool Load()
     {
@@ -75,51 +73,17 @@ public static unsafe class Gamepad
     static PadState Convert(int s, in XInputState x) =>
         new(true, s, x.Lx / 32767f, x.Ly / 32767f, x.Rx / 32767f, x.Ry / 32767f, x.Lt / 255f, x.Rt / 255f, (PadButton)x.Buttons);
 
-    /// <summary>The first connected pad (raw, no deadzone), or a disconnected state.</summary>
-    public static PadState Read()
-    {
-        lock (Lock)
-        {
-            if (!Load())
-            {
-                return default;
-            }
-            XInputState st;
-            if (slot >= 0)
-            {
-                if (getState((uint)slot, &st) == 0)
-                {
-                    return Convert(slot, st);
-                }
-                slot = -1;
-            }
-            var now = Environment.TickCount64;
-            if (now < nextProbe)
-            {
-                return default;
-            }
-            nextProbe = now + 2000;
-            for (var i = 0; i < 4; i++)
-            {
-                if (getState((uint)i, &st) == 0)
-                {
-                    slot = i;
-                    return Convert(i, st);
-                }
-            }
-            return default;
-        }
-    }
+    /// <summary>The first connected pad, sharing discovery and readings with indexed callers.</summary>
+    public static PadState Read() => readings.ReadAny();
 
-    /// <summary>Pad <paramref name="index"/> (0-3), polled now.</summary>
-    public static PadState Read(int index)
+    /// <summary>Pad 0-3. Connected readings are shared for 1 ms; disconnected slots retry after 2 s.</summary>
+    public static PadState Read(int index) => readings.Read(index);
+
+    static PadState Poll(int index)
     {
-        if (index is < 0 or > 3 || !Load())
-        {
-            return default;
-        }
-        XInputState st;
-        return getState((uint)index, &st) == 0 ? Convert(index, st) : default;
+        if (!Load()) return default;
+        XInputState state;
+        return getState((uint)index, &state) == 0 ? Convert(index, state) : default;
     }
 
     /// <summary>Radial deadzone, rescaled so the edge of the deadzone is zero and full tilt is 1.</summary>

@@ -82,7 +82,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
         EnterReplay.Subscribe(_ => {  MainThread.Run(() => Stop("replay")); });
         ExitReplay.Subscribe(_ => {  });
         CameraCallbacks.Follow.Register(this, Before, null);
-        ChangeScene.Subscribe(_ => OnDeactivated());
+        ChangeScene.Subscribe(_ => { spawnerLookup.Invalidate(); OnDeactivated(); });
     }
 
     void Once(string key, Exception e)
@@ -392,7 +392,9 @@ public sealed unsafe partial class LookAroundMod : PackPart
         }
     }
 
-    static nint Spawner() => Jibbers.Sdk.Game.Player.RagdollSpawner.First()?.Ptr ?? 0;
+    static readonly SceneObjectCache<Jibbers.Sdk.Game.Player.RagdollSpawner> spawnerLookup =
+        new(Jibbers.Sdk.Game.Player.RagdollSpawner.First);
+    static nint Spawner() => spawnerLookup.Get()?.Ptr ?? 0;
 
     void Orbit(nint self, Pads pad, float dt)
     {
