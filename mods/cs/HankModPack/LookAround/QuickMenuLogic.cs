@@ -104,7 +104,7 @@ public sealed unsafe partial class LookAroundMod
             () => { if (modsOpen) CloseMods(); },
             () => { if (keysOpen) CloseKeys(); },
             () => Stop("disabled or scene changed"),
-            mute.Restore, upMute.Restore, Pointer.Restore, Unfreeze);
+            mute.Restore, upMute.Restore, Pointer.Restore, Unfreeze, spawnerLookup.Invalidate);
         menuOpen = false; lingerEnd = 0; needRelease = true;
         upFlipAt = 0; upSince = 0; spawnPrev = 0;
         lastSelf = 0; bonesOf = 0; lSh = 0; rSh = 0;

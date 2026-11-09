@@ -41,7 +41,7 @@ public sealed class RumbleMod : JibbersMod
     RiderProbe? probe;
     GameAudio? audio;
     ControllerMotors? motors;
-    GameRef? follow;
+    readonly SceneObjectCache<Follow> follow = new(Follow.First);
     long lastFrame, lastSlide;
     bool active, replaying, reportedFailure;
     int tricksLogged;
@@ -80,6 +80,8 @@ public sealed class RumbleMod : JibbersMod
         });
         EnterReplay.Subscribe(_ => replaying = true);
         ExitReplay.Subscribe(_ => replaying = false);
+        ChangeScene.Subscribe(_ => follow.Invalidate());
+        Events.Subscribe("event.player_spawn", _ => follow.Invalidate());
         active = true;
         Manager.UpdateMethod.Before((_, _) =>
         {
@@ -135,15 +137,7 @@ public sealed class RumbleMod : JibbersMod
         }
     }
 
-    Follow? FollowCamera()
-    {
-        if (follow is null || Unity.IsNull(follow.Target))
-        {
-            follow?.Dispose();
-            follow = Follow.First() is { } found ? new GameRef(found.Ptr) : null;
-        }
-        return follow is null ? null : new Follow(follow.Target);
-    }
+    Follow? FollowCamera() => follow.Get();
 
     public override void OnSettingChanged(string key, JsonNode value)
     {
@@ -167,7 +161,7 @@ public sealed class RumbleMod : JibbersMod
             motors?.Dispose();
             probe?.Dispose();
             audio?.Dispose();
-            follow?.Dispose();
+            follow.Dispose();
         });
     }
 }

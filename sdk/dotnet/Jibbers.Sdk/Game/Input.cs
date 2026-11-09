@@ -104,36 +104,24 @@ public static unsafe class Input
     /// <summary>The mouse position on screen (pixels).</summary>
     public static (int X, int Y) MouseScreen => OperatingSystem.IsMacOS() ? PlatformInput.Mouse : GetCursorPos(out var p) ? (p.X, p.Y) : (0, 0);
 
-    static Il2CppClass inputField;
-    static nint[] fields = Array.Empty<nint>();
-    static DateTime fieldsAt;
+    static Il2CppClass inputField, eventSystem;
+    static readonly FocusedInputLookup focusedInput = new(
+        selected => Il2Cpp.ClassOf(selected).Method("GetComponentInParent", "System.Type").Invoke(selected, inputField.SystemType),
+        pointer => !Unity.IsNull(pointer),
+        field => Unity.Call<bool>(field, "get_isFocused"),
+        pointer => new GameRef(pointer));
 
-    /// <summary>Whether the player is typing in a text field (chat, a name box). Main thread.</summary>
+    /// <summary>Whether the selected UI object is an active text field. Main thread.</summary>
     public static bool Typing
     {
         get
         {
-            if (inputField.IsNull)
-            {
-                inputField = Il2Cpp.Class("Unity.TextMeshPro.dll", "TMPro", "TMP_InputField");
-                if (inputField.IsNull)
-                {
-                    return false;
-                }
-            }
-            if (DateTime.UtcNow - fieldsAt > TimeSpan.FromSeconds(1))
-            {
-                fields = Unity.FindObjects(inputField);
-                fieldsAt = DateTime.UtcNow;
-            }
-            foreach (var f in fields)
-            {
-                if (!Unity.IsNull(f) && Unity.Call<bool>(f, "get_isFocused"))
-                {
-                    return true;
-                }
-            }
-            return false;
+            if (inputField.IsNull) inputField = Il2Cpp.Class("Unity.TextMeshPro.dll", "TMPro", "TMP_InputField");
+            if (eventSystem.IsNull) eventSystem = Unity.Class("UnityEngine.EventSystems.EventSystem");
+            if (inputField.IsNull || eventSystem.IsNull) return false;
+            var current = Unity.CallStatic(eventSystem, "get_current");
+            var selected = Unity.IsNull(current) ? 0 : Unity.Call(current, "get_currentSelectedGameObject");
+            return focusedInput.Read(selected);
         }
     }
 

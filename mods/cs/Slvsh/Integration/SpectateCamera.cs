@@ -67,6 +67,7 @@ internal sealed unsafe class SpectateCamera(Action<string> log)
     const int Samples = 4;
 
     readonly ChaseCamera chase = new();
+    readonly SceneObjectCache<RagdollSpawner> ownSpawner = new(RagdollSpawner.First);
     readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
     GameRef? follow, view, body;
     int riderId = -1;
@@ -80,7 +81,7 @@ internal sealed unsafe class SpectateCamera(Action<string> log)
     /// <summary>Where your own rider's body is (what the follow camera follows), or null outside a map.</summary>
     public Vector3? OwnPosition()
     {
-        if (RagdollSpawner.First() is not { } spawner || spawner.Camera.IsNull || Unity.IsNull(spawner.Camera.Ptr)) return null;
+        if (ownSpawner.Get() is not { } spawner || spawner.Camera.IsNull || Unity.IsNull(spawner.Camera.Ptr)) return null;
         var target = spawner.Camera.Target.Ptr;
         return target == 0 || Unity.IsNull(target) ? null : Unity.Position(target);
     }
@@ -96,7 +97,7 @@ internal sealed unsafe class SpectateCamera(Action<string> log)
         }
         // The camera broke while watching this turn: keep your own until the turn is over.
         if (failed) return SpectateStatus.NotHere;
-        if (RagdollSpawner.First() is not { } spawner || spawner.Camera.IsNull || Unity.IsNull(spawner.Camera.Ptr))
+        if (ownSpawner.Get() is not { } spawner || spawner.Camera.IsNull || Unity.IsNull(spawner.Camera.Ptr))
         {
             Restore();
             return SpectateStatus.NotHere;
@@ -164,6 +165,12 @@ internal sealed unsafe class SpectateCamera(Action<string> log)
             log($"SLVSH: stopped watching: {e.Message}");
             Restore();
         }
+    }
+
+    public void ResetScene()
+    {
+        try { Restore(); }
+        finally { ownSpawner.Invalidate(); }
     }
 
     /// <summary>Gives the camera back to your rider. Safe to call when not spectating.</summary>

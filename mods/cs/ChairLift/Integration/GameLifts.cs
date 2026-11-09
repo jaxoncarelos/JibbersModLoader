@@ -15,6 +15,16 @@ internal static unsafe class GameLifts
 {
     static readonly Dictionary<nint, bool> chairLifts = new();
     static Il2CppClass renderer;
+    static GameRef[]? liftRoots;
+
+    static IEnumerable<LiftLine> CachedLifts()
+    {
+        // An empty map is cached too. New scenes explicitly invalidate the discovery result.
+        liftRoots ??= LiftLine.Live().Where(l => !l.IsNull && !Unity.IsNull(l.Ptr))
+            .Select(l => new GameRef(l.Ptr)).ToArray();
+        foreach (var root in liftRoots)
+            if (!Unity.IsNull(root.Target)) yield return new LiftLine(root.Target);
+    }
 
     public static Vector3 Position(nint obj) => Unity.Position(obj);
 
@@ -103,7 +113,7 @@ internal static unsafe class GameLifts
     public static (LiftLine Lift, float Distance)? Nearest(Vector3 me)
     {
         (LiftLine, float)? best = null;
-        foreach (var lift in LiftLine.Live())
+        foreach (var lift in CachedLifts())
         {
             if (lift.IsNull || Unity.IsNull(lift.Ptr) || !IsChairLift(lift))
                 continue;
@@ -116,7 +126,18 @@ internal static unsafe class GameLifts
     }
 
     /// <summary>Forgets what it knew about lifts (a new map).</summary>
-    public static void Reset() => chairLifts.Clear();
+    public static void RefreshLifts()
+    {
+        if (liftRoots is not null) foreach (var root in liftRoots) root.Dispose();
+        liftRoots = null;
+        chairLifts.Clear();
+    }
+
+    public static void Reset()
+    {
+        RefreshLifts();
+        Rider.ResetLookup();
+    }
 
     // ---- transforms ----
 

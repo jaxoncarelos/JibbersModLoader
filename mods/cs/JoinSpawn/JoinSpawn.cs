@@ -331,11 +331,16 @@ public sealed class JoinSpawnMod : JibbersMod
         }
         var now = Stopwatch.GetTimestamp();
 
-        // Retrouve la plaque une fois par seconde : elle peut être réutilisée pour un autre joueur.
-        if (chosenRider is null || Unity.IsNull(chosenRider.Target) || Stopwatch.GetElapsedTime(lastResolve, now).TotalSeconds > 1)
+        // Validate the retained nameplate locally. Enumerate the scene only when it was
+        // destroyed, hidden or reused; missing players retry once per second, not every frame.
+        var refreshDue = Stopwatch.GetElapsedTime(lastResolve, now).TotalSeconds > 1;
+        var missingPlate = chosenRider is null || Unity.IsNull(chosenRider.Target);
+        if (missingPlate && !refreshDue) return;
+        if (missingPlate || refreshDue)
         {
             lastResolve = now;
-            var found = FindPlate(name);
+            var current = missingPlate ? 0 : chosenRider!.Target;
+            var found = current != 0 && PlateActive(current) && PlateHasName(current, name) ? current : FindPlate(name);
             if (found == 0)
             {
                 ClearTracking();
@@ -440,6 +445,14 @@ public sealed class JoinSpawnMod : JibbersMod
     }
 
     static bool PlateActive(nint plate) => Unity.Call<bool>(Unity.Call(plate, "get_gameObject"), "get_activeInHierarchy");
+
+    static bool PlateHasName(nint plate, string name)
+    {
+        var wanted = Normalize(name);
+        foreach (var text in Unity.GetComponentsInChildren(plate, Unity.Class("TMPro.TMP_Text"), true))
+            if (Normalize(Clean(Il2Cpp.ReadString(Unity.Call(text, "get_text")))) == wanted) return true;
+        return false;
+    }
 
     nint FindPlate(string name)
     {
