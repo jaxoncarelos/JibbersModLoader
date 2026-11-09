@@ -95,12 +95,23 @@ impl Catalog {
         Ok(())
     }
 
+    /// A code-free retirement record is readable by old bootstraps, but is not a public mod.
+    pub fn replacement_for(&self, id: &str) -> Option<&'static str> {
+        if id != "jibbers_join_spawn" { return None; }
+        let old = self.packages.iter().find(|package| package.id == id)?;
+        let replacement = "jibbers_hank_mod_pack_info";
+        (old.files.len() == 1
+            && old.files[0].path == "JibbersMods/packages/jibbers_join_spawn/retired.txt"
+            && old.dependencies == [replacement]
+            && self.packages.iter().any(|package| package.id == replacement)).then_some(replacement)
+    }
+
     /// Only optional packages belong in the player's mod catalog. The loader and its
     /// transitive dependencies are installed by startup even with no selected mods.
     pub fn selectable_packages(&self) -> Result<Vec<&Package>, String> {
         let required = self.resolve(&["loader".into()])?;
         let ids: HashSet<_> = required.iter().map(|package| package.id.as_str()).collect();
-        Ok(self.packages.iter().filter(|package| !ids.contains(package.id.as_str())).collect())
+        Ok(self.packages.iter().filter(|package| !ids.contains(package.id.as_str()) && self.replacement_for(&package.id).is_none()).collect())
     }
 
     pub fn resolve<'a>(&'a self, wanted: &[String]) -> Result<Vec<&'a Package>, String> {

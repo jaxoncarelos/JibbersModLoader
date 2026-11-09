@@ -5,13 +5,18 @@ if ($LASTEXITCODE -ne 0) { throw 'Signed catalog verification failed.' }
 $catalog = Get-Content -LiteralPath (Join-Path $ChannelDir 'catalog.json') -Raw | ConvertFrom-Json
 # Only the loader, the runtime and the mods in tools/public-mods.json, each with exactly its own files.
 $registry = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'public-mods.json') -Raw | ConvertFrom-Json
-$publicIds = @('loader','jibbers_dotnet') + @($registry.mods | ForEach-Object { $_.id })
+$publicIds = @('loader','jibbers_dotnet') + @($registry.mods | ForEach-Object { $_.id }) + @($registry.retired | ForEach-Object { $_.id })
 if (@($catalog.packages).Count -ne $publicIds.Count -or @($catalog.packages | Where-Object { $_.id -notin $publicIds }).Count -gt 0) { throw 'Only the loader, the C# runtime and the mods in tools/public-mods.json may enter the public channel.' }
 foreach ($m in $registry.mods) {
     $package = @($catalog.packages | Where-Object id -eq $m.id)
     $dll = if ($m.legacy) { "JibbersMods/$($m.id).dll" } else { "JibbersMods/cs/$($m.id).dll" }
     $expected = @($dll) + @($m.assets | ForEach-Object { $_.path })
     if ($package.Count -ne 1 -or $package[0].name -ne $m.name -or (@($package[0].files.path | Sort-Object) -join ',') -ne (@($expected | Sort-Object) -join ',')) { throw "$($m.name) must install exactly $($expected -join ', ')" }
+}
+foreach ($retired in @($registry.retired)) {
+    $package = @($catalog.packages | Where-Object id -eq $retired.id)
+    $marker = "JibbersMods/packages/$($retired.id)/retired.txt"
+    if ($package.Count -ne 1 -or @($package[0].files).Count -ne 1 -or $package[0].files[0].path -ne $marker -or @($package[0].dependencies).Count -ne 1 -or $package[0].dependencies[0] -ne $retired.replacement) { throw 'A retired package must contain only its migration marker and replacement dependency.' }
 }
 $weather = @($catalog.packages | Where-Object id -eq 'jibbers_atmosphere')
 if ($weather.Count -ne 1 -or $weather[0].name -ne 'Alpine Vision') { throw 'Alpine Vision must replace the single existing Atmosphere slot.' }

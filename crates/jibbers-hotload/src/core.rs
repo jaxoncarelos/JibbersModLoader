@@ -248,6 +248,9 @@ fn load_plugins(cores: &mut Vec<Core>, only: Option<&str>) {
         }
         files.retain(|f| f.exists());
         jibbers_distribution::manager::finish_queued_updates(&game_dir());
+        if let Err(error) = jibbers_distribution::manager::migrate_retired_selections(&game_dir()) {
+            log::info(format!("Catalog selection migration was not saved: {error}"));
+        }
         let unverified = jibbers_distribution::manager::unverified_mods(&game_dir());
         for path in &unverified {
             log::info(format!("WARNING: {path} is not from the signed mod catalog. It runs with full access to your PC; keep it only if you trust where it came from"));

@@ -57,6 +57,15 @@ catalogs and release assets. The source allowlist check rejects accidentally tra
 pull requests and pushes to master. It uploads a reviewable unsigned build artifact. The manual workflow
 dispatch can additionally publish, exclusively from the default branch and through the `mod-channel-stable` environment.
 
+**Retired packages.** `retired` entries in the registry are code-free compatibility records,
+not selectable mods. They contain only a text marker and depend on their replacement. Older
+bootstraps can still resolve existing subscriptions, atomically remove the retired package's
+owned DLL and install its replacement. The loader then saves the replacement subscription;
+settings files stay untouched. The retired package ID stays reserved against new submissions.
+Improved Spawn belongs to Hank Mod Pack; its standalone source/project and public listing
+have been removed. Keeping the hidden retirement record prevents older bootstraps from
+failing all updates on an unavailable selected package.
+
 **Publishing one mod.** `.github/workflows/publish-mod.yml` ("Publish one mod") ships a single public mod in a few
 minutes: it downloads the published catalog and files, builds and tests the chosen mod against the SDK inside the
 published runtime (`tools/publish_mod.py`), and signs a catalog in which every other package is byte-for-byte

@@ -447,7 +447,21 @@ class ConflictsTests(unittest.TestCase):
             self.assertTrue(footprint["id"])
 
 
+class RetirementTests(unittest.TestCase):
+    def test_new_submission_cannot_reclaim_the_packs_retired_standalone_id(self):
+        registry = {"mods": [], "retired": [{"id": "jibbers_join_spawn", "replacement": "jibbers_hank_mod_pack_info"}]}
+        fields = {"folder": "AnotherSpawn", "name": "Spawn", "description": "Old standalone", "update": False}
+        with tempfile.TemporaryDirectory() as root:
+            with self.assertRaisesRegex(s.Rejected, "owned by.*jibbers_hank_mod_pack_info"):
+                s.check_identity(fields, registry, "hankhulerygit", "join_spawn", root)
+
+
 class ChangedModsTests(unittest.TestCase):
+    def test_retiring_a_public_mod_requires_the_full_channel(self):
+        before = {"JoinSpawn": {"id": "jibbers_join_spawn"}, "HankModPack": {"id": "jibbers_hank_mod_pack_info"}}
+        after = {"HankModPack": before["HankModPack"]}
+        self.assertIsNone(changed_mods.changed(["tools/public-mods.json"], before, after))
+
     after = {"Rumble": {"id": "jibbers_rumble"}, "Slvsh": {"id": "jibbers_slvsh"}, "New": {"id": "jibbers_new"}}
     before = {"Rumble": {"id": "jibbers_rumble"}, "Slvsh": {"id": "jibbers_slvsh"}}
 

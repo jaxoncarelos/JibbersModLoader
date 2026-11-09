@@ -30,7 +30,7 @@ def package(entry):
 
 def changed(paths, before, after):
     """Mod folders to publish, or None when the push needs the full channel."""
-    if any(p.startswith(FULL_CHANNEL) for p in paths):
+    if set(before) - set(after) or any(p.startswith(FULL_CHANNEL) for p in paths):
         return None
     folders = []
     for path in paths:

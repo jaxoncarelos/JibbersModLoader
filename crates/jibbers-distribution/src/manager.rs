@@ -63,10 +63,34 @@ fn startup_inner(root: &Path, net: &dyn Fetch) -> Result<String, String> {
         }
     };
     enroll_legacy(root, &cat)?;
+    migrate_retired_selections(root)?;
     let cfg = config(root)?;
     let result = install::apply(root, &cat, &cfg.wanted, cfg.auto_update, net)?;
     let message = format!("{}; {} managed packages installed", if offline { "Using cached catalog" } else { "Up to date" }, result.packages.len());
     Ok(message)
+}
+
+/// Move old subscriptions to their signed replacement without changing user mod settings.
+/// The replaceable loader also calls this: older bootstraps first consume the code-free
+/// retirement package, then the new loader saves the replacement selection for future launches.
+pub fn migrate_retired_selections(root: &Path) -> Result<(), String> {
+    let Ok(cat) = cached(root) else { return Ok(()); };
+    migrate_retired_preferences(root, &cat)
+}
+
+pub(crate) fn migrate_retired_preferences(root: &Path, cat: &Catalog) -> Result<(), String> {
+    let _lock = install::Lock::acquire(root)?;
+    let mut cfg = config(root)?;
+    let mut wanted = Vec::new();
+    for id in &cfg.wanted {
+        let next = cat.replacement_for(id).map(str::to_owned).unwrap_or_else(|| id.clone());
+        if !wanted.contains(&next) { wanted.push(next); }
+    }
+    if wanted != cfg.wanted {
+        cfg.wanted = wanted;
+        install::write_json(&path(root, "preferences.json")?, &cfg)?;
+    }
+    Ok(())
 }
 
 /// The signed SDK migration is the opt-in bridge for pre-manager installs. Adopt only existing

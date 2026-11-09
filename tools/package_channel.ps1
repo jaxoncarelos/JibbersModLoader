@@ -70,6 +70,14 @@ try {
             $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description=$entry.description; version=$packageVersion; dependencies=@('jibbers_dotnet'); files=$files})
         }
     } finally { $mods.Dispose() }
+    # Code-free compatibility records keep old bootstraps able to resolve existing subscriptions.
+    # Installing one removes its previously owned DLL and pulls in the replacement package.
+    foreach ($entry in @($publicRegistry.retired)) {
+        $marker = "JibbersMods/packages/$($entry.id)/retired.txt"
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent "$payload/$marker") | Out-Null
+        [IO.File]::WriteAllText("$payload/$marker", "Retired. Replaced by $($entry.replacement). No mod code is installed by this record.", [Text.UTF8Encoding]::new($false))
+        $packages.Add([ordered]@{id=$entry.id; name=$entry.name; description="Compatibility migration to $($entry.replacement)."; version=$entry.version; dependencies=@($entry.replacement); files=@($marker)})
+    }
     $spec = [ordered]@{sequence=$Sequence; baseUrl='https://github.com/jaxoncarelos/JibbersModLoader/releases/download/mod-channel-stable'; packages=@($packages.ToArray())}
     [IO.File]::WriteAllText("$stage/spec.json", ($spec | ConvertTo-Json -Depth 12), [Text.UTF8Encoding]::new($false))
     Compress-Archive -Path "$stage/*" -DestinationPath 'dist/JibbersChannel-Unsigned.zip' -Force

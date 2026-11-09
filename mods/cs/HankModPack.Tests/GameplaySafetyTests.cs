@@ -7,14 +7,14 @@ using RickBackflip;
 static class GameplaySafetyTests
 {
     [Test]
-    static void CatalogDoesNotRegisterAnotherJoinSpawn()
+    static void PackOwnsTheSingleJoinSpawnImplementation()
     {
         var mods = typeof(HankModPackInfoMod).Assembly.GetTypes()
             .Where(type => !type.IsAbstract && typeof(JibbersMod).IsAssignableFrom(type))
             .Select(type => (JibbersMod)RuntimeHelpers.GetUninitializedObject(type)).ToArray();
-        Assert.Equal(9, mods.Length); // Eight features and one non-toggleable coordinator.
+        Assert.Equal(10, mods.Length); // Nine features and one non-toggleable coordinator.
         Assert.Equal(mods.Length, mods.Select(mod => mod.Id).Distinct().Count());
-        Assert.True(mods.All(mod => mod.Id != "join_spawn"));
+        Assert.Equal("Hank Mod Pack: Improved Spawn", mods.Single(mod => mod.Id == "join_spawn").Name);
         Assert.True(!mods.Single(mod => mod.Id == "hank_mod_pack_info").EnabledToggle);
     }
 

@@ -23,9 +23,9 @@ internal static class Shared
     const string ReadmeText = """
         # Hank Mod Pack
 
-        Eight features in one DLL (`Hank Mod Pack.dll`), each with its own entry in Options > Mods:
+        Nine features in one DLL (`Hank Mod Pack.dll`), each with its own entry in Options > Mods:
 
-        - **Join Spawn** is a separate catalog mod. The quick menu opens it when installed.
+        - **Improved Spawn** is included in the pack. The quick menu opens its player list and spectator controls.
         - **Hank Mod Pack: Improved Replay Editor** - time of day, camera shake and an FX timeline in the replay editor.
         - **Hank Mod Pack: Overlay** - trick banners and sounds after a clean landing.
         - **Hank Mod Pack: Fun** - up to 5 events that show a GIF or video and play a sound when a trick is landed.
