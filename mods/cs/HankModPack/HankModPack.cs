@@ -13,38 +13,6 @@ public abstract class PackPart : JibbersMod
     public sealed override string Id => PartId;
     public override string Author => "Hank";
 
-    public sealed override void OnSettingChanged(string key, JsonNode value)
-    {
-        try { OnPackSettingChanged(key, value); }
-        finally
-        {
-            if (key == "enabled" && !value.GetValue<bool>())
-                MainThread.Later(() => { if (!Enabled) OnDeactivated(); });
-        }
-    }
-
-    public sealed override void OnUnload()
-    {
-        CameraCallbacks.Follow.Remove(this);
-        CameraCallbacks.Recorder.Remove(this);
-        MainThread.Run(() =>
-        {
-            try { OnDeactivated(); }
-            finally { OnPackUnload(); }
-        });
-    }
-
-    protected virtual void OnPackSettingChanged(string key, JsonNode value) { }
-    protected void Cleanup(params Action[] actions) => CleanupActions.Run(error => Log("cleanup: " + error.Message), actions);
-
-    internal void CameraFailed(Exception error)
-    {
-        Cleanup(() => Log("camera feature stopped after an error: " + error.Message), OnDeactivated);
-    }
-
-    protected virtual void OnDeactivated() { }
-    protected virtual void OnPackUnload() { }
-
     static readonly Type? PropertySettings = typeof(JibbersMod).Assembly.GetType("Jibbers.Sdk.PropertySettings");
     static readonly FieldInfo? StoreField = typeof(JibbersMod).GetField("Store", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -81,16 +49,7 @@ public abstract class PackPart : JibbersMod
 public sealed class HankModPackInfoMod : JibbersMod
 {
     public override string Id => "hank_mod_pack_info";
-    public override bool EnabledToggle => false;
-    public override void OnLoad()
-    {
-        Jibbers.Sdk.Game.Event.EnterReplay.Subscribe(_ => CameraOwnership.InReplay = true);
-        Jibbers.Sdk.Game.Event.ExitReplay.Subscribe(_ => CameraOwnership.InReplay = false);
-        Jibbers.Sdk.Game.Event.ChangeScene.Subscribe(_ => CameraOwnership.InReplay = false);
-        Jibbers.Sdk.Game.Camera.Follow.LateUpdateMethod.Around(CameraCallbacks.Follow.Invoke);
-        Jibbers.Interop.Game.Recorder.Update_Method.Around(CameraCallbacks.Recorder.Invoke);
-    }
     public override string Name => "Hank Mod Pack";
     public override string Author => "Hank";
-    public override string Description => "Eight mods in one DLL: Quick Menu, Free Look, Play Cameras, HUD, Improved Replay Editor, Replay Camera, Overlay and Fun. Each one has its own entry named Hank Mod Pack: ... in Options > Mods.";
+    public override string Description => "Nine mods in one DLL: Quick Menu, Free Look, Play Cameras, HUD, Improved Spawn, Improved Replay Editor, Replay Camera, Overlay and Fun. Each one has its own entry named Hank Mod Pack: ... in Options > Mods.";
 }

@@ -140,24 +140,16 @@ public sealed class PlayCamerasMod : PackPart
     {
         ImportPackSettings();
         Instance = this;
-        CameraCallbacks.Follow.Register(this, null, camera => Frame(camera, LookAroundMod.IsLooking), order: 10);
-        ChangeScene.Subscribe(_ => OnDeactivated());
         ExitReplay.Subscribe(_ => MainThread.Run(() => { if (current != "") Push(); }));
         Log("Play cameras ready.");
     }
 
-    protected override void OnPackSettingChanged(string key, JsonNode value)
+    public override void OnSettingChanged(string key, JsonNode value)
     {
         if (current != "" && key != "enabled") MainThread.Run(Push);
     }
 
-    protected override void OnDeactivated()
-    {
-        current = ""; stashed = ""; holds.Clear();
-        ReplayCameraMod.Instance?.SetPlayProfile("", null);
-    }
-
-    protected override void OnPackUnload()
+    public override void OnUnload()
     {
         try { MainThread.Run(() => ReplayCameraMod.Instance?.SetPlayProfile("", null)); } catch { }
     }
@@ -165,7 +157,6 @@ public sealed class PlayCamerasMod : PackPart
     /// <summary>Picks a camera by its name in <see cref="Names"/>. Main thread.</summary>
     public void Select(string name)
     {
-        if (!Enabled) return;
         current = name switch { "POV" => "POV", "Follow cam" => "Follow", "Drone" => "Drone", _ => "" };
         Push();
     }
@@ -197,13 +188,11 @@ public sealed class PlayCamerasMod : PackPart
 
     public void Frame(nint follow, bool freeLook)
     {
-        if (!Enabled) return;
         // The pause menu (and /place...) shows the mouse cursor, which the game hides while playing: seen at once, no delay.
         var visible = CursorVisible();
         if (!visible) seenHidden = true;
         UiOpen = seenHidden && visible;
         if (current == "" || ReplayCameraMod.Instance is not { } rc) return;
-        if (!CameraOwnership.CanControlPlayCamera(follow)) { rc.SuspendPlay(); return; }
         // Free look, or the game paused (pause menu, with its own view of the phone): the game's camera is left alone.
         var paused = UiOpen || !EditorHold && Unity.DeltaTime < 1e-4f;
         if (paused != wasPaused) { wasPaused = paused; Log(paused ? "play camera: game paused, the game's camera takes over" : "play camera: back in game"); }
