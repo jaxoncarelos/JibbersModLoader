@@ -56,14 +56,15 @@ internal sealed class RewindHistory(Action<string> log)
     void CaptureNextFrame(IRewindScene scene, int capacity)
     {
         fractionalPlaybackSteps = 0;
-        IRewindSnapshot? reusableSnapshot = null;
         if (frames.Count >= capacity)
         {
-            reusableSnapshot = frames.First!.Value;
+            var reusable = frames.First!;
             frames.RemoveFirst();
+            reusable.Value = scene.Capture(reusable.Value);
+            frames.AddLast(reusable);
         }
-
-        frames.AddLast(scene.Capture(reusableSnapshot));
+        else
+            frames.AddLast(scene.Capture(null));
     }
 
     void RestoreEarlierFrame(IRewindScene scene, float playbackSpeed)

@@ -7,12 +7,13 @@ using Jibbers.Sdk.Interop;
 namespace Reshred;
 
 /// <summary>Adapts SDK-owned game hooks to typed rewind scenes and elapsed frame time.</summary>
-internal sealed class RewindGameLoop : IRewindGameLoop
+internal sealed class RewindGameLoop(Func<bool>? enabled = null) : IRewindGameLoop
 {
     readonly MujocoStateAccess physics = new();
     readonly RiderStateCapture riderState = new();
     bool active;
     long previousFrameTimestamp;
+    NativeRewindScene? adapter;
     public float FixedStepSeconds { get; private set; } = 0.003f;
     public bool IsPaused => Scene.IsPaused;
 
@@ -21,9 +22,11 @@ internal sealed class RewindGameLoop : IRewindGameLoop
         active = true;
         Scene.FixedUpdateMethod.Before((scene, _) =>
         {
-            if (!active || IsPaused || physics.OpenScene(scene)is not { } context)
+            if (!active || enabled?.Invoke() == false || IsPaused || physics.OpenScene(scene)is not { } context)
                 return;
-            physicsStep(new NativeRewindScene(physics, context, riderState, riderState.FindLiveObjects()));
+            var live = riderState.FindLiveObjects();
+            if (adapter is null || !adapter.Matches(context, live)) adapter = new NativeRewindScene(physics, context, riderState, live);
+            physicsStep(adapter);
         });
         Manager.UpdateMethod.Before((_, _) =>
         {

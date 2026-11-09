@@ -66,9 +66,11 @@ internal sealed unsafe class RiderStateCapture
 
     readonly Dictionary<nint, Il2CppField[]> riderReferenceFieldsByClass = new();
     /// <summary>The objects whose state is saved now: the clip, the ragdoll controller and its obfuscated logic objects.</summary>
+    readonly LiveObjects live = new(new());
     List<(nint Address, Kind Kind)> FindTargets()
     {
-        var output = new List<(nint, Kind)>();
+        var output = live.Targets;
+        output.Clear();
         var recorder = Recorder.Instance;
         if (recorder.IsNull)
         {
@@ -95,10 +97,10 @@ internal sealed unsafe class RiderStateCapture
             foreach (var field in riderReferenceFields)
             {
                 var referencedObject = field.GetObject(rider.Ptr);
-                if (referencedObject != 0 && !output.Any(target => target.Item1 == referencedObject))
-                {
-                    output.Add((referencedObject, Kind.RiderLogic));
-                }
+                if (referencedObject == 0) continue;
+                var duplicate = false;
+                foreach (var target in output) if (target.Address == referencedObject) { duplicate = true; break; }
+                if (!duplicate) output.Add((referencedObject, Kind.RiderLogic));
             }
         }
 
@@ -108,35 +110,59 @@ internal sealed unsafe class RiderStateCapture
     internal sealed record ObjectSnapshot(nint Address, (int Offset, int Size)[] Fields, byte[] Values);
     internal sealed record LiveObjects(List<(nint Address, Kind Kind)> Targets)
     {
-        public nint Rider => Targets.FirstOrDefault(target => target.Kind == Kind.RiderLogic).Address;
-        public nint Clip => Targets.FirstOrDefault(target => target.Kind == Kind.ReplayClip).Address;
-    }
-
-    public LiveObjects FindLiveObjects() => new(FindTargets());
-    public void Capture(LiveObjects objects, List<ObjectSnapshot> snapshots)
-    {
-        snapshots.Clear();
-        foreach (var(address, kind)in objects.Targets)
+        public nint Rider => First(Kind.RiderLogic);
+        public nint Clip => First(Kind.ReplayClip);
+        nint First(Kind kind)
         {
-            var layout = DescribeScalarLayout(address, kind);
-            var values = new byte[layout.Sum(field => field.Size)];
-            var destinationOffset = 0;
-            foreach (var(fieldOffset, byteCount)in layout)
-            {
-                new ReadOnlySpan<byte>((void*)(address + fieldOffset), byteCount).CopyTo(values.AsSpan(destinationOffset));
-                destinationOffset += byteCount;
-            }
-
-            snapshots.Add(new(address, layout, values));
+            foreach (var target in Targets) if (target.Kind == kind) return target.Address;
+            return 0;
+        }
+        public bool Contains(nint address)
+        {
+            foreach (var target in Targets) if (target.Address == address) return true;
+            return false;
         }
     }
 
-    public void Restore(IEnumerable<ObjectSnapshot> snapshots, LiveObjects liveObjects)
+    public LiveObjects FindLiveObjects() { FindTargets(); return live; }
+    public void Capture(LiveObjects objects, List<ObjectSnapshot> snapshots)
     {
-        var liveAddresses = liveObjects.Targets.Select(target => target.Address).ToHashSet();
+        var index = 0;
+        foreach (var(address, kind)in objects.Targets)
+        {
+            var layout = DescribeScalarLayout(address, kind);
+            var previous = index < snapshots.Count ? snapshots[index] : null;
+            var values = CaptureValues(address, layout, previous?.Values);
+            if (previous is null) snapshots.Add(new(address, layout, values));
+            else if (previous.Address != address || !ReferenceEquals(previous.Fields, layout))
+                snapshots[index] = new(address, layout, values);
+            index++;
+        }
+        if (snapshots.Count > index)
+        {
+            snapshots.RemoveRange(index, snapshots.Count - index);
+        }
+    }
+
+    internal static byte[] CaptureValues(nint address, (int Offset, int Size)[] layout, byte[]? reusable)
+    {
+        var size = 0;
+        foreach (var field in layout) size += field.Size;
+        var values = reusable is not null && reusable.Length == size ? reusable : new byte[size];
+        var destination = 0;
+        foreach (var field in layout)
+        {
+            new ReadOnlySpan<byte>((void*)(address + field.Offset), field.Size).CopyTo(values.AsSpan(destination));
+            destination += field.Size;
+        }
+        return values;
+    }
+
+    public void Restore(List<ObjectSnapshot> snapshots, LiveObjects liveObjects)
+    {
         foreach (var snapshot in snapshots)
         {
-            if (!liveAddresses.Contains(snapshot.Address))
+            if (!liveObjects.Contains(snapshot.Address))
                 continue;
             var sourceOffset = 0;
             foreach (var(fieldOffset, byteCount)in snapshot.Fields)
