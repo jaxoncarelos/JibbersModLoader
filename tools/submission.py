@@ -481,6 +481,9 @@ def check_identity(fields, registry, author, mod_id, repo_root):
     if (pathlib.Path(repo_root) / "mods/cs" / folder).exists() or any(m["folder"].lower() == folder.lower() for m in registry["mods"]):
         raise Rejected(f"The folder `{folder}` is already used in this repository.")
     package = f"jibbers_{mod_id}"
+    retired = next((entry for entry in registry.get("retired", []) if entry["id"] == package), None)
+    if retired:
+        raise Rejected(f"`{mod_id}` is owned by `{retired['replacement']}`; update that package instead of recreating the retired standalone mod.")
     if any(m["modId"] == mod_id or m["id"] == package for m in registry["mods"]):
         raise Rejected(f"The mod id `{mod_id}` is already taken. Change your mod's `Id`.")
     entry = {"folder": folder, "modId": mod_id, "authors": [author], "id": package, "name": name,

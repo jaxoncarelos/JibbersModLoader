@@ -92,5 +92,5 @@ public sealed class HankModPackInfoMod : JibbersMod
     }
     public override string Name => "Hank Mod Pack";
     public override string Author => "Hank";
-    public override string Description => "Eight mods in one DLL: Quick Menu, Free Look, Play Cameras, HUD, Improved Replay Editor, Replay Camera, Overlay and Fun. Each one has its own entry named Hank Mod Pack: ... in Options > Mods.";
+    public override string Description => "Nine mods in one DLL: Quick Menu, Free Look, Play Cameras, HUD, Improved Spawn, Improved Replay Editor, Replay Camera, Overlay and Fun. Each one has its own entry named Hank Mod Pack: ... in Options > Mods.";
 }

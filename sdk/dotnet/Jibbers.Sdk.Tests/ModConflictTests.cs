@@ -28,4 +28,12 @@ static class ModConflictTests
         Assert.True(ModConflicts.Find(new Mod("fpv"),new[]{alpine}) is null);
         Assert.True(ModConflicts.Find(alpine,Array.Empty<JibbersMod>()) is null);
     }
+    [Test] static void PackReplacementHasPriorityOverOldCopyWithTheSameSettingsId()
+    {
+        var standalone = new Mod("join_spawn");
+        var pack = new Mod("join_spawn", "jibbers_join_spawn");
+        var ordered = ModConflicts.Order(new[] { standalone, pack }).ToArray();
+        Assert.True(ReferenceEquals(pack, ordered[0]));
+        Assert.Equal(standalone.Id, pack.Id); // The host's duplicate-ID guard skips the old copy before OnLoad.
+    }
 }

@@ -247,3 +247,54 @@ fn loader_runtime_is_hidden_and_required_even_without_optional_mods() {
     assert!(installed.packages.contains_key("runtime_support"));
     assert!(!installed.packages.contains_key("example"));
 }
+
+#[test]
+fn retired_join_spawn_is_hidden_and_old_bootstraps_install_only_the_pack_code() {
+    let root = Sandbox::new();
+    let (mut previous, mut net) = setup();
+    let mut standalone = package(&mut net, "jibbers_join_spawn", "0.1.6", b"MZ old standalone spawn");
+    standalone.files[0].path = "JibbersMods/cs/jibbers_join_spawn.dll".into();
+    previous.packages.push(standalone);
+    let wanted = vec!["jibbers_join_spawn".into()];
+    install::apply(&root.0, &previous, &wanted, true, &net).unwrap();
+    root.write("JibbersMods/cs/join_spawn.settings.json", b"saved spawn settings");
+    root.write("JibbersMods/cs/private.dll", b"unmanaged local mod");
+
+    let mut next = previous.clone(); next.sequence += 1;
+    let pack = package(&mut net, "jibbers_hank_mod_pack_info", "1.52.12", b"MZ Hank pack with Improved Spawn");
+    let mut retirement = package(&mut net, "jibbers_join_spawn", "0.1.7", b"Code-free migration record");
+    retirement.files[0].path = "JibbersMods/packages/jibbers_join_spawn/retired.txt".into();
+    retirement.dependencies.push(pack.id.clone());
+    *next.packages.iter_mut().find(|p| p.id == retirement.id).unwrap() = retirement.clone();
+    next.packages.push(pack.clone());
+    next.validate().unwrap();
+    assert_eq!(next.replacement_for("jibbers_join_spawn"), Some("jibbers_hank_mod_pack_info"));
+    assert!(next.selectable_packages().unwrap().iter().all(|p| p.id != "jibbers_join_spawn"));
+    assert!(next.selectable_packages().unwrap().iter().any(|p| p.id == pack.id));
+    assert_eq!(previous.replacement_for("jibbers_join_spawn"), None);
+
+    // Existing bootstraps know no retirement API: plain dependency resolution/application must work.
+    let mut offline = Net(net.0.clone()); offline.0.remove(&pack.files[0].url);
+    assert!(install::apply(&root.0, &next, &wanted, true, &offline).is_err());
+    assert_eq!(root.bytes("JibbersMods/cs/jibbers_join_spawn.dll"), b"MZ old standalone spawn");
+    assert!(!root.0.join(&pack.files[0].path).exists());
+    let installed = install::apply(&root.0, &next, &wanted, true, &net).unwrap();
+    assert!(!root.0.join("JibbersMods/cs/jibbers_join_spawn.dll").exists());
+    assert_eq!(root.bytes(&pack.files[0].path), b"MZ Hank pack with Improved Spawn");
+    assert_eq!(root.bytes("JibbersMods/cs/join_spawn.settings.json"), b"saved spawn settings");
+    assert_eq!(root.bytes("JibbersMods/cs/private.dll"), b"unmanaged local mod");
+    assert!(installed.packages.contains_key(&pack.id));
+
+    // The replaceable loader migrates old preferences even when the bootstrap predates retirement.
+    let preferences = crate::manager::Config { wanted: vec![wanted[0].clone(), pack.id.clone()], auto_update: false, ..Default::default() };
+    let prefs = root.0.join(crate::STATE_DIR).join("preferences.json");
+    install::write_json(&prefs, &preferences).unwrap();
+    crate::manager::migrate_retired_preferences(&root.0, &next).unwrap();
+    let migrated = crate::manager::config(&root.0).unwrap();
+    assert_eq!(migrated.wanted, [pack.id.clone()]);
+    assert!(!migrated.auto_update);
+    crate::manager::migrate_retired_preferences(&root.0, &next).unwrap();
+    install::apply(&root.0, &next, &migrated.wanted, false, &net).unwrap();
+    assert!(!root.0.join(&retirement.files[0].path).exists());
+    assert_eq!(root.bytes("JibbersMods/cs/join_spawn.settings.json"), b"saved spawn settings");
+}

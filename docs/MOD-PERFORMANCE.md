@@ -23,7 +23,7 @@ the remaining periodic hitch; there is no live before/after benchmark of these c
 - Chair Lift: discovery of map lifts and the local rider is retained between proximity
   checks. New maps reset discovery, and a deliberate ride press also refreshes lifts so
   features added after the initial map spawn remain usable. Roots are released on unload.
-- Join Spawn: the selected live nameplate is checked locally for name reuse instead of
+- Improved Spawn (now part of Hank Mod Pack): the selected live nameplate is checked locally for name reuse instead of
   rescanning every TMP text in the scene once per second. Missing players retry at most
   once per second. Hidden/replaced nameplates still use the existing discovery fallback.
 - SLVSH and Rumble: local spawner/follow-camera lookups retain a validated object and back

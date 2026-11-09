@@ -1,8 +1,8 @@
 # Hank Mod Pack
 
 Hank's controller quick menu, free look, play cameras, HUD themes, replay editor effects,
-replay cameras, trick banners and custom GIF/video/audio overlays. Install **Hank Mod Pack**
-from Options > Mods > Install and update mods, then restart. Each of the eight features has
+replay cameras, Improved Spawn, trick banners and custom GIF/video/audio overlays. Install **Hank Mod Pack**
+from Options > Mods > Install and update mods, then restart. Each of the nine features has
 its own enabled toggle. The pack heading is informational.
 
 Hold D-pad down to open the quick menu. Button assignments and camera preferences are in
@@ -10,9 +10,13 @@ Options > Mods. The game's normal stance action remains authoritative: holding D
 does not rewind the rider's internal state. Cameras yield to the game's other camera modes,
 including FPV Drone and photo mode.
 
-**Join Spawn is a separate catalog mod.** Install it to use the quick menu's spawn action.
-This version intentionally excludes the submitted duplicate Improved Spawn implementation;
-it does not replace Join Spawn, claim its ID, or install a second spawn detour.
+**Improved Spawn is included in this pack**, using the existing `join_spawn` settings ID.
+It contains Hank's newer spawn menu, spectator camera, camera styles and input blocking.
+The quick menu opens it directly. The old standalone catalog listing and implementation
+are removed. Existing subscriptions migrate to Hank Mod Pack, retaining their settings.
+A hidden, code-free retirement record remains readable by older bootstraps so removing the
+old listing cannot block all of their startup updates. Managed old DLLs are removed by the
+installer transaction; manually installed duplicates are skipped before their hooks load.
 
 Custom media belongs in `JibbersMods/Hank Mod Pack/Overlay Files` and
 `JibbersMods/Hank Mod Pack/Fun Overlay`. No default third-party songs or videos are included.

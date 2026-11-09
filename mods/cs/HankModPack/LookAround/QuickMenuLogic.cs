@@ -271,7 +271,7 @@ public sealed unsafe partial class LookAroundMod
         {
             var spawn = LoadedMods().FirstOrDefault(mod => mod.Id == "join_spawn" && mod.Enabled);
             if (spawn?.OnCommand("join_spawn.open", new JsonObject()) is null)
-                Log("Install Join Spawn from the catalog to use the spawn menu.");
+                Log("Enable Hank Mod Pack: Improved Spawn to use the spawn menu.");
         }
         catch (Exception e) { Once("spawn", e); }
     }
