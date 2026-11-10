@@ -54,9 +54,14 @@ public abstract class JibbersMod
     public virtual void OnUnload() { }
 
     internal SettingsStore? Store;
+    internal volatile bool PerformanceSuspended;
+    internal int Unloaded;
+    internal string SuspensionReason = "";
+    /// <summary>Allows session-only performance protection to unload this optional mod. Core services are always protected.</summary>
+    public virtual bool AllowPerformanceSuspension => true;
 
     /// <summary>True while the mod's "enabled" toggle is on (always true without the toggle).</summary>
-    public bool Enabled => !EnabledToggle || GetBool("enabled");
+    public bool Enabled => !PerformanceSuspended && (!EnabledToggle || GetBool("enabled"));
 
     /// <summary>A toggle's value.</summary>
     public bool GetBool(string key) => Store?.Get(key) is JsonValue v && v.TryGetValue(out bool b) && b;
@@ -69,6 +74,7 @@ public abstract class JibbersMod
     /// <summary>Changes a setting from code (validated, saved, and <see cref="OnSettingChanged"/> is called).</summary>
     public void SetSetting(string key, JsonNode value)
     {
+        if (PerformanceSuspended) throw new InvalidOperationException("Disabled for performance until the next game launch. Saved settings are unchanged.");
         var stored = (Store ?? throw new InvalidOperationException("mod not loaded")).Set(key, value);
         PropertySettings.Apply(this, key, stored);
         OnSettingChanged(key, stored);

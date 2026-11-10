@@ -12,13 +12,16 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     public override string Id => "jibbers_play";
     public override string Name => "Play together";
     public override string Author => "Jibbers SDK";
-    public override string Description => "Host a server and your Steam friends can join it from the Party panel: no Hamachi or port forwarding.";
+    public override string Description => "Invite Play Together players from your current server in the Party panel, or host for friends without port forwarding.";
 
     [Toggle("Join a friend's server when you accept their invite", Key = "auto_join", Tooltip = "Accepting a Steam invite (or Join game) takes you straight into their server.")]
     public bool AutoJoin { get; private set; }
 
     [Toggle("Follow the party leader between servers", Key = "follow_leader", Tooltip = "When the party leader brings everyone to their server, you go too.")]
     public bool Follow { get; private set; }
+
+    [Toggle("Find Play Together players on this server", true, Key = "server_players", Tooltip = "Shows players using Play Together and lets you invite them from the in-game Party panel. No Steam overlay is opened.")]
+    public bool DiscoverServerPlayers { get; private set; }
 
     /// <summary>The running session, for the Party panel.</summary>
     internal static ServerSession? Current { get; private set; }
@@ -29,6 +32,9 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     volatile bool stopping;
     bool fastHeld;
     string lastError = "";
+    long nextRoster;
+    string rosterError = "";
+    bool presenceCleared;
 
     public override void OnLoad()
     {
@@ -40,6 +46,7 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
         SteamInvites.Requested += OnInvite;
         SteamInvites.Install();
         Current = session;
+        Game.Event.ChangeScene.Subscribe(_ => { CurrentServerPlayers.Reset(); Party.SetServerPlayers(false, []); });
         ticker = new Thread(Tick) { IsBackground = true, Name = "Jibbers Play together" };
         ticker.Start();
     }
@@ -47,6 +54,7 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
     public override void OnUnload()
     {
         stopping = true;
+        Party.SetServerPlayers(false, []);
         Current = null;
         Party.MemberChanged -= OnMember;
         SteamInvites.Requested -= OnInvite;
@@ -71,15 +79,39 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
         while (!stopping)
         {
             Thread.Sleep(500);
-            if (!Enabled || session is null) continue;
+            if (!Enabled || session is null)
+            {
+                if (!presenceCleared) { Party.SetServerPlayers(false, []); presenceCleared = true; }
+                continue;
+            }
+            presenceCleared = false;
             ServerInfo info;
             try
             {
                 info = MainThread.Run(GameServer.Read);
+                if (Environment.TickCount64 >= nextRoster)
+                {
+                    nextRoster = Environment.TickCount64 + 3000;
+                    try
+                    {
+                        var connected = DiscoverServerPlayers && (info.Hosting || info.Client);
+                        var players = connected ? MainThread.Run(CurrentServerPlayers.Read) : Array.Empty<ServerPlayer>();
+                        Party.SetServerPlayers(connected, players);
+                        rosterError = "";
+                    }
+                    catch (Exception error)
+                    {
+                        // Optional roster discovery must not change the live server/tunnel state.
+                        Party.SetServerPlayers(false, []);
+                        if (rosterError != error.Message) Log("Server-player discovery unavailable: " + error.Message);
+                        rosterError = error.Message;
+                    }
+                }
                 lastError = "";
             }
             catch (TimeoutException)
             {
+                Party.SetServerPlayers(false, []);
                 continue; // loading: try again next time
             }
             catch (Exception e)
@@ -87,10 +119,26 @@ internal sealed class PlayTogether : JibbersMod, IServerSessionHost
                 if (e.Message != lastError) Log(e.Message);
                 lastError = e.Message;
                 info = ServerInfo.None;
+                Party.SetServerPlayers(false, []);
             }
             try { session.Update(info); }
             catch (Exception e) { Sdk.Log.Error("play together", e); }
         }
+    }
+
+    public override System.Text.Json.Nodes.JsonNode? OnCommand(string command, System.Text.Json.Nodes.JsonObject request)
+    {
+        if (command != "jibbers_play.players") return null;
+        var presence = Party.ServerPlayers;
+        return new System.Text.Json.Nodes.JsonObject
+        {
+            ["ok"] = true, ["discoveryEnabled"] = Enabled && DiscoverServerPlayers,
+            ["rosterEntries"] = CurrentServerPlayers.RosterCount,
+            ["steamAccounts"] = CurrentServerPlayers.SteamCount,
+            ["playTogetherPlayers"] = presence.Players.Count,
+            ["invitationPending"] = presence.Invitation is not null,
+            ["discoveryError"] = rosterError,
+        };
     }
 
     // ---- IServerSessionHost ----

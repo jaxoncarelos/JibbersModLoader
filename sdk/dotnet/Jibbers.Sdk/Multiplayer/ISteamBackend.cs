@@ -45,6 +45,10 @@ internal interface ISteamBackend
     void OpenInviteOverlay(SteamId lobby);
     /// <summary>Sets (or with null clears) one of the player's Steam rich presence keys, which friends see.</summary>
     void SetRichPresence(string key, string? value);
+    /// <summary>Requests cached capability/invitation data for a player on the current game server.</summary>
+    void MarkPlayedWith(SteamId player) { }
+    void RequestPresence(SteamId player) { }
+    string RichPresence(SteamId player, string key) => "";
 
     bool Send(SteamId to, ReadOnlySpan<byte> data, bool reliable);
     /// <summary>Appends waiting messages to <paramref name="into"/>; returns how many.</summary>

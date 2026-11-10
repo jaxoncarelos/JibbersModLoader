@@ -116,7 +116,7 @@ goes to the host as before: no local copy, no answer within 5 s, or a host on an
 welcome doesn't offer map info, so nothing is asked). Every other request (`GET /status`) is left
 alone. Hashes of local files are kept in `%LOCALAPPDATA%\Jibbers\PlayTogether\map-hashes.json`,
 keyed by path, size and modification time. The log says which way each map came ("map served
-locally: …" or "no local copy of …: downloading it from the host"). The code is in `LocalMaps.cs`.
+locally: â€¦" or "no local copy of â€¦: downloading it from the host"). The code is in `LocalMaps.cs`.
 
 The code is in `Multiplayer/ServerSession.cs` (the logic, tested end to end with real sockets),
 `ServerTunnel.cs` and `StreamTunnel.cs` (the relays), `GameServer.cs` (the game's side), `SteamInvites.cs` (Steam's join
@@ -143,3 +143,30 @@ Draw a new frame whenever something changes; it is cheap. The newest frame wins,
 re-rasterized when they change, and all Unity work happens on the main thread. To design without
 the game, save frames with `OverlayPreview.Save(frame, "preview.html")` and open the page in a
 browser (`mods/cs/Slvsh.Tests` does this when `SLVSH_PREVIEW` is set).
+
+## Invite players already on your server
+
+With **Play together > Find Play Together players on this server** enabled (the default),
+open the Party panel with **Ctrl+M**. Players on the current game server who advertise the
+updated Play Together capability appear as **Invite <name> â€” On this server**. Choosing
+one makes a party when necessary and sends an in-game invitation. The other player opens
+the same panel and chooses **Accept** or **Decline**. Accepting while already in another
+party explicitly offers to leave it and join the inviter. This does not reconnect the game
+to another server or open Steam's overlay.
+
+Steam still provides identity, presence and party transport internally. Discovery reads the
+current game-player dictionary, parses Steam account IDs from account details (not display
+names), and requests capability data only for those accounts. It does not create a global
+player directory or publish server addresses/passwords. Presence queries back off, roster
+and invitation lifetimes are bounded, malformed/other-recipient/outside-roster invitations
+are ignored, and no invitation automatically joins a party. Both players need the updated
+SDK. Steam exports missing from an older client disable discovery gracefully without
+breaking the existing party/tunnel.
+
+The roster reader and two simulated Steam clients are tested outside the game. Actual
+current-server account data and invitation delivery timing need a two-player in-game check.
+
+Valve documents [requesting presence for non-friends on the same server](https://partner.steamgames.com/doc/api/ISteamFriends#RequestFriendRichPresence).
+Current roster members are marked as played with before requesting their names/capabilities;
+no avatar downloads are requested. Diagnostics: `jibbers_play.players` reports roster/account/
+capability counts without server addresses or passwords.

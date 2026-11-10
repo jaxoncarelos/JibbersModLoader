@@ -48,7 +48,14 @@ internal sealed class CameraCallbacks
     static void Run(Entry entry, Action<nint>? callback, nint camera)
     {
         if (entry.Failed) return;
-        try { if (entry.Enabled()) callback?.Invoke(camera); }
+        try
+        {
+            if (entry.Enabled() && callback is not null)
+            {
+                if (entry.Owner is JibbersMod mod) ModCallbacks.Invoke(mod, callback, camera);
+                else callback(camera);
+            }
+        }
         catch (Exception error)
         {
             entry.Failed = true;

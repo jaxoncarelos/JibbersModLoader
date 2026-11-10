@@ -59,9 +59,13 @@ internal sealed unsafe class SteamFlat : ISteamBackend
     readonly delegate* unmanaged<nint, byte*, byte> closeSession;
     readonly delegate* unmanaged<nint, byte*, void*, void*, int> connectionInfo;
     readonly delegate* unmanaged<nint, byte*, byte*, byte> setRichPresence;
+    readonly delegate* unmanaged<nint, ulong, void> requestPresence, playedWith;
+    readonly delegate* unmanaged<nint, ulong, byte*, byte*> getPresence;
+    readonly delegate* unmanaged<nint, ulong, byte, byte> requestUser;
 
     SteamFlat(nint lib)
     {
+        nint Optional(string name) => NativeLibrary.TryGetExport(lib, name, out var function) ? function : 0;
         nint Get(string name) => NativeLibrary.TryGetExport(lib, name, out var f) ? f : throw new EntryPointNotFoundException(name);
         user = ((delegate* unmanaged<nint>)Get("SteamAPI_SteamUser_v023"))();
         mm = ((delegate* unmanaged<nint>)Get("SteamAPI_SteamMatchmaking_v009"))();
@@ -106,6 +110,10 @@ internal sealed unsafe class SteamFlat : ISteamBackend
         closeSession = (delegate* unmanaged<nint, byte*, byte>)Get("SteamAPI_ISteamNetworkingMessages_CloseSessionWithUser");
         connectionInfo = (delegate* unmanaged<nint, byte*, void*, void*, int>)Get("SteamAPI_ISteamNetworkingMessages_GetSessionConnectionInfo");
         setRichPresence = (delegate* unmanaged<nint, byte*, byte*, byte>)Get("SteamAPI_ISteamFriends_SetRichPresence");
+        playedWith = (delegate* unmanaged<nint, ulong, void>)Optional("SteamAPI_ISteamFriends_SetPlayedWith");
+        requestPresence = (delegate* unmanaged<nint, ulong, void>)Optional("SteamAPI_ISteamFriends_RequestFriendRichPresence");
+        getPresence = (delegate* unmanaged<nint, ulong, byte*, byte*>)Optional("SteamAPI_ISteamFriends_GetFriendRichPresence");
+        requestUser = (delegate* unmanaged<nint, ulong, byte, byte>)Optional("SteamAPI_ISteamFriends_RequestUserInformation");
         // Warm up Valve's relay network now, so the first message to a peer is not slow.
         if (NativeLibrary.TryGetExport(lib, "SteamAPI_SteamNetworkingUtils_SteamAPI_v004", out var nu) && NativeLibrary.TryGetExport(lib, "SteamAPI_ISteamNetworkingUtils_InitRelayNetworkAccess", out var relay))
         {
@@ -294,6 +302,14 @@ internal sealed unsafe class SteamFlat : ISteamBackend
     public void SetMemberData(SteamId lobby, string key, string value) { fixed (byte* k = Z(key), v = Z(value)) setMemberData(mm, lobby.Value, k, v); }
     public bool InviteToLobby(SteamId lobby, SteamId friend) => inviteUser(mm, lobby.Value, friend.Value) != 0;
     public void OpenInviteOverlay(SteamId lobby) => inviteDialog(friends, lobby.Value);
+
+    public void MarkPlayedWith(SteamId player) { if (playedWith != null) playedWith(friends, player.Value); }
+    public void RequestPresence(SteamId player)
+    {
+        if (requestUser != null) requestUser(friends, player.Value, 1);
+        if (requestPresence != null) requestPresence(friends, player.Value);
+    }
+    public string RichPresence(SteamId player, string key) { if (getPresence == null) return ""; fixed (byte* name = Z(key)) return Str(getPresence(friends, player.Value, name)); }
 
     public void SetRichPresence(string key, string? value)
     {

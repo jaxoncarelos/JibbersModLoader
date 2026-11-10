@@ -11,12 +11,16 @@ namespace Jibbers.Sdk;
 public static unsafe class MainThread
 {
     [ThreadStatic] static bool onMain;
+    static int mainThreadId;
+    internal static void MarkGameThread() => Volatile.Write(ref mainThreadId, Environment.CurrentManagedThreadId);
+    internal static bool IsKnownMainThread => Volatile.Read(ref mainThreadId) == Environment.CurrentManagedThreadId;
 
     /// <summary>True inside a hook, event or <see cref="Run{T}"/> callback.</summary>
     public static bool IsCurrent => onMain;
 
     internal static T Enter<T>(Func<T> f)
     {
+        Interlocked.CompareExchange(ref mainThreadId, Environment.CurrentManagedThreadId, 0);
         var was = onMain;
         onMain = true;
         try
@@ -32,6 +36,7 @@ public static unsafe class MainThread
     sealed class Job
     {
         public required Action Body;
+        public string? Owner;
         public Exception? Error;
     }
 
@@ -43,7 +48,7 @@ public static unsafe class MainThread
         {
             Enter(() =>
             {
-                job.Body();
+                RunQueuedOwner(job.Owner, job.Body);
                 return 0;
             });
         }
@@ -51,6 +56,13 @@ public static unsafe class MainThread
         {
             job.Error = e;
         }
+    }
+
+    internal static void RunQueuedOwner(string? owner, Action job)
+    {
+        if (owner is not null && ModContext.Find(owner)?.PerformanceSuspended == true)
+            throw new OperationCanceledException("The mod was suspended for performance; its queued game work was cancelled.");
+        ModContext.Run(owner, job);
     }
 
     /// <summary>
@@ -70,7 +82,7 @@ public static unsafe class MainThread
             throw new InvalidOperationException("the SDK is not running inside the game");
         }
         T result = default!;
-        var job = new Job { Body = () => result = f() };
+        var job = new Job { Body = () => result = f(), Owner = ModContext.CurrentId };
         var h = GCHandle.Alloc(job);
         try
         {
