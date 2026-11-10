@@ -162,7 +162,7 @@ internal sealed class PartyMod : JibbersMod
         lock (gate)
         {
             var server = PlayTogether.Current;
-            actions = PartyPanel.Actions(snapshot, ui, server?.PanelActions());
+            actions = PartyPanel.Actions(snapshot, ui, server?.PanelActions(), Party.ServerPlayers);
             if (ui.Selected >= actions.Count) ui.Selected = Math.Max(0, actions.Count - 1);
             frame = PartyPanel.Build(snapshot, ui, actions, $"Ctrl+{PanelKey}", clock.Elapsed.TotalSeconds, server?.Status ?? "");
         }

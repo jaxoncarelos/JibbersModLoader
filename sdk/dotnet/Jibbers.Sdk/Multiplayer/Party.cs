@@ -86,6 +86,12 @@ public static class Party
     internal static void JoinLobby(SteamId lobby) => Do(e => e.JoinLobby(lobby));
 
     /// <summary>Shows a short line to the player, like the party's own notices.</summary>
+    internal static void SetServerPlayers(bool connected, IReadOnlyList<ServerPlayer> players) => Do(engine => engine.SetServerPlayers(connected, players));
+    internal static ServerPresence ServerPlayers { get { lock (gate) return engine?.ServerPresence ?? ServerPresence.Empty; } }
+    internal static void InviteServerPlayer(SteamId player) => Do(engine => engine.InviteServerPlayer(player));
+    internal static void AcceptServerInvite() => Do(engine => engine.AcceptServerInvite());
+    internal static void DeclineServerInvite() => Do(engine => engine.DeclineServerInvite());
+
     internal static void Announce(string line) => Raise(Notice, line);
 
     /// <summary>
@@ -118,6 +124,8 @@ public static class Party
             if (channels.TryGetValue(channel.ModId, out var c) && ReferenceEquals(c, channel)) channels.Remove(channel.ModId);
         AdvertiseMods();
     }
+
+    internal static bool HasChannel(string mod) { lock (gate) return channels.ContainsKey(mod); }
 
     internal static void RemoveOwner(string mod)
     {

@@ -63,8 +63,16 @@ internal sealed class PartyEngine
         this.clock = clock;
         this.log = log;
         snapshot = PartySnapshot.Unavailable with { State = PartyState.None, Status = "" };
+        serverPlayers = new(steam, clock, () => Snapshot, Create, JoinLobby, line => Notice?.Invoke(line), () => Changed?.Invoke(Snapshot));
     }
 
+    string presenceError = "";
+    readonly ServerPresenceDiscovery serverPlayers;
+    public ServerPresence ServerPresence => serverPlayers.Snapshot;
+    public void SetServerPlayers(bool connected, IReadOnlyList<ServerPlayer> players) => requests.Enqueue(() => serverPlayers.SetRoster(connected, players));
+    public void InviteServerPlayer(SteamId player) => requests.Enqueue(() => serverPlayers.Invite(player));
+    public void AcceptServerInvite() => requests.Enqueue(serverPlayers.Accept);
+    public void DeclineServerInvite() => requests.Enqueue(serverPlayers.Decline);
     public PartySnapshot Snapshot => snapshot;
     public SteamId LocalId => steam.LocalId;
 
@@ -124,7 +132,7 @@ internal sealed class PartyEngine
 
     public void OpenInviteOverlay() => requests.Enqueue(() => { if (step == Step.In) steam.OpenInviteOverlay(lobby); });
 
-    /// <summary>The mods (id → version) this player advertises to the party: the ones that opened a channel.</summary>
+    /// <summary>The mods (id ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ version) this player advertises to the party: the ones that opened a channel.</summary>
     public void SetLocalMods(IReadOnlyDictionary<string, string> mods) => requests.Enqueue(() => { localMods = mods; AdvertiseMods(); Publish(); });
 
     /// <summary>Sends one framed message; to yourself it loops back on the next tick. Any thread.</summary>
@@ -181,6 +189,13 @@ internal sealed class PartyEngine
         while (loopback.TryDequeue(out var self))
             if (step == Step.In && members.TryGetValue(self.From, out var local)) Deliver?.Invoke(local, self.Mod, self.Payload);
         if (now >= nextFriends) RefreshFriends(now);
+        try { serverPlayers.Tick(); presenceError = ""; }
+        catch (Exception error)
+        {
+            if (presenceError != error.Message) log("Server-player discovery: " + error.Message);
+            presenceError = error.Message;
+            serverPlayers.SetRoster(false, []);
+        }
     }
 
     void BeginCreate()

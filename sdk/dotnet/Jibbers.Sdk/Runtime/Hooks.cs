@@ -191,6 +191,7 @@ public sealed unsafe class Detour : IDisposable
 {
     nint handle;
     readonly Delegate? keepAlive;
+    readonly bool instrumented;
     /// <summary>Address that was detoured.</summary>
     public nint Target { get; }
     /// <summary>Calls the original code (cast to a <c>delegate* unmanaged</c> of the right signature).</summary>
@@ -200,17 +201,18 @@ public sealed unsafe class Detour : IDisposable
     /// <summary>Whether this detour has been disposed.</summary>
     public bool IsDisposed => handle == 0;
 
-    Detour(nint handle, nint target, nint original, Delegate? keepAlive)
+    Detour(nint handle, nint target, nint original, Delegate? keepAlive, bool instrumented = false)
     {
         this.handle = handle;
         Target = target;
         Original = original;
         this.keepAlive = keepAlive;
+        this.instrumented = instrumented;
+        owner = ModContext.CurrentId;
         lock (all)
         {
             all.Add(this);
         }
-        owner = ModContext.CurrentId;
     }
 
     readonly string? owner;
@@ -247,18 +249,39 @@ public sealed unsafe class Detour : IDisposable
         {
             throw new InvalidOperationException("the SDK is not running inside the game");
         }
-        var fp = Marshal.GetFunctionPointerForDelegate(replacement);
+        var callback = new NativeCallback<T>(replacement, ModContext.CurrentId);
+        T wrapped;
+        var profiled = true;
+        try { wrapped = callback.Build(); }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or InvalidOperationException)
+        {
+            // Pointer/ref signatures unsupported by expression trees keep their old behavior.
+            // They are excluded from automatic suspension rather than changing their ABI.
+            wrapped = replacement; profiled = false;
+            Log.Info("Callback profiling unavailable for " + typeof(T).Name + ": " + error.Message);
+        }
+        var fp = Marshal.GetFunctionPointerForDelegate(wrapped);
         nint tramp;
         var h = Runtime.Native.Api->DetourCreate(target, fp, &tramp);
         if (h == 0)
         {
             throw new InvalidOperationException(Runtime.Native.LastError());
         }
-        return new Detour(h, target, tramp, replacement);
+        try
+        {
+            if (profiled) callback.Original = Marshal.GetDelegateForFunctionPointer<T>(tramp);
+            return new Detour(h, target, tramp, wrapped, profiled);
+        }
+        catch { Runtime.Native.Api->DetourDestroy(h); throw; }
     }
 
     /// <summary>The original as a delegate of type <typeparamref name="T"/>.</summary>
-    public T OriginalAs<T>() where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(Original);
+    public T OriginalAs<T>() where T : Delegate
+    {
+        var original = Marshal.GetDelegateForFunctionPointer<T>(Original);
+        try { return NativeCallback<T>.ExcludeOriginal(original, owner); }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or InvalidOperationException) { return original; }
+    }
 
     /// <summary>Activates the detour.</summary>
     public void Enable()
@@ -295,6 +318,26 @@ public sealed unsafe class Detour : IDisposable
             all.Remove(this);
         }
         GC.KeepAlive(keepAlive);
+    }
+
+    internal static bool HasUntrackedOwner(string id)
+    {
+        lock (all) foreach (var detour in all)
+            if (detour.owner == id && !detour.instrumented && !detour.IsDisposed) return true;
+        return false;
+    }
+    internal static void DisableOwner(string id)
+    {
+        Detour[] owned;
+        lock (all) owned = all.Where(detour => detour.owner == id && detour.Enabled).ToArray();
+        var disabled = new List<Detour>();
+        try { foreach (var detour in owned) { detour.Disable(); disabled.Add(detour); } }
+        catch
+        {
+            foreach (var detour in disabled)
+                try { detour.Enable(); } catch (Exception error) { Log.Error("detour suspension rollback", error); }
+            throw;
+        }
     }
 
     internal static void RemoveOwner(string mod)

@@ -14,27 +14,20 @@ internal static class ModContext
 
     public static string? CurrentId => current.Value;
 
-    public static void Run(string? owner, Action callback)
+    public static Scope Enter(string? owner) => new(owner);
+    internal readonly struct Scope : IDisposable
     {
-        var previous = current.Value;
-        current.Value = owner;
-        try { callback(); }
-        finally { current.Value = previous; }
-    }
-
-    public static T With<T>(JibbersMod mod, Func<T> f)
-    {
-        var was = current.Value;
-        current.Value = mod.Id;
-        try
+        readonly string? previous;
+        readonly ModTiming.Scope timing;
+        public Scope(string? owner)
         {
-            return f();
+            previous = current.Value; current.Value = owner;
+            timing = ModTiming.Begin(owner);
         }
-        finally
-        {
-            current.Value = was;
-        }
+        public void Dispose() { timing.Dispose(); current.Value = previous; }
     }
+    public static void Run(string? owner, Action callback) { using var scope = Enter(owner); callback(); }
+    public static T With<T>(JibbersMod mod, Func<T> callback) { using var scope = Enter(mod.Id); return callback(); }
 
     public static void Add(JibbersMod m)
     {
@@ -43,6 +36,10 @@ internal static class ModContext
             mods[m.Id] = m;
         }
     }
+
+    public static bool NativeCallbackAllowed(string? id) => id is null || Find(id)?.PerformanceSuspended != true;
+
+    public static JibbersMod? Find(string id) { lock (mods) return mods.GetValueOrDefault(id); }
 
     public static IReadOnlyList<JibbersMod> All()
     {
@@ -80,14 +77,23 @@ internal sealed class ModPlugin
         ["name"] = Mod.Name,
         ["version"] = Mod.Version,
         ["author"] = Mod.Author,
-        ["description"] = Mod.Description,
+        ["description"] = Mod.PerformanceSuspended ? Mod.SuspensionReason : Mod.Description,
+        ["performanceSuspended"] = Mod.PerformanceSuspended,
         ["sdk"] = "dotnet " + typeof(ModPlugin).Assembly.GetName().Version?.ToString(3),
         ["enabled"] = Mod.Enabled,
         ["settings"] = Mod.Store!.Schema(),
     };
 
+    JsonObject Values()
+    {
+        var values = Mod.Store!.Values();
+        if (Mod.PerformanceSuspended) values["enabled"] = false;
+        return values;
+    }
+
     JsonObject Set(string key, JsonNode? value)
     {
+        if (Mod.PerformanceSuspended) throw new ArgumentException(Mod.SuspensionReason);
         var stored = Mod.Store!.Set(key, value);
         PropertySettings.Apply(Mod, key, stored);
         ModContext.With(Mod, () =>
@@ -106,7 +112,7 @@ internal sealed class ModPlugin
             case "plugin.info":
                 return Info();
             case "plugin.get":
-                return new JsonObject { ["ok"] = true, ["values"] = Mod.Store!.Values() };
+                return new JsonObject { ["ok"] = true, ["values"] = Values() };
             case "plugin.set":
                 return Set(req["key"]?.GetValue<string>() ?? throw new ArgumentException("plugin.set needs a key"), req["value"] ?? throw new ArgumentException("plugin.set needs a value"));
             case "plugin.enable":
@@ -118,6 +124,7 @@ internal sealed class ModPlugin
         {
             throw new ArgumentException($"unknown plugin command {cmd}");
         }
+        if (Mod.PerformanceSuspended) throw new ArgumentException(Mod.SuspensionReason);
         var r = ModContext.With(Mod, () => Mod.OnCommand(cmd, req)) ?? throw new ArgumentException($"{cmd} is not a command of {Mod.Id}");
         if (r is JsonObject o && !o.ContainsKey("ok"))
         {
@@ -211,6 +218,8 @@ internal static unsafe class ModHost
         }
         // Everyone gets Play together (game servers through Steam), which uses the party, so the
         // Party panel and its Mods tab section always follow.
+        try { Register(new PerformanceGuard(), typeof(ModHost).Assembly.Location); }
+        catch (Exception e) { Log.Error("dotnet: performance guard", e); }
         try { Register(new Multiplayer.PlayTogether(), typeof(ModHost).Assembly.Location); }
         catch (Exception e) { Log.Error("dotnet: play together", e); }
         // A mod used the party in its OnLoad: add the Party panel and its Mods tab section.
@@ -328,6 +337,7 @@ internal static unsafe class ModHost
 
     internal static void UnloadMod(JibbersMod mod)
     {
+        if (Interlocked.Exchange(ref mod.Unloaded, 1) != 0) return;
         Input.RemoveOwner(mod.Id);
         Multiplayer.Party.RemoveOwner(mod.Id);
         try

@@ -4,7 +4,7 @@ using Jibbers.Sdk.Multiplayer;
 static class PartyTests
 {
     /// <summary>Steam's lobbies and message queues, shared by several fake clients.</summary>
-    sealed class FakeNet
+    internal sealed class FakeNet
     {
         public sealed class Lobby
         {
@@ -19,9 +19,10 @@ static class PartyTests
         public readonly Dictionary<ulong, (SteamId Client, SteamId Lobby, bool Ok)> Calls = new();
         public ulong NextCall = 100, NextLobby = 9000;
         public double Now;
+        public readonly Dictionary<(SteamId,string),string> Rich = new();
     }
 
-    sealed class FakeSteam(FakeNet net, ulong id, string name) : ISteamBackend
+    internal sealed class FakeSteam(FakeNet net, ulong id, string name) : ISteamBackend
     {
         public SteamId Id { get; } = new(id);
         public bool EatResults;
@@ -85,10 +86,20 @@ static class PartyTests
         public void SetJoinable(SteamId lobby, bool joinable) => net.Lobbies[lobby].Joinable = joinable;
         public string MemberData(SteamId lobby, SteamId member, string key) => net.Lobbies.TryGetValue(lobby, out var l) && l.MemberData.TryGetValue((member, key), out var v) ? v : "";
         public void SetMemberData(SteamId lobby, string key, string value) => net.Lobbies[lobby].MemberData[(Id, key)] = value;
-        public bool InviteToLobby(SteamId lobby, SteamId friend) => true;
-        public void OpenInviteOverlay(SteamId lobby) { }
+        public int SteamInvites, OverlayOpens;
+        public bool InviteToLobby(SteamId lobby, SteamId friend) { SteamInvites++; return true; }
+        public void OpenInviteOverlay(SteamId lobby) { OverlayOpens++; }
+        public readonly List<SteamId> PresenceRequests = new();
+        public readonly List<SteamId> PlayedWith = new();
+        public void MarkPlayedWith(SteamId player) => PlayedWith.Add(player);
+        public void RequestPresence(SteamId player) => PresenceRequests.Add(player);
+        public string RichPresence(SteamId player, string key) => net.Rich.GetValueOrDefault((player,key), "");
         public readonly Dictionary<string, string> Presence = new();
-        public void SetRichPresence(string key, string? value) { if (value is null) Presence.Remove(key); else Presence[key] = value; }
+        public void SetRichPresence(string key, string? value)
+        {
+            if (string.IsNullOrEmpty(value)) { Presence.Remove(key); net.Rich.Remove((Id,key)); }
+            else { Presence[key] = value; net.Rich[(Id,key)] = value; }
+        }
         public bool Send(SteamId to, ReadOnlySpan<byte> data, bool reliable)
         {
             if (!net.Inboxes.TryGetValue(to, out var q)) net.Inboxes[to] = q = new();
@@ -186,7 +197,7 @@ static class PartyTests
         var (net, a, b) = Pair();
         var stranger = new FakeSteam(net, 99, "Eve");
         stranger.Send(a.Steam.Id, Wire.Frame(Wire.KindMod, "slvsh", "boo"u8), true);
-        b.Steam.Send(a.Steam.Id, "JB\u0001\u0000ÿbroken"u8, true);
+        b.Steam.Send(a.Steam.Id, "JB\u0001\u0000ÃƒÂ¿broken"u8, true);
         b.Steam.Send(a.Steam.Id, "not a frame"u8, true);
         Run(net, a, b);
         Assert.Equal(0, a.Got.Count);
