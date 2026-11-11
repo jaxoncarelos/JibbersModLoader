@@ -113,6 +113,16 @@
       "description": "Uncaps the game's Terrain and Object Render Distance options past 1500 m (up to 50 km).",
       "legacy": false,
       "assets": []
+    },
+    {
+      "folder": "PhoneCamera",
+      "modId": "phone_camera",
+      "authors": ["scotttucker1599"],
+      "id": "jibbers_phone_camera",
+      "name": "Phone Camera",
+      "description": "Film your mates through your phone: follow cam, zoom, selfie, portrait, first person, motion blur and MP4 clips.",
+      "legacy": false,
+      "assets": []
     }
   ]
 }
