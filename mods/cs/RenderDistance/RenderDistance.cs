@@ -123,9 +123,9 @@ public sealed unsafe class RenderDistanceMod : JibbersMod
         // two arrays can never disagree in length.
         var floats = Il2Cpp.NewArray(Il2Cpp.RequireClass("mscorlib.dll", "System.Single"), values.Length);
         for (var i = 0; i < values.Length; i++) ((float*)Il2Cpp.ArrayData(floats))[i] = values[i];
-        raw.sbd = floats;
-        if (raw.sbc != 0) row.SetOptions(Il2Cpp.StringArray(options), index, false);
-        raw.sbd = floats; // SetOptions may rebuild the values; keep ours either way
+        raw.wut = floats;
+        if (raw.wus != 0) row.SetOptions(Il2Cpp.StringArray(options), index, false);
+        raw.wut = floats; // SetOptions may rebuild the values; keep ours either way
     }
 }
 

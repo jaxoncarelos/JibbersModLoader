@@ -32,7 +32,7 @@ internal sealed unsafe class GameContentAdapter : IDisposable
     readonly Action<string> log;
     readonly ContentBindings bindings = new();
     readonly UnityAssetFactory assets = new();
-    readonly PreparationQueue preparation = new();
+    readonly PreparationQueue preparation;
     readonly Dictionary<nint, ImportOperation> imports = [];
     readonly List<IDisposable> hooks = [];
     readonly Il2CppMethod frameCount = Il2Cpp.RequireClass(Unity.Core, "UnityEngine.Time").Method("get_frameCount", 0);
@@ -59,22 +59,35 @@ internal sealed unsafe class GameContentAdapter : IDisposable
         this.log = log;
         if (frameCount.IsNull || interfaceDispose.IsNull) throw new NotSupportedException("Content lifecycle APIs are unavailable.");
         gameModule = NativeLibrary.Load(Path.Combine(Bootstrap.GameDir, "GameAssembly.dll"));
+        var acceleratesTextures = bindings.ReadTexture is not null;
+        preparation = new PreparationQueue((snapshot, emit, cancellation) => ArchiveDecoder.Prepare(snapshot, emit, cancellation, acceleratesTextures));
         try
         {
             MipmapGenerator.Selected = MipmapFilter.None;
-            NativeParityCheck.Run(assets, bindings);
-            SafeLog("Native PNG/OBJ parity fixtures passed (pixels, alpha, mipmaps, geometry, UVs, normals, winding and tangents).");
-            try { MipmapGenerator.Selected = NativeMipCalibration.Find(assets); }
-            catch (Exception error) { MipmapGenerator.Selected = MipmapFilter.None; SafeLog("Worker mip filtering retained native generation: " + error.Message); }
-            try { assets.BatchesVerified = NativeMipCalibration.VerifyBatches(assets); }
-            catch (Exception error) { SafeLog("Texture row upload disabled: " + error.Message); }
-            SafeLog($"Texture row upload parity verified: {assets.BatchesVerified}.");
-            SafeLog($"Texture upload path: {assets.TexturePath}; exact worker mip filter: {MipmapGenerator.Selected} (opaque power-of-two images only).");
+            NativeParityCheck.Run(assets, bindings, acceleratesTextures);
+            if (acceleratesTextures)
+            {
+                SafeLog("Native PNG/OBJ parity fixtures passed (pixels, alpha, mipmaps, geometry, UVs, normals, winding and tangents).");
+                try { MipmapGenerator.Selected = NativeMipCalibration.Find(assets); }
+                catch (Exception error) { MipmapGenerator.Selected = MipmapFilter.None; SafeLog("Worker mip filtering retained native generation: " + error.Message); }
+                try { assets.BatchesVerified = NativeMipCalibration.VerifyBatches(assets); }
+                catch (Exception error) { SafeLog("Texture row upload disabled: " + error.Message); }
+                SafeLog($"Texture row upload parity verified: {assets.BatchesVerified}.");
+                SafeLog($"Texture upload path: {assets.TexturePath}; exact worker mip filter: {MipmapGenerator.Selected} (opaque power-of-two images only).");
+            }
+            else
+            {
+                SafeLog("Native OBJ parity fixtures passed (geometry, UVs, normals, winding and tangents).");
+                SafeLog("This game build decodes session textures on its own worker: textures stay on the game's path; only OBJ meshes are prepared here.");
+            }
             resolveVirtual = (delegate* unmanaged<nint, nint, nint>)NativeLibrary.GetExport(gameModule, "il2cpp_object_get_virtual_method");
             advance = bindings.Step.Detour<Advance>(AdvanceImport);
             hooks.Add(advance);
-            texture = bindings.ReadTexture.Detour<ReadEntry>(ReadTexture);
-            hooks.Add(texture);
+            if (bindings.ReadTexture is { } readTexture)
+            {
+                texture = readTexture.Detour<ReadEntry>(ReadTexture);
+                hooks.Add(texture);
+            }
             text = bindings.ReadText.Detour<ReadEntry>(ReadText);
             hooks.Add(text);
             mesh = bindings.ParseMesh.Detour<ParseMesh>(ParsePreparedMesh);
@@ -84,7 +97,7 @@ internal sealed unsafe class GameContentAdapter : IDisposable
             register = bindings.Register.Detour<RegisterEntry>(RegisterContent);
             hooks.Add(register);
             // All replacement callbacks can reach their original before interception begins.
-            texture.Enable();
+            texture?.Enable();
             text.Enable();
             mesh.Enable();
             reset.Enable();

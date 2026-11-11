@@ -224,7 +224,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
         if (r == 0)
         {
             var sp = Spawner();
-            if (sp != 0) { try { r = new Jibbers.Interop.Game.RagdollSpawner(sp).pha.Ptr; } catch { } }
+            if (sp != 0) { try { r = new Jibbers.Interop.Game.RagdollSpawner(sp).tdr.Ptr; } catch { } }
         }
         if (r == 0 || Unity.IsNull(r)) { haveRider = false; if (logged.Add("no-rider")) Log("Free Look: no rider found for the rear view"); return; }
         if (logged.Add("rider-ok")) Log($"Free Look: rider for the rear view: '{Unity.Name(r)}' ({Il2Cpp.ClassOf(r).Name})");

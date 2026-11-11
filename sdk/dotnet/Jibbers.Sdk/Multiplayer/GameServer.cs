@@ -14,9 +14,9 @@ internal readonly record struct ServerInfo(bool Hosting, bool Client, int Port, 
 }
 
 /// <summary>
-/// The game's networking, through its network manager (<c>ks</c>, which owns FishNet's
+/// The game's networking, through its network manager (<c>oy</c>, which owns FishNet's
 /// NetworkManager and the Tugboat UDP transport). The server browser's "join" is
-/// <c>ks.Connect(address, port, password)</c>; joining through the tunnel calls exactly that with
+/// <c>oy.Connect(address, port, password)</c>; joining through the tunnel calls exactly that with
 /// the local relay's address. Main thread only.
 /// </summary>
 internal static class GameServer
@@ -26,12 +26,12 @@ internal static class GameServer
     static GameRef? manager, transport;
 
     /// <summary>The game's network manager, found once and kept while it lives (finding objects is slow).</summary>
-    static ks Manager()
+    static oy Manager()
     {
-        if (manager is { } m && !Unity.IsNull(m.Target)) return new ks(m.Target);
+        if (manager is { } m && !Unity.IsNull(m.Target)) return new oy(m.Target);
         manager?.Dispose();
         manager = null;
-        var k = ks.Live().FirstOrDefault(k => !k.IsNull && !Unity.IsNull(k.Ptr));
+        var k = oy.Live().FirstOrDefault(k => !k.IsNull && !Unity.IsNull(k.Ptr));
         if (!k.IsNull) manager = new GameRef(k.Ptr);
         return k;
     }
@@ -40,12 +40,12 @@ internal static class GameServer
     {
         var k = Manager();
         if (k.IsNull) return ServerInfo.None;
-        var network = ks.qxx_Field.GetObject(k.Ptr);
+        var network = oy.vkn_Field.GetObject(k.Ptr);
         if (network == 0 || Unity.IsNull(network)) return ServerInfo.None;
         var type = Il2Cpp.ClassOf(network);
         var hosting = Flag(type, network, "get_IsServerStarted");
         var client = Flag(type, network, "get_IsClientStarted");
-        var auth = k.qxy;
+        var auth = k.vko;
         if (!hosting)
         {
             if (!client) return new ServerInfo(false, false, 0, "");
@@ -83,7 +83,7 @@ internal static class GameServer
     {
         foreach (var placer in ObjectPlacer.Class.Live())
             if (placer != 0 && !Unity.IsNull(placer))
-                new ObjectPlacer(placer).bqn();
+                new ObjectPlacer(placer).cho();
     }
 
     static bool Flag(Il2CppClass type, nint obj, string getter)
@@ -121,8 +121,8 @@ internal static class GameServer
     {
         var t = Transport();
         var getPort = tugboat.IsNull ? default : tugboat.Method("GetPort", 0);
-        if (t == 0 || getPort.IsNull) return ks.DefaultPort;
+        if (t == 0 || getPort.IsNull) return oy.DefaultPort;
         var port = getPort.Invoke<ushort>(t);
-        return port != 0 ? port : ks.DefaultPort;
+        return port != 0 ? port : oy.DefaultPort;
     }
 }

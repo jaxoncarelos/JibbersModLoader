@@ -35,9 +35,9 @@ internal sealed unsafe class TextBanner : IDisposable
         var tmp = Unity.Class("TMPro.TMP_Text");
         try
         {
-            foreach (var z in Jibbers.Interop.Game.zo.Live())
+            foreach (var z in Jibbers.Interop.Game.bij.Live())
             {
-                var container = z.uhc.Ptr;
+                var container = z.zyt.Ptr;
                 if (container == 0 || Unity.IsNull(container)) continue;
                 foreach (var t in Unity.GetComponentsInChildren(container, tmp, true))
                 {

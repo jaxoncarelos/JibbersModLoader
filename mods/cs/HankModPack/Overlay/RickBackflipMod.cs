@@ -511,7 +511,7 @@ public sealed class RickBackflipMod : HankModPack.PackPart
             try
             {
                 trickRoots.Dispose();
-                gameTrickLists = Jibbers.Interop.Game.zo.Live().Select(z => z.Ptr).ToArray();
+                gameTrickLists = Jibbers.Interop.Game.bij.Live().Select(z => z.Ptr).ToArray();
                 foreach (var pointer in gameTrickLists) trickRoots.Keep(pointer);
                 if (gameTrickLists.Length > 0) LogOnce($"Game trick display found ({gameTrickLists.Length}): hidden while banners are on.");
             }
@@ -524,7 +524,7 @@ public sealed class RickBackflipMod : HankModPack.PackPart
             try
             {
                 if (Unity.IsNull(list)) continue;
-                var rect = new Jibbers.Interop.Game.zo(list).uhc.Ptr;
+                var rect = new Jibbers.Interop.Game.bij(list).zyt.Ptr;
                 if (rect == 0 || Unity.IsNull(rect)) continue;
                 originalTricks.Hide(rect);
             }

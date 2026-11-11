@@ -26,7 +26,7 @@ internal sealed class DronePresentation(Action<string> log) : IDronePresentation
         {
             try
             {
-                audio = new DroneAudio();
+                audio = new DroneAudio(log);
             }
             catch (Exception exception)
             {

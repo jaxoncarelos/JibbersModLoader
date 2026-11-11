@@ -32,7 +32,7 @@ internal sealed unsafe class Rider : IDisposable
     public static Vector3 Centre(RagdollController r) => Unity.Position(r.Ptr);
 
     /// <summary>Puts the whole body at a position, facing and speed (in its default stance).</summary>
-    public static void Place(RagdollController r, Vector3 at, Quaternion facing, Vector3 velocity) => r.daw(at, facing, velocity);
+    public static void Place(RagdollController r, Vector3 at, Quaternion facing, Vector3 velocity) => r.dzk(at, facing, velocity);
 
     /// <summary>The game won't open the phone off the ground otherwise.</summary>
     public static void AllowPhone(RagdollController r) => r.canOpenPhone = true;
@@ -58,7 +58,7 @@ internal sealed unsafe class Rider : IDisposable
         {
             if (part.IsNull || Unity.IsNull(part.Ptr))
                 continue;
-            all.Add((part._pbx_k__BackingField.Ptr, Unity.Position(part.Ptr), part.IsShell, part._pbw_k__BackingField.Ptr == me.Ptr));
+            all.Add((part._syi_k__BackingField.Ptr, Unity.Position(part.Ptr), part.IsShell, part._syh_k__BackingField.Ptr == me.Ptr));
         }
         // Should the parts' owner ever read wrong, the non-shell parts are still yours (only your rider has them).
         var byOwner = all.Any(p => p.Ours && !p.Shell);
@@ -135,7 +135,7 @@ internal sealed unsafe class Rider : IDisposable
     /// <summary>Sits the rider down (cheap to call again: it only re-bends the legs).</summary>
     public void Sit(RagdollController r, double hipPercent, double kneePercent)
     {
-        var poser = r._ozk_k__BackingField;
+        var poser = r._svc_k__BackingField;
         if (poser.IsNull || SittingPose(hipPercent, kneePercent) is not { } pose)
             return;
         if (poser.overridePose.Ptr != pose.Ptr)
@@ -150,7 +150,7 @@ internal sealed unsafe class Rider : IDisposable
     {
         if (r is not { } rider || rider.IsNull || Unity.IsNull(rider.Ptr))
             return;
-        var poser = rider._ozk_k__BackingField;
+        var poser = rider._svc_k__BackingField;
         if (poser.IsNull)
             return;
         if (sitting is not null && poser.overridePose.Ptr == sitting.Target)
@@ -171,7 +171,7 @@ internal sealed unsafe class Rider : IDisposable
     /// <summary>Makes the rider look at <paramref name="at"/> (straight ahead up the lift).</summary>
     public void LookAt(RagdollController r, Vector3 at)
     {
-        var poser = r._ozk_k__BackingField;
+        var poser = r._svc_k__BackingField;
         if (poser.IsNull)
             return;
         if (look is null || Unity.IsNull(look.Target))

@@ -7,7 +7,15 @@ namespace JibbersAsyncContent.Integration;
 /// <summary>Runs tiny local fixtures before any hook is enabled; refuses acceleration if Unity output differs.</summary>
 internal static unsafe class NativeParityCheck
 {
-    public static void Run(UnityAssetFactory factory, ContentBindings bindings)
+    public static void Run(UnityAssetFactory factory, ContentBindings bindings, bool textures = true)
+    {
+        if (textures) CheckTextures(factory);
+        CheckMesh(factory, bindings, "v 1 0 0\nv 0 1 0\nv 0 0 1\nv 1 1 0\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\nvn 1 0 0\nf 1/1/1 2/2/1 3/3/1 4/4/1\n");
+        CheckMesh(factory, bindings, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf -3 -2 -1\nf 1 2 3\n");
+        CheckMesh(factory, bindings, "v 0 0 0 1 0 0\nv 1 0 0 0 1 0\nv 0 1 0 0 0 1\nvt 0 0 0\nvt 1 0 0\nvt 0 1 0\nvn 0 0 1\nf 1/1/1 2/2/1 3/3/1\nf 1/1 3/3 2/2\nignored metadata\n");
+    }
+
+    static void CheckTextures(UnityAssetFactory factory)
     {
         CheckTexture(factory);
         var assembly = typeof(NativeParityCheck).Assembly;
@@ -19,9 +27,6 @@ internal static unsafe class NativeParityCheck
             try { CheckTexture(factory, bytes.ToArray()); }
             catch (Exception error) { throw new NotSupportedException("PNG parity failed for " + fixture, error); }
         }
-        CheckMesh(factory, bindings, "v 1 0 0\nv 0 1 0\nv 0 0 1\nv 1 1 0\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\nvn 1 0 0\nf 1/1/1 2/2/1 3/3/1 4/4/1\n");
-        CheckMesh(factory, bindings, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf -3 -2 -1\nf 1 2 3\n");
-        CheckMesh(factory, bindings, "v 0 0 0 1 0 0\nv 1 0 0 0 1 0\nv 0 1 0 0 0 1\nvt 0 0 0\nvt 1 0 0\nvt 0 1 0\nvn 0 0 1\nf 1/1/1 2/2/1 3/3/1\nf 1/1 3/3 2/2\nignored metadata\n");
     }
 
     static void CheckTexture(UnityAssetFactory factory, byte[]? encodedPng = null)

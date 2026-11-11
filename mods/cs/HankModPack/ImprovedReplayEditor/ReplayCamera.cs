@@ -501,7 +501,7 @@ public sealed unsafe class ReplayCameraMod : PackPart
                     lastTsProbe = nowP; tsProbeLogs++;
                     var rec = Recorder.Instance.Raw;
                     Log($"replay camera: TS probe: key {kts:0.###}, Time.timeScale {GetTimeScale():0.###}, playhead {rec.playbackTime:0.000}s, camera '{activeMode}', "
-                        + $"rec f[pxq {rec.pxq:0.###} pyj {rec.pyj:0.###} pyo {rec.pyo:0.###}] i[pxc {rec.pxc} pxd {rec.pxd} pxm {rec.pxm} pyp {rec.pyp}] b[pxv {rec.pxv} pxw {rec.pxw} pyi {rec.pyi} pyn {rec.pyn} pyq {rec.pyq} pyr {rec.pyr}]");
+                        + $"rec f[pxq {rec.ubr:0.###} pyj {rec.ucm:0.###} pyo {rec.ucr:0.###}] i[pxc {rec.uax} pxd {rec.uay} pxm {rec.ubj} pyp {rec.ucs}] b[pxv {rec.ubw} pxw {rec.uby} pyi {rec.ucl} pyn {rec.ucq} pyq {rec.uct} pyr {rec.ucu}]");
                 }
             }
             catch (Exception e) { LogOnce("ts-probe", e); }
