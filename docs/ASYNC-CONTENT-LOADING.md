@@ -6,6 +6,18 @@ Prevent downloaded session content from freezing active gameplay when a player j
 
 Status: 0.1.3 passed the expanded native PNG/OBJ checks and qualified exact worker mip filtering as PairFloorRows. Its first 11 live imports accelerated 32 textures and two meshes with zero decoding or upload fallbacks. The worst measured original step was 11.17 ms; the worst staged upload was 13.72 ms. This removes the observed large normal-map decoding fallbacks, but does not eliminate noticeable stutter. The 0.1.4 candidate splits large texture copies into bounded row batches across frames, verifies every mip against all 19 native PNG fixtures before enabling that path, and replaces per-byte archive snapshots with bulk copies. Offline tests pass; native activation and a matching live performance comparison for 0.1.4 are pending. Final Apply, registration and mesh work remain indivisible calls and are still measured separately.
 
+## Game build 26596007 (November 2026)
+
+The game now decodes session PNGs on its own worker: the archive coroutine reads each entry's bytes,
+starts a texture decode task and polls it, then uploads the result on the main thread. The
+synchronous zip-entry-to-Texture2D decoder this mod intercepted is gone, so its symbol is now
+optional (`async_content.texture_reader`): on this build textures stay entirely on the game's path,
+PNGs are not read on our workers, and the PNG parity fixtures are skipped. OBJ meshes are still parsed
+synchronously by the game and keep the worker preparation. The OBJ parser the coroutine calls is now
+the first `(string, string) -> Mesh` method of its class (ordinal 0, was 1 on the October build),
+verified against Cpp2IL call analysis and the native parity fixtures at startup. In-game join on build
+26596007: imports completed with 0 upload fallbacks and one worker-prepared mesh.
+
 ## 0.1.1 correction after the first live test
 
 The 0.1.0 log proved activation (53 textures and six meshes accelerated), but also showed 51 fallback entries and original coroutine steps up to 1,204.08 ms. It did not prove the cause of each remaining stall. Inspection of local assets found grayscale and 16-bit PNGs and extended OBJ coordinate records excluded by the first decoder. These are supported by 0.1.1.

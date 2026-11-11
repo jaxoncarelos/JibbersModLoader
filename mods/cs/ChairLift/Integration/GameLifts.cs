@@ -45,7 +45,7 @@ internal static unsafe class GameLifts
     /// <summary>The lift's carriers (chairs or T-bars).</summary>
     public static List<nint> Carriers(LiftLine lift)
     {
-        var list = lift.nkm;
+        var list = lift.qve;
         var result = new List<nint>();
         if (list == 0)
             return result;

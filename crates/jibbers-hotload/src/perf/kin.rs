@@ -18,6 +18,8 @@ pub const M_GEOM_BODYID: usize = 1936;
 pub const M_GEOM_SAMEFRAME: usize = 1984;
 pub const M_GEOM_POS: usize = 2040;
 pub const M_GEOM_QUAT: usize = 2048;
+pub const M_BODY_POS: usize = 1472;
+pub const M_BODY_QUAT: usize = 1480;
 pub const D_GEOM_XPOS: usize = 161848;
 pub const D_GEOM_XMAT: usize = 161856;
 
@@ -32,8 +34,63 @@ pub struct Plan {
     pub probe: i32, // a static geom outside [lo,hi) used to detect a reset (-1: none)
 }
 
-struct State { plan: Plan, primed: bool }
+/// Per (model, data). A static geom's pose depends only on its body's pose (body_pos/quat down the
+/// welded chain) and its own geom_pos/quat. The game may change those after the first pass (it
+/// places, moves and streams colliders in place on build 26596007+) or recompile the model in
+/// place (same struct addresses, new arrays), so every step compares them with the values the last
+/// full pass used: a memcmp of a few arrays, far cheaper than recomputing every geom pose.
+struct State {
+    plan: Plan,
+    primed: bool,
+    sig: [usize; 6],
+    snap: Vec<u8>,
+    steps: u64,
+    changes: u64,
+    off: bool,
+}
 static STATES: Mutex<Option<HashMap<(usize, usize), State>>> = Mutex::new(None);
+
+/// Array identities: an in-place recompile reallocates them even if the counts stay the same.
+unsafe fn signature(m: *const c_void, d: *mut c_void) -> [usize; 6] {
+    [rd::<usize>(m, M_GEOM_POS), rd::<usize>(m, M_GEOM_QUAT), rd::<usize>(m, M_BODY_POS), rd::<usize>(m, M_BODY_QUAT),
+     rd::<usize>(d, D_GEOM_XPOS), rd::<usize>(d, D_GEOM_XMAT)]
+}
+
+/// The model inputs static geom poses depend on, as (what, first index, byte slice, values per item):
+/// every body's pos/quat (bodies are few) and the static geoms' pos/quat outside [lo, hi).
+unsafe fn inputs<'a>(m: *const c_void, p: &Plan) -> [(&'static str, usize, &'a [u8], usize); 6] {
+    let nbody = rd::<i32>(m, M_NBODY).max(0) as usize;
+    let (lo, hi, n) = (p.lo as usize, p.hi as usize, p.ngeom as usize);
+    let bytes = |off: usize, first: usize, count: usize, per: usize| -> &'a [u8] {
+        let base = ptr::<f64>(m, off);
+        if base.is_null() || count == 0 { &[] } else { std::slice::from_raw_parts(base.add(first * per) as *const u8, count * per * 8) }
+    };
+    [("body_pos", 0, bytes(M_BODY_POS, 0, nbody, 3), 3),
+     ("body_quat", 0, bytes(M_BODY_QUAT, 0, nbody, 4), 4),
+     ("geom_pos", 0, bytes(M_GEOM_POS, 0, lo, 3), 3),
+     ("geom_quat", 0, bytes(M_GEOM_QUAT, 0, lo, 4), 4),
+     ("geom_pos", hi, bytes(M_GEOM_POS, hi, n - hi, 3), 3),
+     ("geom_quat", hi, bytes(M_GEOM_QUAT, hi, n - hi, 4), 4)]
+}
+
+unsafe fn snapshot(m: *const c_void, p: &Plan, into: &mut Vec<u8>) {
+    into.clear();
+    for (_, _, b, _) in inputs(m, p) { into.extend_from_slice(b); }
+}
+
+/// The first input that differs from the snapshot, as "array[index]", or None if all match.
+unsafe fn changed(m: *const c_void, p: &Plan, snap: &[u8]) -> Option<String> {
+    let mut at = 0;
+    for (what, first, b, per) in inputs(m, p) {
+        let Some(old) = snap.get(at..at + b.len()) else { return Some("layout".into()) };
+        if old != b {
+            let i = old.iter().zip(b).position(|(x, y)| x != y).unwrap_or(0) / (8 * per);
+            return Some(format!("{what}[{}]", first + i));
+        }
+        at += b.len();
+    }
+    (at != snap.len()).then(|| "layout".into())
+}
 /// Where to report each new model's plan (set by the plugin; tests leave it unset).
 pub static LOG: std::sync::OnceLock<fn(String)> = std::sync::OnceLock::new();
 pub static ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
@@ -83,9 +140,10 @@ pub unsafe fn kinematics(original: Kin, m: *const c_void, d: *mut c_void) {
     let ngeom: i32 = rd(m, M_NGEOM);
     let mut g = STATES.lock().unwrap_or_else(|e| e.into_inner());
     let map = g.get_or_insert_with(HashMap::new);
-    let fresh = !map.contains_key(&key) || map[&key].plan.ngeom != ngeom;
+    let sig = signature(m, d);
+    let fresh = map.get(&key).is_none_or(|s| s.plan.ngeom != ngeom || s.sig != sig);
     if fresh {
-        map.insert(key, State { plan: plan(m), primed: false });
+        map.insert(key, State { plan: plan(m), primed: false, sig, snap: Vec::new(), steps: 0, changes: 0, off: false });
     }
     let st = map.get_mut(&key).unwrap();
     let p = st.plan;
@@ -97,17 +155,65 @@ pub unsafe fn kinematics(original: Kin, m: *const c_void, d: *mut c_void) {
         }
     }
     // Not worth it (or nothing static): plain call.
-    if p.stat < 64 || (p.hi - p.lo) as f64 > 0.8 * p.ngeom as f64 {
+    if st.off || p.stat < 64 || (p.hi - p.lo) as f64 > 0.8 * p.ngeom as f64 {
         drop(g);
         return original(m, d);
     }
-    if !st.primed || !poses_valid(d, p.probe) {
+    st.steps += 1;
+    let moved = if st.primed { changed(m, &p, &st.snap) } else { None };
+    if !st.primed || moved.is_some() || !poses_valid(d, p.probe) {
+        if let Some(what) = moved {
+            st.changes += 1;
+            if st.changes <= 5 {
+                if let Some(log) = LOG.get() {
+                    log(format!("static colliders changed in place ({what}, change {} after {} steps): recomputing every pose", st.changes, st.steps));
+                }
+            }
+            // Static colliders that keep moving gain nothing from skipping: stop for this model.
+            if st.changes >= 32 && st.changes * 4 >= st.steps {
+                st.off = true;
+                if let Some(log) = LOG.get() {
+                    log(format!("static colliders change on {} of {} steps on this map: skipping off for it", st.changes, st.steps));
+                }
+            }
+        }
         st.primed = true;
+        snapshot(m, &p, &mut st.snap); // the inputs this full pass uses
         drop(g);
         return original(m, d); // full pass: fills every static pose
     }
+    let verify = VERIFY.load(std::sync::atomic::Ordering::Relaxed) && st.steps % 60 == 0;
     drop(g);
     narrowed(original, m, d, p.lo, p.hi);
+    if verify {
+        verify_parity(original, m, d, &p);
+    }
+}
+
+/// Opt-in self-check (JIBBERS_PERF_VERIFY=1): after a narrowed step, recompute every pose with
+/// the original engine and compare the static geoms bit for bit with what skipping left in place.
+pub static VERIFY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static CHECKS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+unsafe fn verify_parity(original: Kin, m: *const c_void, d: *mut c_void, p: &Plan) {
+    let n = p.ngeom as usize;
+    let (xpos, xmat) = (ptr::<f64>(d, D_GEOM_XPOS), ptr::<f64>(d, D_GEOM_XMAT));
+    let before: (Vec<f64>, Vec<f64>) = (std::slice::from_raw_parts(xpos, 3 * n).to_vec(), std::slice::from_raw_parts(xmat, 9 * n).to_vec());
+    original(m, d); // the unpatched result for this exact state
+    let mut bad = 0usize;
+    let mut first = None;
+    for g in (0..n).filter(|g| (*g as i32) < p.lo || (*g as i32) >= p.hi) {
+        let same = (0..3).all(|k| before.0[3 * g + k].to_bits() == (*xpos.add(3 * g + k)).to_bits())
+            && (0..9).all(|k| before.1[9 * g + k].to_bits() == (*xmat.add(9 * g + k)).to_bits());
+        if !same { bad += 1; first.get_or_insert(g); }
+    }
+    let k = CHECKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    if let Some(log) = LOG.get() {
+        if bad > 0 {
+            log(format!("parity check {k}: {bad} of {} static geom poses differ from the unpatched engine (first: geom {})", p.stat, first.unwrap_or(0)));
+        } else if k % 50 == 1 {
+            log(format!("parity check {k}: all {} static geom poses bit-identical to the unpatched engine", p.stat));
+        }
+    }
 }
 
 unsafe fn narrowed(original: Kin, m: *const c_void, d: *mut c_void, lo: i32, hi: i32) {
@@ -154,6 +260,10 @@ pub unsafe fn install(module: windows_sys::Win32::Foundation::HMODULE) -> Result
         return Err(format!("made for MuJoCo 3.3.6, the game has {v}"));
     }
     let _ = LOG.set(|s| super::say(s));
+    if std::env::var_os("JIBBERS_PERF_VERIFY").is_some_and(|v| !v.is_empty() && v != "0") {
+        VERIFY.store(true, std::sync::atomic::Ordering::Relaxed);
+        super::say("static collider parity self-check on (JIBBERS_PERF_VERIFY)");
+    }
     let target: Kin = std::mem::transmute(super::pcore::function(module, "mj_kinematics")?);
     let det = retour::GenericDetour::new(target, detour as Kin).map_err(|e| e.to_string())?;
     det.enable().map_err(|e| e.to_string())?;
@@ -198,6 +308,79 @@ mod tests {
         let p = unsafe { plan(m.mem.as_ptr() as *const c_void) };
         assert_eq!((p.lo, p.hi, p.stat), (2, 4, 3));
         assert_eq!(p.probe, 0);
+    }
+
+    /// A model + data that `kinematics` can run on: 100 static geoms on body 1 (welded to the
+    /// world), then 2 movable geoms on body 2 (free). The fake engine records ngeom per call.
+    struct Scene { m: FakeModel, d: Vec<u8>, gpos: Vec<f64>, gquat: Vec<f64>, bpos: Vec<f64>, bquat: Vec<f64>, xpos: Vec<f64>, xmat: Vec<f64> }
+    fn scene() -> Scene {
+        let geoms: Vec<i32> = std::iter::repeat(1).take(100).chain([2, 2]).collect();
+        let m = model(&[0, 0, 2], &[-1, -1, -1], &[0, 0, 0], &geoms);
+        let mut s = Scene { m, d: vec![0u8; D_GEOM_XMAT + 8], gpos: vec![0.5; 102 * 3], gquat: vec![1.0; 102 * 4], bpos: vec![0.0; 9], bquat: vec![1.0; 12], xpos: vec![0.0; 102 * 3], xmat: vec![1.0; 102 * 9] };
+        s.wire();
+        s
+    }
+    impl Scene {
+        fn wire(&mut self) {
+            let put = |mem: &mut Vec<u8>, off: usize, p: usize| mem[off..off + 8].copy_from_slice(&p.to_le_bytes());
+            put(&mut self.m.mem, M_GEOM_POS, self.gpos.as_ptr() as usize);
+            put(&mut self.m.mem, M_GEOM_QUAT, self.gquat.as_ptr() as usize);
+            put(&mut self.m.mem, M_BODY_POS, self.bpos.as_ptr() as usize);
+            put(&mut self.m.mem, M_BODY_QUAT, self.bquat.as_ptr() as usize);
+            put(&mut self.d, D_GEOM_XPOS, self.xpos.as_ptr() as usize);
+            put(&mut self.d, D_GEOM_XMAT, self.xmat.as_ptr() as usize);
+        }
+        /// Runs one step; returns the ngeom the engine saw (102 = full pass, 2 = narrowed).
+        fn step(&mut self) -> i32 {
+            thread_local!(static SEEN: std::cell::Cell<i32> = const { std::cell::Cell::new(-1) });
+            unsafe extern "C" fn engine(m: *const c_void, _d: *mut c_void) { SEEN.with(|s| s.set(rd::<i32>(m, M_NGEOM))); }
+            unsafe { kinematics(engine, self.m.mem.as_ptr() as *const c_void, self.d.as_mut_ptr() as *mut c_void) };
+            SEEN.with(|s| s.get())
+        }
+    }
+
+    #[test]
+    fn unchanged_static_colliders_are_skipped_after_one_full_pass() {
+        let mut s = scene();
+        assert_eq!(s.step(), 102, "first step fills every pose");
+        assert_eq!(s.step(), 2);
+        assert_eq!(s.step(), 2);
+    }
+
+    #[test]
+    fn a_static_collider_moved_in_place_gets_a_full_pass() {
+        let mut s = scene();
+        s.step();
+        assert_eq!(s.step(), 2);
+        s.gpos[3 * 40 + 1] = 9.0; // the game moves static geom 40
+        assert_eq!(s.step(), 102, "moved geom pose must be recomputed");
+        assert_eq!(s.step(), 2, "and skipping resumes once it is up to date");
+        s.bpos[3 + 2] = -4.0; // the game moves static body 1
+        assert_eq!(s.step(), 102, "geoms of a moved static body must be recomputed");
+        s.gquat[4 * 99] = 0.5;
+        assert_eq!(s.step(), 102);
+    }
+
+    #[test]
+    fn an_in_place_recompile_replans() {
+        let mut s = scene();
+        s.step();
+        assert_eq!(s.step(), 2);
+        s.gpos = vec![0.5; 102 * 3]; // same values, new array: the model was rebuilt in place
+        s.wire();
+        assert_eq!(s.step(), 102);
+    }
+
+    #[test]
+    fn colliders_that_keep_moving_turn_skipping_off_for_that_model() {
+        let mut s = scene();
+        for i in 0..64 {
+            s.gpos[0] = i as f64;
+            assert_eq!(s.step(), 102);
+        }
+        s.gpos[0] = -1.0;
+        assert_eq!(s.step(), 102);
+        assert_eq!(s.step(), 102, "skipping stays off for a model whose static colliders keep moving");
     }
 
     #[test]

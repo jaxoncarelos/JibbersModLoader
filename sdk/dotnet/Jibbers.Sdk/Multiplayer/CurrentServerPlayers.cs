@@ -7,11 +7,11 @@ namespace Jibbers.Sdk.Multiplayer;
 // This never advertises data through FishNet or changes another player's state.
 internal static unsafe class CurrentServerPlayers
 {
-    static readonly SceneObjectCache<mc> manager = new(() =>
+    static readonly SceneObjectCache<qk> manager = new(() =>
     {
-        var current = mc.rev;
+        var current = qk.vsz;
         if (!current.IsNull && !Unity.IsNull(current.Ptr)) return current;
-        foreach (var candidate in mc.Live()) if (!candidate.IsDead()) return candidate;
+        foreach (var candidate in qk.Live()) if (!candidate.IsDead()) return candidate;
         return null;
     });
     static Il2CppClass int32;
@@ -21,9 +21,9 @@ internal static unsafe class CurrentServerPlayers
     public static IReadOnlyList<ServerPlayer> Read()
     {
         RosterCount = SteamCount = 0;
-        if (manager.Get() is not { } current || current.rey == 0 || current.rex == 0) return [];
-        var details = current.rey;
-        var players = current.rex;
+        if (manager.Get() is not { } current || current.vtc == 0 || current.vtb == 0) return [];
+        var details = current.vtc;
+        var players = current.vtb;
         var type = Il2Cpp.ClassOf(players);
         var count = type.Method("get_Count", 0).Invoke<int>(players);
         if (count is <= 0 or > 128) return [];
@@ -41,10 +41,10 @@ internal static unsafe class CurrentServerPlayers
         {
             var id = key;
             if (!contains.Invoke<bool>(details, (nint)(&id))) continue;
-            var detail = new lg(get.Invoke(details, (nint)(&id)));
+            var detail = new pp(get.Invoke(details, (nint)(&id)));
             if (detail.IsNull) continue;
             // Display names are deliberately excluded as identity candidates.
-            foreach (var account in new[] { detail.ram, detail.ran, detail.rao })
+            foreach (var account in new[] { detail.vnx, detail.vny, detail.vnz })
                 if (TryAccount(account, out var steam))
                 { result.Add(new(steam, current.Name(id) ?? "Player")); break; }
         }

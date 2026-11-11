@@ -23,7 +23,13 @@ knows, which covers PlayStation and other pads without Steam Input.
 `Rumble.cs` is the entry point (`RumbleMod`). `RumbleDirector` turns the game's sounds and what the
 rider is doing into two motor levels, without the game. `Integration/GameAudio` follows the game's
 AudioManager: a detour of `AudioManager.Play`, which every one-shot sound goes through, and its array
-of loop volumes for the rail slide. `RiderProbe` measures the rider (how high the lowest part of the
+of loop volumes for the rail slide. Since game build 26596007 the one-shots are FMOD events: the
+detour is on the AudioManager method shaped `static void (EventReference, Vector3, (string, float)[])`,
+events are recognised by comparing their GUID with the named fields of the game's `AudioEvents` asset
+(`jump`, `land`, `bodyHit`, `knockout`, `skiDetach`), and the event's `*_Intensity` parameter stands in
+for the old volume (a body hit at 0.6 or more is a hard hit). That build has no rail-hit, break or
+explosion one-shot, no separate powder landing and no loop-volume array, so grinds come from tricks
+and rails under the feet. `RiderProbe` measures the rider (how high the lowest part of the
 body is, the slope under the feet, how upright the spine is) and `ControllerMotors` drives the pads.
 If the sounds can't be followed, landings, crashes and grinds fall back to being measured (and to
 slides the game scores, `TrickPerformed`). The log names each game sound the first time it's heard,

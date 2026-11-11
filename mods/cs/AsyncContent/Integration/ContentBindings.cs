@@ -18,7 +18,11 @@ internal sealed class ContentBindings
     public readonly MethodRef Step = new("async_content.iterator.step");
     public readonly MethodRef Reset = new("async_content.importer.reset");
     public readonly MethodRef ReadText = new("async_content.importer.text");
-    public readonly MethodRef ReadTexture = new("async_content.importer.texture");
+    /// <summary>
+    /// The synchronous zip-entry PNG decoder, or null on builds that decode session textures on a
+    /// worker themselves (November 2026 onwards): textures then stay entirely on the game's path.
+    /// </summary>
+    public readonly MethodRef? ReadTexture;
     public readonly MethodRef Register = new("async_content.importer.register");
     public readonly MethodRef ParseMesh = new("async_content.obj_parser.parse");
     public readonly FieldRef Bytes = new("async_content.iterator.bytes");
@@ -31,7 +35,8 @@ internal sealed class ContentBindings
 
     public unsafe ContentBindings()
     {
-        foreach (var method in new[] { Step, Reset, ReadText, ReadTexture, ParseMesh, Register })
+        ReadTexture = OptionalMethod("async_content.texture_reader.texture");
+        foreach (var method in new[] { Step, Reset, ReadText, ParseMesh, Register })
             if (method.NativeCode == 0) throw new NotSupportedException("Content method has no native implementation: " + method.Path);
         if (EntryName.IsNull) throw new NotSupportedException("Zip entry name API is unavailable.");
         _ = Bytes.Field;
@@ -49,6 +54,12 @@ internal sealed class ContentBindings
         State.Set(instance, -1);
         if (Step.Invoke<bool>(instance))
             throw new NotSupportedException("Stopped archive coroutine unexpectedly resumed.");
+    }
+    static MethodRef? OptionalMethod(string path)
+    {
+        var method = new MethodRef(path);
+        try { return method.NativeCode != 0 ? method : null; }
+        catch (Exception error) when (error is not OutOfMemoryException) { return null; }
     }
     public string Path(nint entry) => Il2Cpp.ReadString(EntryName.Invoke(entry)).Replace('\\', '/');
     public bool OwnsEntry(nint iterator, nint entry)

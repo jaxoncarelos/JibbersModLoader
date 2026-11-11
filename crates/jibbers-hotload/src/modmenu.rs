@@ -357,6 +357,65 @@ unsafe fn resized(arr: *mut Object, n: usize) -> R<*mut Object> {
     Ok(new)
 }
 
+/// Build 26596007+ TabMenus also keep per-tab names and menus. OptionsMenu reads them by tab index:
+/// Close (Back) and the tab listener need `menus[i]` for every tab, and every time Options opens it
+/// clears each entry that is a FormMenu and rebuilds it from `names[i]` (ours would become
+/// "Unknown options tab 'Mods'"). So our tab gets an entry that is navigable but not a FormMenu:
+/// the TabMenu's own tab row. Back then works, "up" from Back goes to the tab row, and our page is
+/// never rebuilt by the game. `names` is left alone (only read for FormMenu entries). Older builds
+/// have no such array. Added once OptionsMenu.Start has run (it subscribes the Action<int>
+/// listener), so Start's own per-menu setup never sees our entry.
+unsafe fn list_after_start(tab_menu: *mut Object, base: usize) -> R<()> {
+    let a = api();
+    let get = |f: *mut il2cpp::Field| {
+        let mut v: *mut Object = null_mut();
+        (a.field_get_value)(tab_menu, f, &mut v as *mut _ as _);
+        v
+    };
+    let (Ok(listener), Ok(menus_f), Ok(row_f)) =
+        (field_by_type(tab_menu, "System.Action<System.Int32>"), field_by_type(tab_menu, "NavigatableMenu[]"), field_by_type(tab_menu, "HorizontalList"))
+    else { return Ok(()) };
+    if get(listener).is_null() {
+        return Ok(()); // OptionsMenu.Start has not run yet
+    }
+    let (menus, row) = (get(menus_f), get(row_f));
+    if menus.is_null() || row.is_null() {
+        return Ok(());
+    }
+    let len = (a.array_length)(menus) as usize;
+    if len != base && len != base + 1 {
+        return Ok(()); // not one entry per tab: leave it alone
+    }
+    let grown = if len == base { resized(menus, base + 1)? } else { menus };
+    *il2cpp::array_data::<*mut Object>(grown).add(base) = row;
+    (a.field_set_value)(tab_menu, menus_f, grown as *mut c_void);
+    Ok(())
+}
+
+/// Drops our entry from that array again (teardown).
+unsafe fn unlist(tab_menu: *mut Object, base: usize) {
+    let a = api();
+    let Ok(f) = field_by_type(tab_menu, "NavigatableMenu[]") else { return };
+    let mut arr: *mut Object = null_mut();
+    (a.field_get_value)(tab_menu, f, &mut arr as *mut _ as _);
+    if !arr.is_null() && (a.array_length)(arr) as usize == base + 1 {
+        if let Ok(shrunk) = resized(arr, base) {
+            (a.field_set_value)(tab_menu, f, shrunk as *mut c_void);
+        }
+    }
+}
+
+/// Our tab's index: the first of our buttons in the TabMenu.
+unsafe fn our_tab(tab_menu: *mut Object) -> Option<usize> {
+    let f = field_by_type(tab_menu, "Button[]").ok()?;
+    let mut arr: *mut Object = null_mut();
+    (api().field_get_value)(tab_menu, f, &mut arr as *mut _ as _);
+    if arr.is_null() {
+        return None;
+    }
+    unity::array_items(arr).iter().position(|b| !b.is_null() && unity::name(go_of(*b).unwrap_or(null_mut())).starts_with(OURS))
+}
+
 /// The cursor searches these cached rows, independently of TabMenu's button/page arrays.
 pub(crate) unsafe fn navigation_items(menu: *mut Object) -> R<Vec<*mut Object>> {
     unsafe fn list_items(list: *mut Object) -> R<Vec<*mut Object>> {
@@ -464,6 +523,7 @@ pub fn teardown() {
                 (a.field_set_value)(tab_menu, bf, b as *mut c_void);
                 (a.field_set_value)(tab_menu, pf, p as *mut c_void);
             }
+            unlist(tab_menu, base);
         }
         if let Ok(f) = field_by_type(tab_menu, "System.Int32") {
             // Force the game's switch routine to restore both the visible page and navigation.
@@ -508,6 +568,9 @@ unsafe extern "C" fn on_tab(id: usize, _button: *mut Object, _m: *const c_void) 
     let _ = std::panic::catch_unwind(|| unsafe {
         let Ok(content) = ui_root().map(|ui| options(ui)) else { return };
         let Ok(tm) = component(find(content, "TabMenu"), "TabMenu") else { return };
+        if let Err(e) = list_after_start(tm, id) {
+            log::info(format!("mods menu: tab menu list: {e}"));
+        }
         sync_values();
         match tab_switch(tm) {
             Some(m) => {
@@ -552,13 +615,16 @@ fn header_text(name: &str, open: bool) -> String {
     format!("{name}   {}", if open { "v" } else { ">" })
 }
 
+/// The container holding our FormMenu: the page's VList on builds whose Options pages are
+/// VerticalLists, else the page itself (build 26596007+ builds each page as a FormMenu).
 unsafe fn our_list() -> R<*mut Object> {
     let content = options(ui_root()?);
-    let list = find(content, &format!("TabMenu/Windows/{OURS}Page/VList"));
-    if list.is_null() {
+    let page = find(content, &format!("TabMenu/Windows/{OURS}Page"));
+    if page.is_null() {
         return Err("Mods page not built".into());
     }
-    Ok(list)
+    let list = find(page, "VList");
+    Ok(if list.is_null() { page } else { list })
 }
 
 /// Sets the text of the row's own label (its first TMP text).
@@ -771,8 +837,11 @@ unsafe fn build_tab() -> R<Value> {
         let pages = find(tabs, "Windows");
         let gameplay = find(pages, "Gameplay");
         // FormMenu creates its own controls. The phone has no SnowboardToggleButton, so do not
-        // require unused main-menu widget templates here.
-        if [content, tabs, tab_row, pages, gameplay, find(gameplay, "VList")].iter().any(|p| p.is_null()) {
+        // require unused main-menu widget templates here. A page is either a VerticalList
+        // ("VList", older builds) or a FormMenu ("Form", build 26596007+).
+        if [content, tabs, tab_row, pages, gameplay].iter().any(|p| p.is_null())
+            || (find(gameplay, "VList").is_null() && find(gameplay, "Form").is_null())
+        {
             return Err("Options window layout changed (game update?)".into());
         }
         let tab_menu = component(tabs, "TabMenu")?;
@@ -830,11 +899,16 @@ unsafe fn build_tab() -> R<Value> {
         hook(bw, "System.Action<Button>", on_tab as *const () as usize, tab_index)?;
         let page = clone(gameplay, pages, &format!("{OURS}Page"))?;
         set_active(page, false);
-        let list = find(page, "VList");
+        let vlist = find(page, "VList");
+        // Older builds: empty the cloned VerticalList and build our form inside it. Newer builds:
+        // the cloned page holds a copy of the game's Gameplay FormMenu; remove it (immediately, so
+        // our_form never finds it) and build our form directly in the page.
+        let list = if vlist.is_null() { page } else { vlist };
         for c in children(list) {
             destroy(c)?;
         }
         set_active(page, false);
+        let list_menu = if vlist.is_null() { null_mut() } else { component(vlist, "NavigatableMenu")? };
 
         // Register them with the TabMenu: append to its (button) and (page, list) arrays.
         let buttons = resized(get(buttons_f), base + 1)?;
@@ -842,17 +916,18 @@ unsafe fn build_tab() -> R<Value> {
         let page_arr = resized(get(pages_f), base + 1)?;
         let tuple_k = (a.class_get_element_class)((a.object_get_class)(page_arr));
         let tuple_size = (a.class_value_size)(tuple_k, null_mut()) as usize;
-        *(il2cpp::array_data::<u8>(page_arr).add(tab_index * tuple_size) as *mut [*mut Object; 2]) = [page, component(list, "NavigatableMenu")?];
+        *(il2cpp::array_data::<u8>(page_arr).add(tab_index * tuple_size) as *mut [*mut Object; 2]) = [page, list_menu];
         (a.field_set_value)(tab_menu, buttons_f, buttons as *mut c_void);
         (a.field_set_value)(tab_menu, pages_f, page_arr as *mut c_void);
 
         // The page's content is a FormMenu (the game's own builder UI, as in its Environment
         // window): it sizes itself to the page and folds its Accordion sections without our help.
-        if let Ok(vl) = component(list, "NavigatableMenu") {
+        if !list_menu.is_null() {
             let mut off = false;
-            let _ = unity::callv(vl, "set_enabled", &mut [&mut off as *mut bool as _]);
+            let _ = unity::callv(list_menu, "set_enabled", &mut [&mut off as *mut bool as _]);
         }
         let (form, n) = fill_form(list)?;
+        // Build 26596007+ also keeps per-tab names and menus: see list_after_start.
         // controller/keyboard navigation of the tab goes into the form
         let pairs = get(pages_f);
         *(il2cpp::array_data::<u8>(pairs).add(tab_index * tuple_size) as *mut [*mut Object; 2]) = [page, form];
@@ -935,6 +1010,11 @@ pub fn ensure() -> R<bool> {
             // PhoneCanvas initializes its own cache again when opening/recreating the phone.
             // Repair that independently of setting changes, including after map transitions.
             refresh_phone_targets()?;
+            if let Ok(tab_menu) = component(tabs, "TabMenu") {
+                if let Some(index) = our_tab(tab_menu) {
+                    list_after_start(tab_menu, index)?;
+                }
+            }
             // Reopening Options can restore the last tab without clicking its button again.
             if sync_values() {
                 APPLYING.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -1031,7 +1111,7 @@ unsafe fn dump_ui() -> R<usize> {
                 for c in unity::array_items(all) {
                     if !c.is_null() {
                         let n = il2cpp::cstr((a.class_get_name)((a.object_get_class)(c)));
-                        if want_fields && matches!(n.as_str(), "Button" | "FormMenu" | "TabMenu" | "HorizontalList" | "Image" | "pe") {
+                        if want_fields && matches!(n.as_str(), "Button" | "FormMenu" | "TabMenu" | "HorizontalList" | "Image" | "ua") {
                             details.push(format!("{}  <{n}> {}", "  ".repeat(depth), component_fields(c)));
                             if n == "HorizontalList" || n == "FormMenu" {
                                 let names = navigation_items(c).map(|items| items.into_iter().map(|b| unity::name(b)).collect::<Vec<_>>().join(", "));

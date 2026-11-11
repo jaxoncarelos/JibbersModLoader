@@ -131,6 +131,13 @@ var duplicate = Zip(("a/b.obj", Encoding.UTF8.GetBytes(quad)), ("a\\b.obj", Enco
 Reject<NotSupportedException>(() => ArchiveDecoder.Decode(duplicate, default));
 Reject<InvalidDataException>(() => ArchiveDecoder.Decode([1, 2, 3], default));
 Console.WriteLine("PASS worker-owned ZIP extraction, prepared assets, unsupported-content fallback and duplicate-path rejection");
+// Builds that decode session textures on their own worker: PNGs are left to the game, unread.
+var meshesOnly = await Task.Run(() => ArchiveDecoder.Decode(archiveBytes, default, textures: false));
+Check(meshesOnly.Assets.Count == 1 && meshesOnly.Assets.ContainsKey("body.obj") && !meshesOnly.Assets.ContainsKey("skin.png") && meshesOnly.Fallbacks == 1,
+    "Native-texture builds must prepare meshes only and leave PNGs to the game.");
+var meshesOnlyJson = ArchiveDecoder.Decode(Zip(("config.json", "{}"u8.ToArray()), ("skin.png", png)), default, textures: false);
+Check(meshesOnlyJson.Assets.Count == 1 && meshesOnlyJson.Assets["config.json"].Text == "{}", "JSON extraction changed in native-texture mode.");
+Console.WriteLine("PASS native-texture builds prepare OBJ/JSON only and leave PNG decoding to the game");
 
 var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

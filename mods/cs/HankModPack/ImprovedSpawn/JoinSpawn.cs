@@ -218,7 +218,7 @@ public sealed class JoinSpawnMod : HankModPack.PackPart
         spawnDetour.Enable();
         try
         {
-            placeDetour = Jibbers.Interop.Game.RagdollSpawner.dml_Method.Detour<PlaceFn>(Place);
+            placeDetour = Jibbers.Interop.Game.RagdollSpawner.emg_Method.Detour<PlaceFn>(Place);
             placeDetour.Enable();
         }
         catch (Exception e) { Log("placement du skieur non intercepté : " + e.Message); }

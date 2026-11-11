@@ -5,14 +5,18 @@ namespace JibbersAsyncContent.Preparation;
 
 internal static class ArchiveDecoder
 {
-    public static PreparedArchive Decode(byte[] snapshot, CancellationToken cancellation)
+    public static PreparedArchive Decode(byte[] snapshot, CancellationToken cancellation, bool textures = true)
     {
         var assets = new Dictionary<string, PreparedAsset>(StringComparer.Ordinal);
-        var summary = Prepare(snapshot, entry => assets.Add(entry.Path, entry.Asset), cancellation);
+        var summary = Prepare(snapshot, entry => assets.Add(entry.Path, entry.Asset), cancellation, textures);
         return new(assets, summary.Fallbacks, summary.Milliseconds);
     }
 
-    public static PreparationSummary Prepare(byte[] snapshot, Action<PreparedEntry> emit, CancellationToken cancellation)
+    public static PreparationSummary Prepare(byte[] snapshot, Action<PreparedEntry> emit, CancellationToken cancellation) =>
+        Prepare(snapshot, emit, cancellation, textures: true);
+
+    /// <param name="textures">False when the game decodes PNGs on its own worker: they are then left to it, unread.</param>
+    public static PreparationSummary Prepare(byte[] snapshot, Action<PreparedEntry> emit, CancellationToken cancellation, bool textures)
     {
         if (snapshot.Length > ContentLimits.ArchiveBytes) throw new NotSupportedException("Archive byte limit.");
         var started = Stopwatch.GetTimestamp();
@@ -32,6 +36,7 @@ internal static class ArchiveDecoder
             var name = entry.FullName.Replace('\\', '/');
             var extension = Path.GetExtension(name);
             if (!extension.Equals(".png", StringComparison.OrdinalIgnoreCase) && !extension.Equals(".obj", StringComparison.OrdinalIgnoreCase) && !extension.Equals(".json", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!textures && extension.Equals(".png", StringComparison.OrdinalIgnoreCase)) continue;
             try
             {
                 if (entry.Length > ContentLimits.EntryBytes) throw new NotSupportedException("Entry byte limit.");

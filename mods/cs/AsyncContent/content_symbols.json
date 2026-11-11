@@ -7,8 +7,15 @@
       "members": {
         "reset": { "method": { "name": "ResetStatics", "params": [], "return": "System.Void", "static": true } },
         "text": { "method": { "name": "Text", "params": ["System.IO.Compression.ZipArchiveEntry"], "return": "System.String", "static": true } },
-        "texture": { "method": { "params": ["System.IO.Compression.ZipArchiveEntry"], "return": "UnityEngine.Texture2D", "static": true } },
         "register": { "method": { "argc": 4, "return": "System.Boolean", "static": true } }
+      }
+    },
+    {
+      "id": "async_content.texture_reader",
+      "summary": "Synchronous zip-entry PNG decoder used by older builds. Optional: newer builds decode session textures on a worker themselves, so this symbol is absent and textures stay on the game's own path.",
+      "match": { "name": "SessionContent" },
+      "members": {
+        "texture": { "method": { "params": ["System.IO.Compression.ZipArchiveEntry"], "return": "UnityEngine.Texture2D", "static": true } }
       }
     },
     {
@@ -29,7 +36,7 @@
     },
     {
       "id": "async_content.obj_parser",
-      "summary": "Native OBJ parser. Declaration ordinal verified against native callers in the validated October build.",
+      "summary": "Native OBJ parser called by the archive coroutine. Declaration ordinal verified against native callers (Cpp2IL call analysis) in the validated November build 26596007; it was ordinal 1 in the October build.",
       "match": {
         "obfuscated": true,
         "methods": [
@@ -39,7 +46,7 @@
         ]
       },
       "members": {
-        "parse": { "method": { "params": ["System.String", "System.String"], "return": "UnityEngine.Mesh", "static": true, "nth": 1 } }
+        "parse": { "method": { "params": ["System.String", "System.String"], "return": "UnityEngine.Mesh", "static": true, "nth": 0 } }
       }
     }
   ]

@@ -1,16 +1,16 @@
 {
   "builds": [
     {
-      "assemblySize": 111196160,
-      "headerHash": "ede5061cb8201fa4",
-      "label": "Jibbers Playtest 2026-10-18 build (GameAssembly 111196160 B)",
-      "note": "The build the mods were developed and tested on.",
-      "peTimestamp": 1792292363,
+      "assemblySize": 120818176,
+      "headerHash": "88e8c909e7ea4707",
+      "label": "Jibbers Playtest 0.5.1, Steam build 26596007 (GameAssembly 120818176 B)",
+      "note": "Validated in game 2026-11-11: startup, Options and phone Mods tab, map loading, respawn, riding, static-collider parity, Rewind, Slow Motion, FPV, Async Content, Alpine Vision, Rumble.",
+      "peTimestamp": 1794412027,
       "unity": "6000.3.12f1 (fca03ac9b0d5)",
-      "validated": "2026-10-18"
+      "validated": "2026-11-11"
     }
   ],
-  "generated": "2026-10-18T19:47:34Z",
+  "generated": "2026-11-11T18:05:25Z",
   "schema": 1,
   "sdkVersion": "0.0.0"
 }

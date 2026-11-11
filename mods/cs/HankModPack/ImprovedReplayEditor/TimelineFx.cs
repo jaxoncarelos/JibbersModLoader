@@ -18,6 +18,14 @@ namespace TimelineFx;
 /// </summary>
 public sealed unsafe class TimelineFxMod : HankModPack.PackPart
 {
+    // Form-menu row classes, named through the generated bindings so a game update that renames
+    // them breaks the build (or is remapped with the bindings) instead of silently matching nothing.
+    static readonly string SliderRow = Jibbers.Interop.Game.wh.Class.Name;     // label + slider
+    static readonly string ChoiceRow = Jibbers.Interop.Game.wj.Class.Name;     // label + arrow selection
+    static readonly string ButtonRow = Jibbers.Interop.Game.wk.Class.Name;     // single button (Back)
+    static readonly string HeaderRow = Jibbers.Interop.Game.ww.Class.Name;     // text header
+    static readonly string HorizontalRow = Jibbers.Interop.Game.xb.Class.Name; // row of rows (Copy/Paste...)
+    static readonly string SeparatorRow = Jibbers.Interop.Game.xc.Class.Name;  // separator
     protected override string PartId => "timeline_fx";
     public override string Name => "Hank Mod Pack: Improved Replay Editor";
     public override string Author => "Hank";
@@ -216,7 +224,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     {
         var clip = Recorder.Instance.Clip;
         if (clip.IsNull) return;
-        var name = clip.Raw.rvg;
+        var name = clip.Raw.wnb;
         var key = Sanitize(string.IsNullOrWhiteSpace(name) ? "clip" : name);
         if (key == clipKey) return;
         clipKey = key;
@@ -257,20 +265,20 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     }
 
     /// <summary>The replay's own camera keyframes, in time order.</summary>
-    List<Jibbers.Interop.Game.op> GameKeyframes()
+    List<Jibbers.Interop.Game.th> GameKeyframes()
     {
-        var result = new List<Jibbers.Interop.Game.op>();
+        var result = new List<Jibbers.Interop.Game.th>();
         var clip = Recorder.Instance.Clip;
         if (clip.IsNull) return result;
-        var list = clip.Raw.rvi;
+        var list = clip.Raw.wnd;
         if (list == 0) return result;
         var n = Unity.Call<int>(list, "get_Count");
         for (var i = 0; i < n; i++)
         {
             var it = Unity.Call(list, "get_Item", (nint)(&i));
-            if (it != 0) result.Add(new Jibbers.Interop.Game.op(it));
+            if (it != 0) result.Add(new Jibbers.Interop.Game.th(it));
         }
-        result.Sort((x, y) => x.rwi.CompareTo(y.rwi));
+        result.Sort((x, y) => x.wol.CompareTo(y.wol));
         return result;
     }
 
@@ -279,15 +287,15 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         var total = Math.Max(TotalFrames(), 1);
         return GameKeyframes().Select(k =>
         {
-            var p = k.rwj; var r = k.rwk;
+            var p = k.wom; var r = k.won;
             return new SavedCam
             {
-                Frame = (int)Math.Round(k.rwi / (double)total * 10000),
+                Frame = (int)Math.Round(k.wol / (double)total * 10000),
                 Pos = new[] { p.X, p.Y, p.Z }, Rot = new[] { r.X, r.Y, r.Z, r.W },
-                F = new[] { k.rwl, k.rwp, k.rwr },
-                B = new[] { k.rwm, k.rwn, k.rwo, k.rwq, k.rws, k.rwu },
-                Command = k.rwt ?? "",
-                Modes = new[] { k.rwv, k.rww, k.rwx, k.rwy, k.rwz, k.rxa },
+                F = new[] { k.woo, k.wos, k.wou },
+                B = new[] { k.wop, k.woq, k.wor, k.wot, k.wov, k.wox },
+                Command = k.wow ?? "",
+                Modes = new[] { k.woy, k.woz, k.wpa, k.wpb, k.wpc, k.wpd },
             };
         }).ToList();
     }
@@ -306,7 +314,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             if (scene != 0) { var p = Unity.Call(scene, "get_name"); if (p != 0) name = Il2Cpp.ReadString(p); }
         }
         catch (Exception e) { LogOnce("mapname", e); }
-        if (string.IsNullOrWhiteSpace(name)) { try { name = Recorder.Instance.Clip.Raw.rvj ?? ""; } catch { } }
+        if (string.IsNullOrWhiteSpace(name)) { try { name = Recorder.Instance.Clip.Raw.wne ?? ""; } catch { } }
         if (string.IsNullOrWhiteSpace(name)) name = "Unknown map";
         mapName = name;
         Log($"TLFX: map name: {name}");
@@ -433,13 +441,13 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
                 for (var i = 0; i < n; i++)
                 {
                     var c = data.Game[i]; var k = mine[i];
-                    k.rwi = (int)Math.Round(c.Frame / 10000.0 * total);
-                    k.rwj = new Vector3(c.Pos[0], c.Pos[1], c.Pos[2]);
-                    k.rwk = new Quaternion(c.Rot[0], c.Rot[1], c.Rot[2], c.Rot[3]);
-                    k.rwl = c.F[0]; k.rwp = c.F[1]; k.rwr = c.F[2];
-                    k.rwm = c.B[0]; k.rwn = c.B[1]; k.rwo = c.B[2]; k.rwq = c.B[3]; k.rws = c.B[4]; k.rwu = c.B[5];
-                    k.rwt = c.Command;
-                    k.rwv = c.Modes[0]; k.rww = c.Modes[1]; k.rwx = c.Modes[2]; k.rwy = c.Modes[3]; k.rwz = c.Modes[4]; k.rxa = c.Modes[5];
+                    k.wol = (int)Math.Round(c.Frame / 10000.0 * total);
+                    k.wom = new Vector3(c.Pos[0], c.Pos[1], c.Pos[2]);
+                    k.won = new Quaternion(c.Rot[0], c.Rot[1], c.Rot[2], c.Rot[3]);
+                    k.woo = c.F[0]; k.wos = c.F[1]; k.wou = c.F[2];
+                    k.wop = c.B[0]; k.woq = c.B[1]; k.wor = c.B[2]; k.wot = c.B[3]; k.wov = c.B[4]; k.wox = c.B[5];
+                    k.wow = c.Command;
+                    k.woy = c.Modes[0]; k.woz = c.Modes[1]; k.wpa = c.Modes[2]; k.wpb = c.Modes[3]; k.wpc = c.Modes[4]; k.wpd = c.Modes[5];
                 }
                 done.Add($"{n} game keyframes");
                 if (mine.Count != data.Game.Count)
@@ -505,7 +513,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     int TotalFrames()
     {
         var clip = Recorder.Instance.Clip;
-        return clip.IsNull ? 0 : clip.Raw.rvt;
+        return clip.IsNull ? 0 : clip.Raw.wnp;
     }
 
     int trimWant = -1; float trimUntil; int trimFixes;
@@ -522,7 +530,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             if (lastGameCount < 0) { lastGameCount = g.Count; return; }
             if (lastGameCount == 0 && g.Count > 0 && keys.Count == 0)
             {
-                var frame = g.Min(x => x.rwi);
+                var frame = g.Min(x => x.wol);
                 Log($"TLFX: first game keyframe at frame {frame}");
                 TrimStartTo(frame);
             }
@@ -539,8 +547,8 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             var clip = Recorder.Instance.Clip;
             if (clip.IsNull) { Log("TLFX: trim start: no clip"); return; }
             var raw = clip.Raw;
-            var before = raw.rvs;
-            if (frame <= before || frame >= raw.rvt - 1) { Log($"TLFX: trim start left at {before} (keyframe at {frame}, clip end {raw.rvt})"); return; }
+            var before = raw.wno;
+            if (frame <= before || frame >= raw.wnp - 1) { Log($"TLFX: trim start left at {before} (keyframe at {frame}, clip end {raw.wnp})"); return; }
             trimWant = frame; trimUntil = Unity.Time + 2f; trimFixes = 0;
             Log($"TLFX: trim start: moving from {before} to frame {frame} (first effect keyframe)");
             ApplyTrimStart();
@@ -551,7 +559,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     void ApplyTrimStart()
     {
         var raw = Recorder.Instance.Clip.Raw;
-        if (raw.rvs != trimWant) raw.rvs = trimWant;
+        if (raw.wno != trimWant) raw.wno = trimWant;
         var handle = Recorder.Instance.Raw.trimStartHandle;
         if (handle.Ptr == 0 || handle.circle == 0 || Unity.IsNull(handle.circle)) return;
         var tr = Unity.Transform(handle.circle);
@@ -566,9 +574,9 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         if (trimWant < 0) return;
         try
         {
-            if (Unity.Time > trimUntil) { Log($"TLFX: trim start: now {Recorder.Instance.Clip.Raw.rvs} (wanted {trimWant}, put back {trimFixes} time(s))"); trimWant = -1; return; }
+            if (Unity.Time > trimUntil) { Log($"TLFX: trim start: now {Recorder.Instance.Clip.Raw.wno} (wanted {trimWant}, put back {trimFixes} time(s))"); trimWant = -1; return; }
             var raw = Recorder.Instance.Clip.Raw;
-            if (raw.rvs != trimWant) { trimFixes++; if (trimFixes <= 3) Log($"TLFX: trim start was reset to {raw.rvs} by the game, putting {trimWant} back"); }
+            if (raw.wno != trimWant) { trimFixes++; if (trimFixes <= 3) Log($"TLFX: trim start was reset to {raw.wno} by the game, putting {trimWant} back"); }
             ApplyTrimStart();
         }
         catch (Exception e) { LogOnce("trimmaintain", e); trimWant = -1; }
@@ -730,7 +738,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         var tol = Math.Max(2f, total * 0.008f);
         // The keyframes that already exist after this one: the game's camera keyframes and the effect keyframes (those two lists are separate).
         var later = new List<int>();
-        foreach (var f in GameKeyframes().Select(g => g.rwi).Concat(keys.Where(o => !ReferenceEquals(o, src)).Select(o => o.Frame)).Where(f => f > from + tol).OrderBy(f => f))
+        foreach (var f in GameKeyframes().Select(g => g.wol).Concat(keys.Where(o => !ReferenceEquals(o, src)).Select(o => o.Frame)).Where(f => f > from + tol).OrderBy(f => f))
             if (later.Count == 0 || f - later[^1] > tol) later.Add(f);
         Log($"TLFX: duplicate '{tab}' ({(all ? "all" : "next")}) from frame {from}: {later.Count} existing keyframe(s) after it ({string.Join(", ", later)})");
         var targets = new List<int>();
@@ -840,7 +848,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     void TabToggle(RawFormMenu menu, Func<Func<bool>, nint> GB, Func<Action<bool>, nint> SB, string tab, IEnumerable<FxParam>? members)
     {
         var bit = Array.FindIndex(TabColors, t => t.Tab == tab);
-        menu.hhs("Use at this keyframe", GB(() => Selected() is { } k && bit >= 0 && (TabMask(k.D) & (1 << bit)) != 0),
+        menu.jle("Use at this keyframe", GB(() => Selected() is { } k && bit >= 0 && (TabMask(k.D) & (1 << bit)) != 0),
             SB(v => { if (v) AddTab(tab, members); else ClearTab(tab); }), false);
     }
 
@@ -950,7 +958,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         if (tsPts == null || now - tsScanAt > 250)
         {
             tsScanAt = now;
-            try { tsPts = GameKeyframes().Where(k => k.rws || MathF.Abs(k.rwr - 1f) > 0.001f).Select(k => ((float)k.rwi, k.rwr)).OrderBy(t => t.Item1).ToList(); }
+            try { tsPts = GameKeyframes().Where(k => k.wov || MathF.Abs(k.wou - 1f) > 0.001f).Select(k => ((float)k.wol, k.wou)).OrderBy(t => t.Item1).ToList(); }
             catch { tsPts = new(); }
         }
         if (tsPts.Count == 0) return null;
@@ -1063,7 +1071,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         if (d == null && h == null) return;
         if (EnvManager.First() is not { } e) return;
         var env = e.Raw;
-        var light = env.qdx.Ptr;
+        var light = env.ulw.Ptr;
         if (light == 0 || Unity.IsNull(light)) return;
         var tr = Unity.Transform(light);
         var euler = Unity.Call<Vector3>(tr, "get_eulerAngles");
@@ -1124,7 +1132,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
 
         menu.Header("Hank Mod Pack: play cameras");
         menu.Info(GS(() => $"Camera in use: {pc.CurrentName}. Opening a tab switches to that camera; every change is live."), false, null);
-        menu.hhs("Game camera (no play camera)", GB(() => pc.CurrentName == "Game camera"), SB(v => { if (v) pc.Select("Game camera"); }), false);
+        menu.jle("Game camera (no play camera)", GB(() => pc.CurrentName == "Game camera"), SB(v => { if (v) pc.Select("Game camera"); }), false);
 
         foreach (var (cam, section) in new[] { ("POV", "POV"), ("Follow cam", "Follow cam"), ("Drone", "Drone") })
         {
@@ -1136,14 +1144,14 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
                     pc.Select(cam);
                     Log($"TLFX: play camera tab opened: {cam}");
                 }
-                menu.hhs($"Use the {cam} camera", GB(() => pc.CurrentName == cam), SB(v => pc.Select(v ? cam : "Game camera")), false);
+                menu.jle($"Use the {cam} camera", GB(() => pc.CurrentName == cam), SB(v => pc.Select(v ? cam : "Game camera")), false);
                 foreach (var st in pc.Settings.Where(x => x.Section == section).ToList())
                 {
                     var s = st;
                     switch (s.Kind)
                     {
                         case SettingKind.Toggle:
-                            menu.hhs(s.Label, GB(() => pc.GetBool(s.Key)), SB(v => Put(s.Key, System.Text.Json.Nodes.JsonValue.Create(v)!)), false);
+                            menu.jle(s.Label, GB(() => pc.GetBool(s.Key)), SB(v => Put(s.Key, System.Text.Json.Nodes.JsonValue.Create(v)!)), false);
                             break;
                         case SettingKind.Slider:
                             var dec = s.Step >= 1 ? 0 : s.Step >= 0.1 ? 1 : 2;
@@ -1213,7 +1221,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             switch (s.Kind)
             {
                 case SettingKind.Toggle:
-                    menu.hhs(s.Label, GB(() => mod.GetBool(s.Key)), SB(v => Put(s.Key, System.Text.Json.Nodes.JsonValue.Create(v)!)), false);
+                    menu.jle(s.Label, GB(() => mod.GetBool(s.Key)), SB(v => Put(s.Key, System.Text.Json.Nodes.JsonValue.Create(v)!)), false);
                     break;
                 case SettingKind.Slider:
                     var dec = s.Step >= 1 ? 0 : s.Step >= 0.1 ? 1 : 2;
@@ -1364,7 +1372,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         if (frame % 6 == 0) SyncKeyframes();
 
         playhead = ReadPlayhead();
-        curFrame = Recorder.Instance.Raw.pxc;
+        curFrame = Recorder.Instance.Raw.uax;
         if (float.IsFinite(playhead) && playhead > maxSeen) maxSeen = playhead;
 
         if ((fx.Count == 0 || Unity.Time > nextFxScan) && Unity.Time > nextFxScan) { nextFxScan = Unity.Time + 2f; try { DiscoverFx(); } catch (Exception e) { LogOnce("fxscan", e); } }
@@ -1380,7 +1388,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             var clip = Recorder.Instance.Clip;
             var sh = EvalShake(); var a = sh.Amp; var hz = sh.Hz;
             Log($"TLFX: diag playhead={playhead:0.###} frame={CurFrame:0} (playhead*{(playhead > 0 ? CurFrame / playhead : 0):0.#}) keyframes={ordered.Length} (with time {ordered.Count(o => o.D.Tod)}, with shake {ordered.Count(o => o.D.ShakeOn)}, with image fx {ordered.Count(o => o.D.Fx.Count > 0)}, fx sliders {fx.Count}, total frames {TotalFrames()}) shakeNow={a:0.##}@{hz:0}Hz todNow={(EvalTod() is { } t ? t.ToString("0.00") : "-")} hits follow={hitFollow} recorder={hitRecorder} applied={hitApply} menusInjected={injectedCount} " +
-                $"[maxFrames={rec.maxFrames} clip rvs={(clip.IsNull ? -1 : clip.Raw.rvs)} rvt={(clip.IsNull ? -1 : clip.Raw.rvt)} pxc={rec.pxc} pxd={rec.pxd} pxm={rec.pxm} pyp={rec.pyp}]");
+                $"[maxFrames={rec.maxFrames} clip rvs={(clip.IsNull ? -1 : clip.Raw.wno)} rvt={(clip.IsNull ? -1 : clip.Raw.wnp)} pxc={rec.uax} pxd={rec.uay} pxm={rec.ubj} pyp={rec.ucs}]");
         }
 
         float? wanted = previewTod >= 0 && Unity.Time < previewUntil ? previewTod : EvalTod();
@@ -1586,7 +1594,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         {
             var cm = Recorder.Instance.Raw.cameraEffectsMenu;
             if (cm.Ptr == 0) { pushPending = false; return; }
-            var apply = cm.sry;
+            var apply = cm.xsu;
             if (apply == 0) { pushPending = false; if (!pushLogged) { pushLogged = true; Log("TLFX: the Camera Effects menu has no apply action"); } return; }
             pushCount++;
             if (pushCount <= 15) Log($"TLFX: push #{pushCount} at frame {CurFrame:0}");
@@ -1604,15 +1612,15 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     {
         var cm = Recorder.Instance.Raw.cameraEffectsMenu;
         if (cm.Ptr == 0) return;
-        var menu = cm.srz;
+        var menu = cm.xsv;
         if (menu.Ptr == 0) return;
         nint best = 0; var bestCount = -1;
-        foreach (var list in new[] { menu.slx, menu.sly, menu.sme })
+        foreach (var list in new[] { menu.xkp, menu.xkq, menu.xkw })
         {
             if (list == 0) continue;
             var n = Unity.Call<int>(list, "get_Count");
             var c = 0;
-            for (var i = 0; i < n; i++) { var it = Unity.Call(list, "get_Item", (nint)(&i)); if (it != 0 && Il2Cpp.ClassOf(it).Name is "qr" or "qt") c++; }
+            for (var i = 0; i < n; i++) { var it = Unity.Call(list, "get_Item", (nint)(&i)); if (it != 0 && Il2Cpp.ClassOf(it).Name is var k && (k == SliderRow || k == ChoiceRow)) c++; }
             if (c > bestCount) { bestCount = c; best = list; }
         }
         if (best == 0 || bestCount <= 0) { if (fx.Count == 0 && logged.Add("fxnone")) Log("TLFX: no sliders found in the Camera Effects menu yet"); return; }
@@ -1626,7 +1634,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             {
                 var row = Unity.Call(best, "get_Item", (nint)(&r));
                 if (row == 0) continue;
-                string rl; try { rl = new Jibbers.Interop.Game.qj(row).hkk() ?? ""; } catch { rl = "?"; }
+                string rl; try { rl = new Jibbers.Interop.Game.vz(row).jnz() ?? ""; } catch { rl = "?"; }
                 Log($"TLFX: camera menu row {r}: {Il2Cpp.ClassOf(row).Name} '{rl}'");
             }
             catch { }
@@ -1638,42 +1646,42 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             var it = Unity.Call(best, "get_Item", (nint)(&i));
             if (it == 0) continue;
             var cls = Il2Cpp.ClassOf(it).Name;
-            if (cls != "qr" && cls != "qt") continue;
-            if (cls == "qt")
+            if (cls != SliderRow && cls != ChoiceRow) continue;
+            if (cls == ChoiceRow)
             {
                 // A list of choices (for example the blur type): kept as a number, switched at the keyframe, never blended.
-                var sel = new Jibbers.Interop.Game.qt(it);
-                if (sel.spn == 0 || sel.spo == 0) continue;
+                var sel = new Jibbers.Interop.Game.wj(it);
+                if (sel.xop == 0 || sel.xoq == 0) continue;
                 string slabel;
-                try { slabel = new Jibbers.Interop.Game.qj(it).hkk() ?? ""; } catch { slabel = ""; }
+                try { slabel = new Jibbers.Interop.Game.vz(it).jnz() ?? ""; } catch { slabel = ""; }
                 slabel = slabel.Split(':')[0].Trim();
                 if (slabel.Length == 0) slabel = $"Choice {found.Count + 1}";
                 while (!names.Add(slabel)) slabel += "'";
                 string[] opts;
-                try { opts = sel.spm == 0 ? Array.Empty<string>() : Il2Cpp.ArrayObjects(sel.spm).Select(o => o == 0 ? "" : Il2Cpp.ReadString(o)).ToArray(); } catch { opts = Array.Empty<string>(); }
-                var sp = new FxParam { Label = slabel, Get = sel.spn, Set = sel.spo, Row = it, Idx = i, IsInt = true, Options = opts, Min = 0, Max = Math.Max(opts.Length - 1, 1) };
-                pins.Add(new GameRef(it)); pins.Add(new GameRef(sel.spn)); pins.Add(new GameRef(sel.spo));
+                try { opts = sel.xoo == 0 ? Array.Empty<string>() : Il2Cpp.ArrayObjects(sel.xoo).Select(o => o == 0 ? "" : Il2Cpp.ReadString(o)).ToArray(); } catch { opts = Array.Empty<string>(); }
+                var sp = new FxParam { Label = slabel, Get = sel.xop, Set = sel.xoq, Row = it, Idx = i, IsInt = true, Options = opts, Min = 0, Max = Math.Max(opts.Length - 1, 1) };
+                pins.Add(new GameRef(it)); pins.Add(new GameRef(sel.xop)); pins.Add(new GameRef(sel.xoq));
                 try { sp.Default = FxRead(sp); } catch { }
                 found.Add(sp);
                 Log($"TLFX: fx choice '{slabel}' options [{string.Join(", ", opts)}] value {sp.Default:0}");
                 continue;
             }
-            var q = new Jibbers.Interop.Game.qr(it);
-            if (q.spa == 0 || q.spb == 0) continue;
+            var q = new Jibbers.Interop.Game.wh(it);
+            if (q.xoc == 0 || q.xod == 0) continue;
             string label;
-            try { label = new Jibbers.Interop.Game.qj(it).hkk() ?? ""; } catch { label = ""; }
+            try { label = new Jibbers.Interop.Game.vz(it).jnz() ?? ""; } catch { label = ""; }
             label = label.Split(':')[0].Trim();
             if (label.Length == 0) label = $"Effect {found.Count + 1}";
             while (!names.Add(label)) label += "'";
-            float lo = q.spe, hi = q.spf;
-            var p = new FxParam { Label = label, Get = q.spa, Set = q.spb, Row = it, Idx = i, Min = lo, Max = hi };
-            pins.Add(new GameRef(it)); pins.Add(new GameRef(q.spa)); pins.Add(new GameRef(q.spb));
+            float lo = q.xog, hi = q.xoh;
+            var p = new FxParam { Label = label, Get = q.xoc, Set = q.xod, Row = it, Idx = i, Min = lo, Max = hi };
+            pins.Add(new GameRef(it)); pins.Add(new GameRef(q.xoc)); pins.Add(new GameRef(q.xod));
             float cur = 0;
             try { cur = FxRead(p); } catch { }
             p.Default = cur;
             if (!(hi > lo)) { lo = Math.Min(0, cur - 1); hi = Math.Max(1, cur + 1); p.Min = lo; p.Max = hi; }
             found.Add(p);
-            Log($"TLFX: fx slider '{label}' range {p.Min:0.###}..{p.Max:0.###} (raw {q.spe:0.###}..{q.spf:0.###}) value {cur:0.###}");
+            Log($"TLFX: fx slider '{label}' range {p.Min:0.###}..{p.Max:0.###} (raw {q.xog:0.###}..{q.xoh:0.###}) value {cur:0.###}");
         }
         DropFx(); fx.AddRange(found); fxKeep.AddRange(pins);
         // Values a previous replay left behind (set from the effects window): back to what the game had.
@@ -1691,7 +1699,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     {
         if (fx.Count == 0 || !inReplay || !Enabled) return;
         var cmenu = Recorder.Instance.Raw.cameraEffectsMenu;
-        if (cmenu.Ptr == 0 || cmenu.srz.Ptr != fxMenuSeen)
+        if (cmenu.Ptr == 0 || cmenu.xsv.Ptr != fxMenuSeen)
         {
             // The Camera Effects menu is gone or was rebuilt: its sliders are stale, never call them.
             DropFx();
@@ -1887,7 +1895,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     {
         try
         {
-            var rect = new Jibbers.Interop.Game.qj(item)._snp_k__BackingField.Ptr;
+            var rect = new Jibbers.Interop.Game.vz(item)._xmm_k__BackingField.Ptr;
             if (rect == 0) return "";
             tmpText ??= Il2Cpp.RequireClass("Unity.TextMeshPro.dll", "TMPro.TMP_Text");
             var texts = Unity.GetComponentsInChildren(rect, tmpText.Value, true);
@@ -1906,11 +1914,11 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     {
         var vis = VisibleLabel(item);
         if (vis.Length > 0) return vis;
-        var q = new Jibbers.Interop.Game.qj(item);
+        var q = new Jibbers.Interop.Game.vz(item);
         string l = "";
-        try { l = q.hkk() ?? ""; } catch { }
-        if (l.Length == 0) { try { l = q._snn_k__BackingField ?? ""; } catch { } }
-        if (l.Length == 0) { try { l = q._sno_k__BackingField ?? ""; } catch { } }
+        try { l = q.jnz() ?? ""; } catch { }
+        if (l.Length == 0) { try { l = q._xmk_k__BackingField ?? ""; } catch { } }
+        if (l.Length == 0) { try { l = q._xml_k__BackingField ?? ""; } catch { } }
         return l;
     }
 
@@ -1918,12 +1926,12 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     void OrganizeBase(RawFormMenu menu, Func<Action, nint> AC)
     {
         nint list = 0;
-        if (menu.smc.Ptr != 0) list = menu.smc.sqz;
+        if (menu.xku.Ptr != 0) list = menu.xku.xqq;
         if (list == 0)
         {
             // The usual root is not set. The log shows two lists: slx (the top-level rows, 20 here) and sly (the same plus the rows nested in
             // Copy|Paste and Duplicate|Delete, 24). Group through slx, the top-level one.
-            list = menu.slx;
+            list = menu.xkp;
             if (list == 0 || Unity.Call<int>(list, "get_Count") < 8) { Log("TLFX: could not find the keyframe panel's rows"); return; }
         }
         var n = Unity.Call<int>(list, "get_Count");
@@ -1942,7 +1950,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         for (var i = 0; i < items.Count; i++)
         {
             var cls = Il2Cpp.ClassOf(items[i]).Name;
-            if (cls is "rh" or "ri" or "rc") continue;           // horizontal rows (Copy/Paste, Duplicate/Delete), separators, headers stay where they are
+            if (cls == HorizontalRow || cls == SeparatorRow || cls == HeaderRow) continue; // horizontal rows (Copy/Paste, Duplicate/Delete), separators, headers stay where they are
             var label = ItemLabel(items[i]).ToLowerInvariant();
             if (label.Length == 0) continue;
             for (var g = 0; g < groups.Length; g++)
@@ -1955,8 +1963,8 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             for (var i = 0; i < items.Count; i++)
             {
                 var cls = Il2Cpp.ClassOf(items[i]).Name;
-                if (cls is "rh" or "ri" or "rc") continue;
-                if (content.Count == 0 && cls == "qu") continue;       // the Back button
+                if (cls == HorizontalRow || cls == SeparatorRow || cls == HeaderRow) continue;
+                if (content.Count == 0 && cls == ButtonRow) continue;       // the Back button
                 content.Add(i);
             }
             if (content.Count >= 12)
@@ -1981,8 +1989,8 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             Unity.Call(list, "Insert", (nint)(&idx), acc.Ptr);
             foreach (var it in picked[g])
             {
-                Unity.Call(acc.sqw, "Add", it);
-                try { new Jibbers.Interop.Game.qj(it).hka(acc); } catch (Exception e) { LogOnce("hka", e); }
+                Unity.Call(acc.xqn, "Add", it);
+                try { new Jibbers.Interop.Game.vz(it).jnp(acc); } catch (Exception e) { LogOnce("hka", e); }
             }
         }
         Log($"TLFX: base keyframe rows grouped into {groups.Count((x) => true)} tabs");
@@ -2029,7 +2037,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         menu.Info(GS(InfoText), false, null);
         SaveLoadRows(menu, AC, GS, SS);
         menu.Button("Reset all effect keyframes", AC(RemoveAllEffectKeyframes));
-        menu.hhs("CamLight (light on the replay camera)", GB(() => lightMode == "CamLight"), SB(v => SetLights(v ? "CamLight" : "Off")), false);
+        menu.jle("CamLight (light on the replay camera)", GB(() => lightMode == "CamLight"), SB(v => SetLights(v ? "CamLight" : "Off")), false);
 
         Tab("Time of day", () =>
         {
@@ -2068,7 +2076,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
                     foreach (var o in options) { var opt = o; menu.Button(opt, AC(() => rc.Set(key, opt))); }
                 }), false);
             void RcToggle(string label, string key, Func<bool> get)
-                => menu.hhs(label, GB(get), SB(v => rc.Set(key, v)), false);
+                => menu.jle(label, GB(get), SB(v => rc.Set(key, v)), false);
             void CamKey(string tab, string label, string key, float min, float max, float step, int dec, Func<float> baseVal)
                 => menu.Slider(label, min, max,
                     GF(() => Selected() is { } k && k.D.Fx.TryGetValue("Cam/" + key, out var v) ? v : (EvalSky("Cam/" + key) ?? baseVal())),
