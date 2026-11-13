@@ -55,6 +55,61 @@ public sealed unsafe partial class LookAroundMod : PackPart
         Tooltip = "Low = you look up the slope at the rider from below. The slope angle is measured from the rider's movement.")]
     public float RearHeight { get; private set; } = 8;
 
+    [Choice("Improved on-foot camera (left stick walks, right stick looks, L1 / R1 lock, L3 resets)", "Auto (after detaching)", "Off", "Auto (after detaching)", "Always", Key = "onfoot", Section = "On foot",
+        Tooltip = "Once the skis are detached the right stick orbits the camera like the spectator view, without switching the walking off. Auto starts after a detach command and stops on a new scene; Always keeps the right stick on the camera all the time.")]
+    public string OnFootCam { get; private set; } = "Auto (after detaching)";
+
+    static bool onFoot;
+    internal static void NoteDetach() { onFoot = true; }
+    bool OnFootActive => OnFootCam == "Always" || (OnFootCam.StartsWith("Auto") && onFoot);
+    bool onFootInit;
+
+    void OnFootOrbit(nint self, Pads pad, float dt)
+    {
+        var fc = new Jibbers.Interop.Game.FollowCam(self);
+        if (!onFootInit)
+        {
+            lookYaw = YawField == "xAngle" ? fc.xAngle : fc.yAngle;
+            lookPitch = YawField == "xAngle" ? fc.yAngle : fc.xAngle;
+            onFootInit = true;
+            Log($"Free Look: on-foot camera started (xAngle {fc.xAngle:0.#}, yAngle {fc.yAngle:0.#}, distance {fc.distance:0.#})");
+        }
+        if (footReset) { footReset = false; footHold = false; lookYaw = YawField == "xAngle" ? fc.xAngle : fc.yAngle; lookPitch = YawField == "xAngle" ? fc.yAngle : fc.xAngle; }
+        // L1 / R1 held: the camera is locked where it is (the stick does not turn it, the game does not ease it back).
+        if ((pad.Buttons & (PadButton.LeftShoulder | PadButton.RightShoulder)) != 0)
+        {
+            if (!footHold) { footHold = true; lookYaw = YawField == "xAngle" ? fc.xAngle : fc.yAngle; lookPitch = YawField == "xAngle" ? fc.yAngle : fc.xAngle; }
+            if (YawField == "xAngle") { fc.xAngle = lookYaw; fc.yAngle = lookPitch; } else { fc.yAngle = lookYaw; fc.xAngle = lookPitch; }
+            return;
+        }
+        var moved = Math.Abs(pad.RightX) >= 0.01f || Math.Abs(pad.RightY) >= 0.01f;
+        if (!footHold && !moved)
+        {   // nothing touched yet (or just reset with L3): follow whatever the game does, so the camera is back behind the rider
+            lookYaw = YawField == "xAngle" ? fc.xAngle : fc.yAngle;
+            lookPitch = YawField == "xAngle" ? fc.yAngle : fc.xAngle;
+            return;
+        }
+        if (!footHold) { footHold = true; Log("Free Look: on-foot camera is now kept where you put it (L3 puts it back behind)"); }
+        lookYaw += pad.RightX * (InvertX ? 1 : -1) * LookSpeed * dt;
+        lookPitch += pad.RightY * (InvertY ? 1 : -1) * LookSpeed * dt * 0.6f;
+        lookPitch = Math.Clamp(lookPitch, -20, 85);
+        // Written every frame, also with the stick at rest: the camera stays where it was left.
+        if (YawField == "xAngle") { fc.xAngle = lookYaw; fc.yAngle = lookPitch; } else { fc.yAngle = lookYaw; fc.xAngle = lookPitch; }
+    }
+    bool footHold, footReset, footMuted, l3Prev, footActiveNow;
+
+    /// <summary>After the game's camera: with L2 / R2 held the game prepares a spin with the right stick and may move the camera itself, so the on-foot angles are written once more.</summary>
+    void AfterFoot(nint self)
+    {
+        try
+        {
+            if (!footActiveNow || !footHold || !onFootInit || rear > 0.001f || rearTarget > 0) return;
+            var fc = new Jibbers.Interop.Game.FollowCam(self);
+            if (YawField == "xAngle") { fc.xAngle = lookYaw; fc.yAngle = lookPitch; } else { fc.yAngle = lookYaw; fc.xAngle = lookPitch; }
+        }
+        catch (Exception e) { Once("onfoot-after", e); }
+    }
+
     // ---------------------------------------------------------------- State
 
     bool inReplay => HankModPack.CameraOwnership.InReplay;
@@ -81,8 +136,13 @@ public sealed unsafe partial class LookAroundMod : PackPart
         ImportPackSettings();
         EnterReplay.Subscribe(_ => {  MainThread.Run(() => Stop("replay")); });
         ExitReplay.Subscribe(_ => {  });
-        CameraCallbacks.Follow.Register(this, Before, null);
-        ChangeScene.Subscribe(_ => { spawnerLookup.Invalidate(); OnDeactivated(); });
+        CameraCallbacks.Follow.Register(this, Before, AfterFoot);
+        ChangeScene.Subscribe(_ => { spawnerLookup.Invalidate(); onFoot = false; onFootInit = false; OnDeactivated(); });
+        // Respawning / resetting puts the skier back on skis: the on-foot camera stops there, so the right stick no longer moves it.
+        Respawn.Subscribe(_ => { onFoot = false; onFootInit = false; footHold = false; });
+        Jibbers.Sdk.Game.Event.Reset.Subscribe(_ => { onFoot = false; onFootInit = false; footHold = false; });
+        // A trick can only be done on skis: whatever brought them back (respawn, reset, re-attach), the on-foot camera is over.
+        TrickPerformed.Subscribe(_ => { onFoot = false; onFootInit = false; footHold = false; });
     }
 
     void Once(string key, Exception e)
@@ -95,7 +155,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
     struct Pads
     {
         public PadButton Buttons;
-        public float RightX, RightY, LT, RT;
+        public float RightX, RightY, LeftX, LeftY, LT, RT;
     }
 
     Pads ReadPads()
@@ -110,11 +170,15 @@ public sealed unsafe partial class LookAroundMod : PackPart
             if (!pad.Connected) continue;
             p.Buttons |= pad.Buttons;
             var d = pad.WithDeadzone(0.2f);
+            p.LeftX += d.LeftX;
+            p.LeftY += d.LeftY;
             p.RightX += d.RightX;
             p.RightY += d.RightY;
-            p.LT = Math.Max(p.LT, d.LeftTrigger);
-            p.RT = Math.Max(p.RT, d.RightTrigger);
+            p.LT = Math.Max(p.LT, Math.Max(d.LeftTrigger, pad.LeftTrigger));
+            p.RT = Math.Max(p.RT, Math.Max(d.RightTrigger, pad.RightTrigger));
         }
+        p.LeftX = Math.Clamp(p.LeftX, -1, 1);
+        p.LeftY = Math.Clamp(p.LeftY, -1, 1);
         p.RightX = Math.Clamp(p.RightX, -1, 1);
         p.RightY = Math.Clamp(p.RightY, -1, 1);
         return p;
@@ -133,9 +197,12 @@ public sealed unsafe partial class LookAroundMod : PackPart
         {
             if (editorOpen) CloseEditor();
             if (modsOpen) CloseMods();
-            if (keysOpen) CloseKeys();
+            if (bindsOpen) CloseBinds();
+            if (setsOpen) CloseSets();
+            if (themeOpen) CloseTheme();
             if (phase != Phase.Idle) Stop("off");
             else if (rearMuted) { try { mute.Restore(); } catch { } rearMuted = false; }
+        if (footMuted) { try { mute.Restore(); } catch { } footMuted = false; }
             upMute.Restore();
             rear = 0;
             return;
@@ -152,7 +219,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
         {
             case Phase.Idle:
                 if (!down) needRelease = false;
-                else if (!needRelease && !editorOpen && !modsOpen && !keysOpen) { phase = Phase.Pressed; pressStart = now; }
+                else if (!needRelease && !editorOpen && !modsOpen && !bindsOpen && !setsOpen && !themeOpen) { phase = Phase.Pressed; pressStart = now; }
                 break;
             case Phase.Pressed:
                 if (!down) phase = Phase.Idle;                       // a tap: the game changes the stance by itself
@@ -166,10 +233,21 @@ public sealed unsafe partial class LookAroundMod : PackPart
 
         try { MenuTick(self, pad, now); } catch (Exception e) { Once("menu", e); }
 
+        var foot = OnFootActive && phase == Phase.Idle && !down && !editorOpen && !modsOpen && !bindsOpen && !setsOpen && !themeOpen;
+        footActiveNow = foot;
+        if (foot) { try { if (!(RearView && RearHeld(pad)) && rear < 0.001f) OnFootOrbit(self, pad, dt); } catch (Exception e) { Once("onfoot", e); } }
+        else if (!OnFootActive || phase != Phase.Idle) { onFootInit = false; footHold = false; }
+        // L3 on foot puts the camera back behind the rider, and the game does not get that click (its controls are off while it is held).
+        var l3 = foot && (pad.Buttons & PadButton.LeftStick) != 0;
+        if (l3 && !l3Prev) { footReset = true; Log("Free Look: L3 -> on-foot camera back behind the rider"); }
+        l3Prev = l3;
+        if (l3 && !footMuted) { try { mute.Mute(); footMuted = true; } catch (Exception e) { Once("foot-mute", e); } }
+        else if (!l3 && footMuted) { try { mute.Restore(); } catch { } footMuted = false; }
+
         // Rear view: the game's own camera angles are swung round by 180 degrees (same fields the free look writes, which work).
-        rearTarget = RearView && phase == Phase.Looking && RearButton is { } rb && IsDown(rb, pad) ? 1f : 0f;
+        rearTarget = RearView && (phase == Phase.Looking || foot) && RearHeld(pad) ? 1f : 0f;   // on foot too: R3 alone looks behind
         if (rearTarget != lastRearTarget) { lastRearTarget = rearTarget; Log(rearTarget > 0 ? "Free Look: right stick click -> rear view" : "Free Look: rear view released"); }
-        if (rearTarget > 0 && rear <= 0.001f && !rearHeld && phase != Phase.Looking) CaptureRear(self);
+        if (rearTarget > 0 && rear <= 0.001f && !rearHeld && phase != Phase.Looking) CaptureRear(self);   // also on foot
         // The game may use the right stick click itself (it would put the camera back behind): switch the player's controls off while it is held.
         if (MutePlayer && phase != Phase.Looking)
         {
@@ -464,7 +542,7 @@ public sealed unsafe partial class LookAroundMod : PackPart
             if (Pressed(PadButton.DpadUp) || Pressed(PadButton.A) || Pressed(PadButton.Start)) pc.SpawnSelector(false);
             return;
         }
-        if (editorOpen || modsOpen || keysOpen || menuOpen || dpadDown || !pc.Active) return;
+        if (editorOpen || modsOpen || bindsOpen || setsOpen || themeOpen || menuOpen || dpadDown || !pc.Active) return;
         if (Pressed(PadButton.Start) && !PlayCamerasMod.UiOpen && !pc.Holding("pause menu")) { pauseSince = now; pauseSeen = false; pc.Hold("pause menu", true); return; }
         // D-pad up: a short press is the game's (drone view / spawn selector). Held for a moment with a play camera on: back to the game's camera.
         // The game opened its selector at the press, so it is closed again: the game's controls are cut for a moment while the button is still down
