@@ -16,6 +16,8 @@ namespace HankModPack;
 /// </summary>
 public sealed class PlayCamerasMod : PackPart
 {
+    // Every camera value is changed in the quick menu > Camera editor (with presets): none of them is listed in Options > Mods.
+    protected override bool HiddenInModsTab(Setting s) => s.Key != "enabled";
     protected override string PartId => "play_cameras";
     public override string Name => "Hank Mod Pack: Play Cameras";
     public override string Author => "Hank";
@@ -245,6 +247,8 @@ public sealed class PlayCamerasMod : PackPart
         if (liveDirty.Count == 0) return;
         try
         {
+            WithAllSettings(() =>
+            {
             if (StoreFld?.GetValue(this) is SettingsStore store)
             {
                 foreach (var key in liveDirty.ToList())
@@ -255,6 +259,7 @@ public sealed class PlayCamerasMod : PackPart
                 }
                 store.GetType().GetMethod("Save", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.Invoke(store, null);
             }
+            });
         }
         catch (Exception e) { Log($"play cameras: could not save the camera settings: {e.Message}"); }
         liveDirty.Clear();

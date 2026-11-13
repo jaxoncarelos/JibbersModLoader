@@ -6,14 +6,14 @@ namespace RickBackflip;
 internal static class OverlayCanvas
 {
     /// <summary>Un Canvas plein écran au-dessus du jeu (ScreenSpaceOverlay, 1920x1080 de référence), sans contenu.</summary>
-    public static OwnedGameObject BuildRoot(string name)
+    public static OwnedGameObject BuildRoot(string name, int sortingOrder = 930)
     {
         var root = OwnedGameObject.Create(name);
         try
         {
             var canvas = root.AddComponent("UnityEngine.Canvas");
             UnityProperties.Set(canvas, "set_renderMode", 0); // ScreenSpaceOverlay
-            UnityProperties.Set(canvas, "set_sortingOrder", 930); // au-dessus des overlays du SDK (920)
+            UnityProperties.Set(canvas, "set_sortingOrder", sortingOrder); // au-dessus des overlays du SDK (920)
             var scaler = root.AddComponent("UnityEngine.UI.CanvasScaler");
             UnityProperties.Set(scaler, "set_uiScaleMode", 1); // ScaleWithScreenSize
             UnityProperties.Set(scaler, "set_referenceResolution", new Vector2(1920, 1080));

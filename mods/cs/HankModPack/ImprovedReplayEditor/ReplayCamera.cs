@@ -17,6 +17,8 @@ namespace HankModPack;
 /// </summary>
 public sealed unsafe class ReplayCameraMod : PackPart
 {
+    // Changed in the replay editor (camera tabs): not listed in Options > Mods.
+    protected override bool HiddenInModsTab(Setting s) => s.Key != "enabled";
     protected override string PartId => "replay_camera";
     public override string Name => "Hank Mod Pack: Replay Camera";
     public override string Author => "Hank";
@@ -1310,7 +1312,23 @@ public sealed unsafe class ReplayCameraMod : PackPart
 
     void HideHead(nint head)
     {
-        if (hidden.Count > 0 && hidden.All(h => !Unity.IsNull(h.R.Target))) { ReapplyHidden(); return; }
+        if (hidden.Count > 0 && hidden.All(h => !Unity.IsNull(h.R.Target)))
+        {
+            ReapplyHidden();
+            // Hats, hair, helmets and other skins can appear (or be switched back on) after the first pass: look again about twice a second.
+            if (Environment.TickCount64 >= nextHiddenScan)
+            {
+                nextHiddenScan = Environment.TickCount64 + 500;
+                var offNow = (byte)0;
+                foreach (var r in Unity.GetComponentsInChildren(head, Unity.Class("UnityEngine.Renderer"), true))
+                {
+                    if (Unity.IsNull(r) || Unity.Call<byte>(r, "get_enabled") == 0) continue;
+                    hidden.Add((new GameRef(r), true));
+                    Unity.Call(r, "set_enabled", (nint)(&offNow));
+                }
+            }
+            return;
+        }
         ShowHead();
         var off = (byte)0;
         foreach (var r in Unity.GetComponentsInChildren(head, Unity.Class("UnityEngine.Renderer"), true))
@@ -1322,6 +1340,7 @@ public sealed unsafe class ReplayCameraMod : PackPart
         if (hidden.Count != lastHiddenLog) { lastHiddenLog = hidden.Count; Log($"replay camera: {hidden.Count} head renderer(s) hidden"); }
     }
     int lastHiddenLog = -1;
+    long nextHiddenScan;
 
     void ReapplyHidden()
     {

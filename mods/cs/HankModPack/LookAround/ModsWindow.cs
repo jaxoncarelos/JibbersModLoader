@@ -35,7 +35,7 @@ public sealed unsafe partial class LookAroundMod
     void OpenMods()
     {
         Log("mods window: open");
-        menuOpen = false; lingerEnd = 0;
+        menuOpen = false; lingerEnd = 0; ReleaseSticky();
         overlay.Hide();
         Stop("mods");
         needRelease = true;

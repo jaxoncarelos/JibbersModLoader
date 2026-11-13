@@ -55,7 +55,7 @@ public sealed unsafe partial class LookAroundMod
     {
         if (PlayCamerasMod.Instance is not { } pc) return;
         Log("camera editor: open");
-        menuOpen = false; lingerEnd = 0;
+        menuOpen = false; lingerEnd = 0; ReleaseSticky();
         overlay.Hide();
         Stop("editor");
         needRelease = true;

@@ -18,6 +18,7 @@ namespace TimelineFx;
 /// </summary>
 public sealed unsafe class TimelineFxMod : HankModPack.PackPart
 {
+    protected override string[] SectionOrder => new[] { "Timeline", "Preset", "Time of day", "Camera shake" };
     // Form-menu row classes, named through the generated bindings so a game update that renames
     // them breaks the build (or is remapped with the bindings) instead of silently matching nothing.
     static readonly string SliderRow = Jibbers.Interop.Game.wh.Class.Name;     // label + slider
@@ -2343,7 +2344,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
     sealed record WRow(string L, string V, float Bar, bool Mod, RowAdjust? Adjust, Action? Reset, Action? Next, Action<float>? SetTo = null);
     readonly record struct FxIn(int Move, int Dir, float Mult, int TabStep, bool A, bool B, bool X, bool Y, bool R3, bool L3 = false);
 
-    /// <summary>L2 (while a keyframe panel is open) opens the window and mutes the game's controls, Circle closes it; hold R2 for bigger steps.
+    /// <summary>R2 (while a keyframe panel is open) opens the window and mutes the game's controls, Circle closes it; hold L2 for bigger steps.
     /// D-pad: navigate (left / right change a value), Cross / A: open a tab or next choice, Circle / B: back (then close), Square / X: create the keyframe, Triangle / Y: delete it, L1 / R1: change tab, R3: reset the row.</summary>
     FxIn FxInput(bool panelOpen)
     {
@@ -2357,7 +2358,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         }
         var ltDown = lt > 0.5f; var rtDown = rt > 0.5f;
         if (!panelOpen) fxOpen = false;
-        else if (ltDown && !fxLtPrev) { fxOpen = true; fxSel = 0; fxInTab = false; fxPrev = b; }
+        else if (rtDown && !fxRtPrev) { fxOpen = true; fxSel = 0; fxInTab = false; fxPrev = b; }
         fxLtPrev = ltDown; fxRtPrev = rtDown;
         var edit = fxOpen;
         if (edit != fxMuted)
@@ -2366,7 +2367,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
         }
         var press = b & ~fxPrev; fxPrev = b;
         if (!edit) return new(0, 0, 1, 0, false, false, false, false, false);
-        var boost = rtDown ? 5f : 1f;   // R2 held: bigger steps
+        var boost = ltDown ? 5f : 1f;   // L2 held: bigger steps
         var now = Environment.TickCount64; var step = 0; float mult = 1;
         var dir = (b.HasFlag(PadButton.DpadRight) ? 1 : 0) - (b.HasFlag(PadButton.DpadLeft) ? 1 : 0);
         if (dir == 0) fxHeldDir = 0;
@@ -2396,8 +2397,8 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             {
                 fxHint ??= new HankModPack.QuickMenuOverlay();
                 fxHint.RightSide = true; fxHint.Compact = true;
-                var st = HankModPack.QuickMenuMod.Instance?.IconStyle == "PlayStation" ? HankModPack.PadStyle.PlayStation : HankModPack.PadStyle.Xbox;
-                fxHint.Show("EFFECTS", new List<HankModPack.QuickMenuOverlay.Row> { new(HankModPack.PadBtn.A, "", "", false, false, HasIcon: false, Small: true, Legend: new[] { (HankModPack.PadBtn.LT, "open the effects window") }) },
+                var st = HankModPack.LookAroundMod.IconStyleNow();
+                fxHint.Show("EFFECTS", new List<HankModPack.QuickMenuOverlay.Row> { new(HankModPack.PadBtn.A, "", "", false, false, HasIcon: false, Small: true, Legend: new[] { (HankModPack.PadBtn.RT, "open the effects window") }) },
                     st, 125, 100, HankModPack.HudThemes.WithWindow(HankModPack.HankHudMod.Instance?.CurrentLook), 360);
                 fxHintOn = true;
             }
@@ -2512,6 +2513,20 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
                     hasOpts ? null : f => Set(p.Min + f * (p.Max - p.Min))));
             }
             if (rows.Count > 0) sections.Add((g, rows, members));
+        }
+
+        // Input Visualizer: the controller / keyboard overlay that replaces the game's. Changes here last until the replay ends.
+        if (HankModPack.PadOverlayMod.Instance is { } padOv)
+        {
+            var rows = new List<WRow>();
+            var vis = padOv.ReplayShown;
+            rows.Add(new("Show", vis ? "ON" : "OFF", -1f, vis, (d, m) => padOv.SetReplayShown(d > 0), null, () => padOv.SetReplayShown(!vis)));
+            var cols = HankModPack.PadOverlayMod.ColourChoices; var ci = Math.Max(0, Array.IndexOf(cols, padOv.ReplayColorsNow));
+            rows.Add(new("Theme", "◄ " + cols[ci].Replace("Theme: ", "") + " ►", -1f, false, (d, m) => padOv.SetReplayColors(cols[((ci + Math.Sign(d)) % cols.Length + cols.Length) % cols.Length]), null, () => padOv.SetReplayColors(cols[(ci + 1) % cols.Length])));
+            rows.Add(Sl("Size %", padOv.ReplayScaleNow, 40f, 200f, 5f, 0, false, v => padOv.SetReplayScale(v)));
+            var pos = HankModPack.PadOverlayMod.PositionChoices; var pi = Math.Max(0, Array.IndexOf(pos, padOv.ReplayPositionNow));
+            rows.Add(new("Position", "◄ " + pos[pi] + " ►", -1f, false, (d, m) => padOv.SetReplayPosition(pos[((pi + Math.Sign(d)) % pos.Length + pos.Length) % pos.Length]), null, () => padOv.SetReplayPosition(pos[(pi + 1) % pos.Length])));
+            sections.Add(("Input Visualizer", rows, null));
         }
 
         // Same order as the game's keyframe panel: Alpine Vision (live) comes last.
@@ -2633,7 +2648,7 @@ public sealed unsafe class TimelineFxMod : HankModPack.PackPart
             list.Add(new(HankModPack.PadBtn.A, "", "", false, false, HasIcon: false, Small: true, Legend: new[] { (HankModPack.PadBtn.L3, "duplicate"), (HankModPack.PadBtn.R3, "duplicate all") }));
             list.Add(new(HankModPack.PadBtn.A, "", "", false, false, HasIcon: false, Small: true, Legend: new[] { (HankModPack.PadBtn.LB, ""), (HankModPack.PadBtn.RB, "tab"), (HankModPack.PadBtn.RT, "hold: more") }));
         }
-        var style = HankModPack.QuickMenuMod.Instance?.IconStyle == "PlayStation" ? HankModPack.PadStyle.PlayStation : HankModPack.PadStyle.Xbox;
+        var style = HankModPack.LookAroundMod.IconStyleNow();
         var percent = Math.Min(55f, 82000f / (66 + 14 + 62 * (1 + count) + 180));   // small: the game stays visible
         fxView.Show("REPLAY EFFECTS", list, style, percent, 100, HankModPack.HudThemes.WithWindow(HankModPack.HankHudMod.Instance?.CurrentLook), 560);
         fxWinSig = "open";

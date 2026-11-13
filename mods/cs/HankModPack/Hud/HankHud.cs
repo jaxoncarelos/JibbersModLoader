@@ -16,6 +16,8 @@ namespace HankModPack;
 /// </summary>
 public sealed class HankHudMod : PackPart
 {
+    // Shown in Options > Mods only what the quick menu does not change (HUD on/off and the theme are there).
+    protected override bool HiddenInModsTab(Setting s) => s.Key is "show" or "hidden" or "theme";
     protected override string PartId => "hank_hud";
     public override string Name => "Hank Mod Pack: HUD";
     public override string Description => "Replaces the game's spawnpoint and speed HUD with two windows. 11 themes: White, Black, Vaporwave, Cyberpunk, Terminal, Ice, Arcade, Rounded, Hip Hop, Freestyle, Graffiti.";

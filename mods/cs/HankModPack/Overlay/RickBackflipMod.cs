@@ -14,6 +14,7 @@ namespace RickBackflip;
 /// </summary>
 public sealed class RickBackflipMod : HankModPack.PackPart
 {
+    protected override string[] SectionOrder => new[] { "Banners", "Triggers", "Sound", "Advanced" };
     public RickBackflipMod() { Shared.Main = this; }
 
     protected override string PartId => "rick_backflip";

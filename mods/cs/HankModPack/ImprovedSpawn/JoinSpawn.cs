@@ -28,6 +28,9 @@ sealed record Entry(string Name, nint Plate, float Distance, bool Active)
 /// </summary>
 public sealed class JoinSpawnMod : HankModPack.PackPart
 {
+    // Position and copy-motion are changed in the spawn menu itself.
+    protected override bool HiddenInModsTab(Setting s) => s.Key is "forward" or "side" or "height2" or "copy_motion";
+    protected override string[] SectionOrder => new[] { "Controls", "Camera", "Position" };
     protected override string PartId => "join_spawn";
     public override string Name => "Hank Mod Pack: Improved Spawn";
     public override string Author => "Hank";

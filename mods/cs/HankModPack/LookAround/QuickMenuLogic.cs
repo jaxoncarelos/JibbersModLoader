@@ -22,29 +22,48 @@ public sealed unsafe partial class LookAroundMod
     float MenuScale => Q.MenuScale;
     float MenuOpacity => Q.MenuOpacity;
     float MenuLinger => Q.MenuLinger;
-    string RearButtonName => Q.RearButtonName;
-    string CameraButtonName => Q.CameraButtonName;
-    string SpawnButtonName => Q.SpawnButtonName;
-    string FunButtonName => Q.FunButtonName;
-    string OverlayButtonName => Q.OverlayButtonName;
-    string PovButtonName => Q.PovButtonName;
-    string FollowButtonName => Q.FollowButtonName;
-    string DroneButtonName => Q.DroneButtonName;
-    string DefaultButtonName => Q.DefaultButtonName;
-    string DirectPovName => Q.DirectPovName;
-    string DirectFollowName => Q.DirectFollowName;
-    string DirectDroneName => Q.DirectDroneName;
-    string DirectGameName => Q.DirectGameName;
-    string HudPrevName => Q.HudPrevName;
-    string HudNextName => Q.HudNextName;
-    string HudButtonName => Q.HudButtonName;
-    string EditorButtonName => Q.EditorButtonName;
-    string ModsButtonName => Q.ModsButtonName;
+    // Fixed buttons (they cannot be changed): look behind = R3, Mods = Share, Settings = Options.
+    string RearButtonName => "RSB / R3";
+    string CameraButtonName => Assigned("menu_camera", Q.CameraButtonName);
+    string SpawnButtonName => Assigned("menu_spawn", Q.SpawnButtonName);
+    string FunButtonName => Assigned("menu_fun", Q.FunButtonName);
+    string OverlayButtonName => Assigned("menu_overlay", Q.OverlayButtonName);
+    string PadOvButtonName => Assigned("menu_padov", Q.PadOvButtonName);
+    string PovButtonName => Assigned("cam_pov", Q.PovButtonName);
+    string FollowButtonName => Assigned("cam_follow", Q.FollowButtonName);
+    string DroneButtonName => Assigned("cam_drone", Q.DroneButtonName);
+    string DefaultButtonName => Assigned("cam_default", Q.DefaultButtonName);
+    string DirectPovName => Assigned("menu_cam_pov", Q.DirectPovName);
+    string DirectFollowName => Assigned("menu_cam_follow", Q.DirectFollowName);
+    string DirectDroneName => Assigned("menu_cam_drone", Q.DirectDroneName);
+    string DirectGameName => Assigned("menu_cam_game", Q.DirectGameName);
+    string HudPrevName => Assigned("menu_hud_prev", Q.HudPrevName);
+    string HudNextName => Assigned("menu_hud_next", Q.HudNextName);
+    string ThemesButtonName => Assigned("menu_themes", Q.ThemesButtonName);
+    string HudButtonName => Assigned("menu_hud", Q.HudButtonName);
+    string EditorButtonName => "Menu / Options";
+    string ModsButtonName => "View / Share";
+    string SetButtonName(int i) => Assigned("menu_set" + (i + 1), i == 0 ? Q.Set1ButtonName : i == 1 ? Q.Set2ButtonName : Q.Set3ButtonName);
+    string DetachButtonName => Assigned("menu_detach", Q.DetachButtonName);
+    string ShortcutsButtonName => Assigned("menu_shortcuts", Q.ShortcutsButtonName);
+
+    /// <summary>What an action is given: a keyboard key ("Key: F6") when it has one, otherwise its pad button.</summary>
+    static string Assigned(string key, string pad) => Q.GetKeyboard(key) is { } k ? "Key: " + k : pad;
+
+    static Key? ParseKey(string name) => name.StartsWith("Key: ") && Enum.TryParse<Key>(name[5..], out var k) ? k : null;
+    static bool IsAssigned(string name) => Parse(name) is not null || ParseKey(name) is not null;
+    HashSet<Key> kbPrev = new(), kbPressed = new();
 
     /// <summary>The free look zoom uses L1 / R1 too: while the menu is shown, a button that changes the HUD does not zoom.</summary>
-    bool ZoomBlocked(PadBtn b) => ShowMenu && (Parse(HudPrevName) == b || Parse(HudNextName) == b);
+    bool ZoomBlocked(PadBtn b) => ShowMenu && (Parse(HudPrevName) == b || Parse(HudNextName) == b || Parse(DirectPovName) == b || Parse(DetachButtonName) == b
+        || Parse(PadOvButtonName) == b || Parse(ThemesButtonName) == b || Parse(ShortcutsButtonName) == b || Parse(SpawnButtonName) == b
+        || Parse(CameraButtonName) == b || Parse(FollowButtonName) == b || Parse(DroneButtonName) == b || Parse(ModsButtonName) == b
+        || Parse(FunButtonName) == b || Parse(OverlayButtonName) == b || Parse(HudButtonName) == b || Parse(DefaultButtonName) == b
+        || Parse(Q.Set1ButtonName) == b || Parse(Q.Set2ButtonName) == b || Parse(Q.Set3ButtonName) == b);   // a button that runs a menu action must not also zoom
 
     // ---------------------------------------------------------------- Buttons
+
+    static string KeyLabel(Key k) => k switch { >= Key.D0 and <= Key.D9 => ((int)k - (int)Key.D0).ToString(), Key.Backquote => "`", Key.Semicolon => ";", Key.Comma => ",", Key.Period => ".", Key.Slash => "/", Key.Minus => "-", _ => k.ToString().ToUpperInvariant() };
 
     static readonly Dictionary<string, PadBtn> ButtonByName = new()
     {
@@ -59,6 +78,8 @@ public sealed unsafe partial class LookAroundMod
     static PadBtn? Parse(string name) => ButtonByName.TryGetValue(name, out var b) ? b : null;
 
     PadBtn? RearButton => Parse(RearButtonName);
+    /// <summary>Whether the look behind button (pad) or key (keyboard) is held.</summary>
+    bool RearHeld(Pads pad) => RearButton is { } rb && IsDown(rb, pad) || ParseKey(RearButtonName) is { } rk && Input.IsDown(rk);
 
     static PadButton ToPad(PadBtn b) => b switch
     {
@@ -76,11 +97,11 @@ public sealed unsafe partial class LookAroundMod
 
     // ---------------------------------------------------------------- State
 
-    enum MenuPage { Main, Camera }
+    enum MenuPage { Main, Camera, Settings }
 
     readonly QuickMenuOverlay overlay = new();
     HashSet<PadBtn> prevDown = new();
-    bool menuOpen, needRelease;
+    bool menuOpen, needRelease, stickyMuted;
     MenuPage page;
     long menuHideUntil;    // the panel stays hidden until then (the camera is being moved)
     long lingerEnd;        // 0 = open while the D-pad is held; otherwise the time the panel goes away
@@ -102,7 +123,10 @@ public sealed unsafe partial class LookAroundMod
         Cleanup(
             () => { if (editorOpen) CloseEditor(); },
             () => { if (modsOpen) CloseMods(); },
-            () => { if (keysOpen) CloseKeys(); },
+            () => { if (bindsOpen) CloseBinds(); },
+            () => { if (setsOpen) CloseSets(); },
+            () => { if (themeOpen) CloseTheme(); },
+            () => { if (stickyMuted) { mute.Restore(); stickyMuted = false; } },
             () => Stop("disabled or scene changed"),
             mute.Restore, upMute.Restore, Pointer.Restore, Unfreeze, spawnerLookup.Invalidate);
         menuOpen = false; lingerEnd = 0; needRelease = true;
@@ -115,10 +139,14 @@ public sealed unsafe partial class LookAroundMod
 
     protected override void OnPackUnload()
     {
-        try { MainThread.Run(() => { if (editorOpen) CloseEditor(); if (modsOpen) CloseMods(); if (keysOpen) CloseKeys(); overlay.Dispose(); }); } catch { }
+        try { MainThread.Run(() => { if (editorOpen) CloseEditor(); if (modsOpen) CloseMods(); if (bindsOpen) CloseBinds(); if (setsOpen) CloseSets(); if (themeOpen) CloseTheme(); overlay.Dispose(); }); } catch { }
     }
 
     // ---------------------------------------------------------------- Which pad pictures
+
+    /// <summary>The button pictures to use anywhere in the pack (replay editor too): the choice in Settings, or the real controller (a Sony pad seen as an Xbox one by Steam Input is still a PlayStation pad).</summary>
+    internal static PadStyle IconStyleNow()
+        => instance is { } me ? me.CurrentStyle() : QuickMenuMod.Instance?.IconStyle == "PlayStation" ? PadStyle.PlayStation : PadStyle.Xbox;
 
     PadStyle CurrentStyle()
     {
@@ -135,11 +163,13 @@ public sealed unsafe partial class LookAroundMod
         nextStyleCheck = now + Stopwatch.Frequency * 3;
         var names = JoystickNames();
         var key = string.Join(" | ", names);
-        style = names.Any(n => ButtonArt.StyleFromName(n) == PadStyle.PlayStation) ? PadStyle.PlayStation : PadStyle.Xbox;
+        var sony = SonyPad.Find();
+        style = names.Any(n => ButtonArt.StyleFromName(n) == PadStyle.PlayStation) || sony.Count > 0 ? PadStyle.PlayStation : PadStyle.Xbox;
+        key += sony.Count > 0 ? " + Sony device" : "";
         if (key != lastControllers)
         {
             lastControllers = key;
-            Log($"quick menu: controllers [{key}] -> {style} pictures (Quick menu > Button pictures can force them)");
+            Log($"quick menu: controllers [{key}] -> {style} pictures (Quick menu > Button pictures can force them){(sony.Count > 0 ? "; Sony device: " + sony[0] : "")}");
         }
     }
 
@@ -159,16 +189,32 @@ public sealed unsafe partial class LookAroundMod
     {
         if (editorOpen) { EditorTick(pad, now); return; }
         if (modsOpen) { ModsTick(pad, now); return; }
-        if (keysOpen) { KeysTick(pad, now); return; }
+        if (bindsOpen) { BindsTick(pad, now); return; }
+        if (setsOpen) { SetsTick(pad, now); return; }
+        if (themeOpen) { ThemeTick(pad, now); return; }
         var cur = new HashSet<PadBtn>();
         foreach (var b in Mappable) if (IsDown(b, pad)) cur.Add(b);
         var pressed = cur.Where(b => !prevDown.Contains(b)).ToHashSet();
         prevDown = cur;
+        var kbNow = new HashSet<Key>();
+        if (Input.GameFocused) foreach (var k in BindableKeys) if (Input.IsDown(k)) kbNow.Add(k);
+        kbPressed = kbNow.Where(k => !kbPrev.Contains(k)).ToHashSet();
+        kbPrev = kbNow;
 
         var looking = phase == Phase.Looking;
-        // D-pad down held + L3: the button assignment window (always, whatever L3 is assigned to).
-        if (pressed.Contains(PadBtn.L3)) Log($"quick menu: L3 pressed (looking {looking}, menu open {menuOpen}, shown {ShowMenu}, page {page}, busy {pendingAct is not null})");
-        if (looking && menuOpen && ShowMenu && page == MenuPage.Main && pendingAct is null && pressed.Contains(PadBtn.L3)) { OpenKeys(); return; }
+        // A sub-page of the quick menu (Camera list, Settings) stays open when D-pad down is let go: the controls are off until it is closed or a choice is made.
+        if (menuOpen && page != MenuPage.Main && !looking && !stickyMuted && lingerEnd == 0)
+        {
+            try { mute.Mute(); stickyMuted = true; } catch (Exception e) { Once("sticky-mute", e); }
+            Log($"quick menu: {page} page stays open without D-pad down");
+        }
+        else if (stickyMuted && (!menuOpen || page == MenuPage.Main || lingerEnd != 0))
+        {
+            try { mute.Restore(); } catch { }
+            stickyMuted = false; needRelease = true;
+            if (!looking) { menuOpen = lingerEnd != 0; if (lingerEnd == 0) { highlight = null; overlay.Hide(); } }
+        }
+        looking |= stickyMuted;
         if (pendingAct is { } pa)
         {
             if (!(looking && menuOpen)) { pendingAct = null; highlight = null; }
@@ -178,12 +224,39 @@ public sealed unsafe partial class LookAroundMod
 
         if (lingerEnd != 0 && now >= lingerEnd) { menuOpen = false; lingerEnd = 0; highlight = null; }
         // The panel gets out of the way while the camera is being moved (right stick or the look-behind button), and comes back a moment after.
-        if (looking && (Math.Abs(pad.RightX) > 0.01f || Math.Abs(pad.RightY) > 0.01f || RearButton is { } rbk && IsDown(rbk, pad)))
+        if (looking && (Math.Abs(pad.RightX) > 0.01f || Math.Abs(pad.RightY) > 0.01f || RearHeld(pad)))
             menuHideUntil = now + Stopwatch.Frequency * 4 / 10;
-        var show = ShowMenu && menuOpen && (lingerEnd != 0 || phase == Phase.Looking) && now >= menuHideUntil;
+        var show = ShowMenu && menuOpen && (lingerEnd != 0 || phase == Phase.Looking || stickyMuted) && now >= menuHideUntil;
         if (show) Draw(pad);
         else overlay.Hide();
     }
+
+    /// <summary>The actions of the quick menu that have a button or a key now, as rows with the button pictures (for the windows that must not clash with them).</summary>
+    List<QuickMenuOverlay.Row> QuickMenuAssignmentRows()
+    {
+        var items = new List<(int Order, QuickMenuOverlay.Row Row)>();
+        void A(string name, string action)
+        {
+            if (Parse(name) is { } bt) items.Add((Order(bt), new(bt, action, "", false, false)));
+            else if (ParseKey(name) is { } k) items.Add((100, new(PadBtn.A, action, "", false, false, HasIcon: false, Value: KeyLabel(k))));
+        }
+        A(CameraButtonName, "Cameras"); A(SpawnButtonName, "Spawn menu"); A(EditorButtonName, "Settings / Binds / Themes"); A(ThemesButtonName, "Themes"); A(ModsButtonName, "Mods");
+        for (var si = 0; si < QuickMenuMod.SetCount; si++) A(SetButtonName(si), Q.GetSetName(si));
+        A(ShortcutsButtonName, "Quick Actions"); A(DetachButtonName, "Detach both skis"); A(FunButtonName, "Fun overlays"); A(HudButtonName, "HUD on / off");
+        A(OverlayButtonName, "Banner overlays"); A(PadOvButtonName, "Input visualizer"); A(DirectPovName, "POV camera"); A(DirectFollowName, "Follow cam"); A(DirectDroneName, "Drone camera");
+        A(DirectGameName, "Game camera"); A(HudPrevName, "Theme previous"); A(HudNextName, "Theme next"); A(RearButtonName, "Look behind");
+        return items.OrderBy(i => i.Order).Select(i => i.Row).ToList();
+    }
+
+    /// <summary>The order of the buttons in the quick menu: Cross, Circle, Square, Triangle, R1, R2, L1, L2, L3, Share, Options; R3 (look behind) is at the very bottom.</summary>
+    static int Order(PadBtn? b) => b switch
+    {
+        PadBtn.A => 0, PadBtn.B => 1, PadBtn.X => 2, PadBtn.Y => 3, PadBtn.RB => 4, PadBtn.RT => 5, PadBtn.LB => 6, PadBtn.LT => 7,
+        PadBtn.L3 => 8, PadBtn.Back => 9, PadBtn.Start => 10, PadBtn.R3 => 200, _ => 100,
+    };
+
+    /// <summary>A window opens: it mutes the controls itself, so the sub-page's own mute ends.</summary>
+    void ReleaseSticky() { if (stickyMuted) { try { mute.Restore(); } catch { } stickyMuted = false; } }
 
     // A short flash on the row that was just selected, then its action runs (the panel stays as it is, nothing waits for the button to be released).
     Action? pendingAct; long pendingAt;
@@ -197,15 +270,22 @@ public sealed unsafe partial class LookAroundMod
 
     void HandlePresses(HashSet<PadBtn> pressed, long now)
     {
-        if (pressed.Count == 0) return;
-        bool P(string name) => Parse(name) is { } b && pressed.Contains(b);
+        if (pressed.Count == 0 && kbPressed.Count == 0) return;
+        bool P(string name) => Parse(name) is { } b ? pressed.Contains(b) : ParseKey(name) is { } k && kbPressed.Contains(k);
 
         if (page == MenuPage.Main)
         {
             if (PlayCamerasMod.Instance is not null && P(CameraButtonName)) { Flash("camera", now, () => { page = MenuPage.Camera; Log("quick menu: camera list"); }); return; }
             if (P(SpawnButtonName)) { Flash("spawn", now, OpenSpawn); return; }
             if (P(ModsButtonName)) { Flash("mods", now, OpenMods); return; }
-            if (PlayCamerasMod.Instance is not null && P(EditorButtonName)) { Flash("editor", now, OpenEditor); return; }
+            if (P(ShortcutsButtonName)) { Flash("sets", now, () => OpenSets(true)); return; }
+            for (var si = 0; si < QuickMenuMod.SetCount; si++)
+            {
+                var set = si;
+                if (P(SetButtonName(si))) { Flash("set" + si, now, () => OpenSets(true, set)); return; }
+            }
+            if (P(DetachButtonName)) { var reply = RunAny("detach left ; detach right"); Log($"quick menu: detach both skis{(reply.Length > 0 ? " (" + reply + ")" : "")}"); Linger("detach", now); return; }
+            if (P(EditorButtonName)) { Flash("settings", now, () => { page = MenuPage.Settings; Log("quick menu: settings"); }); return; }
             if (HankHudMod.Instance is { } hud0 && P(HudButtonName))
             {
                 var visible = hud0.Enabled && hud0.Show && !hud0.Hidden;
@@ -226,6 +306,8 @@ public sealed unsafe partial class LookAroundMod
             }
             if (P(FunButtonName)) { Toggle(Shared.Events, "Fun", "fun", now); return; }
             if (P(OverlayButtonName)) { Toggle(Shared.Main, "Overlay", "overlay", now); return; }
+            if (HankHudMod.Instance is not null && P(ThemesButtonName)) { Flash("themes", now, OpenTheme); return; }
+            if (P(PadOvButtonName)) { PadOverlayMod.Instance?.ToggleManual(); Linger("padov", now); return; }
             // Straight to a camera, without the camera list.
             if (PlayCamerasMod.Instance is { } pcm)
                 foreach (var (button, camera) in new[] { (DirectPovName, "POV"), (DirectFollowName, "Follow cam"), (DirectDroneName, "Drone"), (DirectGameName, "Game camera") })
@@ -235,6 +317,16 @@ public sealed unsafe partial class LookAroundMod
                         var target = camera != "Game camera" && pcm.CurrentName == camera ? "Game camera" : camera;
                         pcm.Select(target); Log($"quick menu: camera -> {target} (direct)"); Linger("direct:" + camera, now); return;
                     }
+            return;
+        }
+
+        // Settings: camera settings (the camera editor) or binds
+        if (page == MenuPage.Settings)
+        {
+            if (PlayCamerasMod.Instance is not null && pressed.Contains(PadBtn.A)) { Flash("set:cam", now, OpenEditor); return; }
+            if (pressed.Contains(PadBtn.X)) { Flash("set:binds", now, OpenBinds); return; }
+            if (HankHudMod.Instance is not null && pressed.Contains(PadBtn.RB)) { Flash("set:theme", now, OpenTheme); return; }
+            if (pressed.Contains(PadBtn.B) || P(EditorButtonName)) { page = MenuPage.Main; Log("quick menu: back to the main list"); }
             return;
         }
 
@@ -263,7 +355,7 @@ public sealed unsafe partial class LookAroundMod
     void OpenSpawn()
     {
         Log("quick menu: spawn menu");
-        menuOpen = false; lingerEnd = 0;
+        menuOpen = false; lingerEnd = 0; ReleaseSticky();
         overlay.Hide();
         Stop("menu");
         needRelease = true;     // the D-pad is still held: do not start the free look again until it is let go
@@ -288,26 +380,26 @@ public sealed unsafe partial class LookAroundMod
             title = "QUICK MENU";
             // Every action is listed, also the ones with no button (shown as "not assigned").
             QuickMenuOverlay.Row R(string name, string label, string badge, bool on, string hl)
-                => Parse(name) is { } bt ? new(bt, label, badge, on, highlight == hl) : new(PadBtn.A, label, "", false, false, HasIcon: false, Value: "not assigned");
+                => Parse(name) is { } bt ? new(bt, label, badge, on, highlight == hl)
+                 : ParseKey(name) is { } kk ? new(PadBtn.A, label, badge, on, highlight == hl, HasIcon: false, Value: KeyLabel(kk))
+                 : new(PadBtn.A, label, "", false, false, HasIcon: false, Value: "not assigned");
             // Order: the right stick (view) and look behind first, then the actions by button (Cross, Square, Circle, Triangle, L2, R2, Options, Share, L3...),
             // the ones with no button after them, and the theme rows (L1 / R1) last.
             var items = new List<(int Order, QuickMenuOverlay.Row Row)>();
-            static int Order(PadBtn? b) => b switch
-            {
-                PadBtn.A => 0, PadBtn.X => 1, PadBtn.B => 2, PadBtn.Y => 3, PadBtn.LT => 4, PadBtn.RT => 5, PadBtn.Start => 6, PadBtn.Back => 7,
-                PadBtn.L3 => 8, PadBtn.R3 => 9, PadBtn.LB => 10, PadBtn.RB => 11, _ => 100,
-            };
-            // Only the actions that have a button are listed (the whole list is in "Button assignment").
-            void Add(string name, string label, string badge, bool on, string hl) { if (Parse(name) is not null) items.Add((Order(Parse(name)), R(name, label, badge, on, hl))); }
-            rows.Add(new(PadBtn.RightStick, "Free look", "", false, false));
-            if (Parse(RearButtonName) is not null) rows.Add(R(RearButtonName, "Look behind", "", false, "rear") with { Highlight = rear > 0.05f });
-            if (cams is not null) Add(CameraButtonName, "Camera: " + cams.CurrentName, "", false, "camera");
+            // Only the actions that have a button are listed (the whole list is in Settings > Binds & buttons).
+            void Add(string name, string label, string badge, bool on, string hl) { if (IsAssigned(name)) items.Add((Order(Parse(name)), R(name, label, badge, on, hl))); }
+            if (cams is not null) Add(CameraButtonName, "Cameras", "", false, "camera");
             if (LoadedMods().Any(mod => mod.Id == "join_spawn" && mod.Enabled)) Add(SpawnButtonName, "Spawn menu", "", false, "spawn");
-            if (cams is not null) Add(EditorButtonName, "Camera editor", "", false, "editor");
+            Add(EditorButtonName, "Settings / Binds / Themes", "", false, "settings");
+            if (HankHudMod.Instance is not null) Add(ThemesButtonName, "Themes", "", false, "themes");
             Add(ModsButtonName, "Mods", "", false, "mods");
+            Add(ShortcutsButtonName, "Quick Actions", "", false, "sets");
+            for (var si = 0; si < QuickMenuMod.SetCount; si++) Add(SetButtonName(si), Q.GetSetName(si), "", false, "set" + si);
+            Add(DetachButtonName, "Detach both skis", "", false, "detach");
             if (Shared.Events is { } fun) Add(FunButtonName, "Fun overlays", fun.Enabled ? "ON" : "OFF", fun.Enabled, "fun");
             if (HankHudMod.Instance is { } hh) Add(HudButtonName, "HUD", hh.Enabled && hh.Show && !hh.Hidden ? "ON" : "OFF", hh.Enabled && hh.Show && !hh.Hidden, "hudonoff");
             if (Shared.Main is { } ovl) Add(OverlayButtonName, "Banner overlays", ovl.Enabled ? "ON" : "OFF", ovl.Enabled, "overlay");
+            if (PadOverlayMod.Instance is { } pov) Add(PadOvButtonName, "Input visualizer", pov.Visible ? "ON" : "OFF", pov.Visible, "padov");
             if (cams is not null)
             {
                 Add(DirectPovName, "POV camera", cams.CurrentName == "POV" ? "ON" : "", true, "direct:POV");
@@ -315,15 +407,25 @@ public sealed unsafe partial class LookAroundMod
                 Add(DirectDroneName, "Drone camera", cams.CurrentName == "Drone" ? "ON" : "", true, "direct:Drone");
                 Add(DirectGameName, "Game camera", cams.CurrentName == "Game camera" ? "ON" : "", true, "direct:Game camera");
             }
-            items.Add((Order(PadBtn.L3), new(PadBtn.L3, "Button assignment", "", false, highlight == "keys")));
             rows.AddRange(items.OrderBy(i => i.Order).Select(i => i.Row));
             if (cams is not null && cams.CurrentName != "Game camera") rows.Add(new(PadBtn.A, "Hold D-pad up: game camera", "", false, false, HasIcon: false));
-            if (HankHudMod.Instance is { } hd)
+            if (HankHudMod.Instance is { } hd && (IsAssigned(HudPrevName) || IsAssigned(HudNextName)))
             {
                 rows.Add(R(HudPrevName, "Previous: " + hd.NeighbourTheme(-1), "", false, "hudprev"));
                 rows.Add(R(HudNextName, "Next: " + hd.NeighbourTheme(1), "", false, "hudnext"));
                 rows.Add(new(PadBtn.A, "Current theme: " + hd.DisplayTheme, "", false, highlight is "hudprev" or "hudnext", HasIcon: false));
             }
+            // Free look and look behind (R3) at the very bottom.
+            rows.Add(new(PadBtn.RightStick, "Free look", "", false, false));
+            if (IsAssigned(RearButtonName)) rows.Add(R(RearButtonName, "Look behind", "", false, "rear") with { Highlight = rear > 0.05f });
+        }
+        else if (page == MenuPage.Settings)
+        {
+            title = "SETTINGS";
+            if (cams is not null) rows.Add(new(PadBtn.A, "Camera settings", "", false, highlight == "set:cam"));
+            rows.Add(new(PadBtn.X, "Binds & buttons", "", false, highlight == "set:binds"));
+            if (HankHudMod.Instance is { } hs) rows.Add(new(PadBtn.RB, "Theme", "", false, highlight == "set:theme", Value: hs.DisplayTheme));
+            rows.Add(new(PadBtn.B, "Back", "", false, false));
         }
         else
         {
@@ -332,6 +434,8 @@ public sealed unsafe partial class LookAroundMod
             foreach (var (button, camera) in new[] { (PovButtonName, "POV"), (FollowButtonName, "Follow cam"), (DroneButtonName, "Drone"), (DefaultButtonName, "Game camera") })
                 if (Parse(button) is { } b)
                     rows.Add(new(b, camera, current == camera ? "ON" : "", true, highlight == "cam:" + camera));
+                else if (ParseKey(button) is { } kc)
+                    rows.Add(new(PadBtn.A, camera, current == camera ? "ON" : "", true, highlight == "cam:" + camera, HasIcon: false, Value: KeyLabel(kc)));
             rows.Add(new(PadBtn.A, "Hold D-pad up: back to the game camera", "", false, false, HasIcon: false));
         }
         // Smaller window and text: the scale shrinks when the list is long so it always fits the screen.

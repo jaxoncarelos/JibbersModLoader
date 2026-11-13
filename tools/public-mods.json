@@ -97,12 +97,10 @@
       "authors": ["hankhulerygit"],
       "id": "jibbers_hank_mod_pack_info",
       "name": "Hank Mod Pack",
-      "description": "Controller quick menu, Improved Spawn, free look, play and replay cameras, HUD themes, replay effects, trick banners and custom media.",
+      "description": "Add Input Visualizer (drawn PS4/Xbox pad, follows replay inputs), Quick Actions editable from the set list, new quick menu layout, improved on-foot camera, cleaner Mods Options, per-mod settings files in Settings, replay keyframes effects on R2.",
       "version": "1.52.9",
       "legacy": false,
-      "assets": [
-        { "path": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "zip": "JibbersMods/packages/jibbers_hank_mod_pack_info/NLayer-LICENSE.txt", "repo": "mods/cs/HankModPack/Overlay/NLayer/LICENSE.txt" }
-      ]
+      "assets": []
     },
     {
       "folder": "RenderDistance",
