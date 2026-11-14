@@ -21,6 +21,8 @@ internal interface ISteamBackend
 
     /// <summary>Starts creating a public lobby; returns the call handle.</summary>
     ulong CreateLobby(int maxMembers);
+    /// <summary>Starts creating an invisible lobby (searchable, hidden from friends, allowed beside the party's); returns the call handle.</summary>
+    ulong CreateInvisibleLobby(int maxMembers);
     CallStatus LobbyCreated(ulong call, out SteamId lobby);
     ulong JoinLobby(SteamId lobby);
     CallStatus LobbyEntered(ulong call, out bool entered);
@@ -45,10 +47,8 @@ internal interface ISteamBackend
     void OpenInviteOverlay(SteamId lobby);
     /// <summary>Sets (or with null clears) one of the player's Steam rich presence keys, which friends see.</summary>
     void SetRichPresence(string key, string? value);
-    /// <summary>Requests cached capability/invitation data for a player on the current game server.</summary>
+    /// <summary>Records a Play Together player met on the current game server in Steam's "recently played with".</summary>
     void MarkPlayedWith(SteamId player) { }
-    void RequestPresence(SteamId player) { }
-    string RichPresence(SteamId player, string key) => "";
 
     bool Send(SteamId to, ReadOnlySpan<byte> data, bool reliable);
     /// <summary>Appends waiting messages to <paramref name="into"/>; returns how many.</summary>

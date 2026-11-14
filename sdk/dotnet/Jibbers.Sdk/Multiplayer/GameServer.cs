@@ -60,6 +60,29 @@ internal static class GameServer
     }
 
     /// <summary>
+    /// This game's FishNet client id on the server it is connected to (the key of its entry in the
+    /// server's player roster), or -1 when it isn't connected or FishNet's getters can't be found.
+    /// </summary>
+    public static int LocalClientId()
+    {
+        var k = Manager();
+        if (k.IsNull) return -1;
+        var network = oy.vkn_Field.GetObject(k.Ptr);
+        if (network == 0 || Unity.IsNull(network)) return -1;
+        var clients = Get(network, "get_ClientManager");
+        var connection = clients == 0 ? 0 : Get(clients, "get_Connection");
+        if (connection == 0) return -1;
+        var getId = Il2Cpp.ClassOf(connection).Method("get_ClientId", 0);
+        return getId.IsNull ? -1 : getId.Invoke<int>(connection);
+
+        static nint Get(nint obj, string getter)
+        {
+            var m = Il2Cpp.ClassOf(obj).Method(getter, 0);
+            return m.IsNull ? 0 : m.Invoke(obj);
+        }
+    }
+
+    /// <summary>
     /// Connects the game to a server, as the server browser's join does. Objects placed with the
     /// object placer (and the terrain they raise) are cleared first: going from one server to
     /// another on the same map (following the party leader) doesn't reload the map, which is

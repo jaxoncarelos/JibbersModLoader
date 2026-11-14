@@ -86,8 +86,9 @@ public static class Party
     internal static void JoinLobby(SteamId lobby) => Do(e => e.JoinLobby(lobby));
 
     /// <summary>Shows a short line to the player, like the party's own notices.</summary>
-    internal static void SetServerPlayers(bool connected, IReadOnlyList<ServerPlayer> players) => Do(engine => engine.SetServerPlayers(connected, players));
+    internal static void SetServerPlayers(bool connected, ServerRoster players) => Do(engine => engine.SetServerPlayers(connected, players));
     internal static ServerPresence ServerPlayers { get { lock (gate) return engine?.ServerPresence ?? ServerPresence.Empty; } }
+    internal static int ServerLobbyMembers { get { lock (gate) return engine?.ServerLobbyMembers ?? -1; } }
     internal static void InviteServerPlayer(SteamId player) => Do(engine => engine.InviteServerPlayer(player));
     internal static void AcceptServerInvite() => Do(engine => engine.AcceptServerInvite());
     internal static void DeclineServerInvite() => Do(engine => engine.DeclineServerInvite());
