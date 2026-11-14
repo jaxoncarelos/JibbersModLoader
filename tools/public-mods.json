@@ -113,6 +113,16 @@
       "description": "Uncaps the game's Terrain and Object Render Distance options past 1500 m (up to 50 km).",
       "legacy": false,
       "assets": []
+    },
+    {
+      "folder": "Spotify",
+      "modId": "spotify",
+      "authors": ["scotttucker1599"],
+      "id": "jibbers_spotify",
+      "name": "Spotify",
+      "description": "See and control what is playing in Spotify: a spinning record with album art, skip/seek/shuffle, and a mini Spotify app on the phone. No login.",
+      "legacy": false,
+      "assets": []
     }
   ]
 }
