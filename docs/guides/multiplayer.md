@@ -116,7 +116,7 @@ goes to the host as before: no local copy, no answer within 5 s, or a host on an
 welcome doesn't offer map info, so nothing is asked). Every other request (`GET /status`) is left
 alone. Hashes of local files are kept in `%LOCALAPPDATA%\Jibbers\PlayTogether\map-hashes.json`,
 keyed by path, size and modification time. The log says which way each map came ("map served
-locally: â€¦" or "no local copy of â€¦: downloading it from the host"). The code is in `LocalMaps.cs`.
+locally: …" or "no local copy of …: downloading it from the host"). The code is in `LocalMaps.cs`.
 
 The code is in `Multiplayer/ServerSession.cs` (the logic, tested end to end with real sockets),
 `ServerTunnel.cs` and `StreamTunnel.cs` (the relays), `GameServer.cs` (the game's side), `SteamInvites.cs` (Steam's join
@@ -148,25 +148,29 @@ browser (`mods/cs/Slvsh.Tests` does this when `SLVSH_PREVIEW` is set).
 
 With **Play together > Find Play Together players on this server** enabled (the default),
 open the Party panel with **Ctrl+M**. Players on the current game server who advertise the
-updated Play Together capability appear as **Invite <name> â€” On this server**. Choosing
+updated Play Together capability appear as **Invite <name> — On this server**. Choosing
 one makes a party when necessary and sends an in-game invitation. The other player opens
 the same panel and chooses **Accept** or **Decline**. Accepting while already in another
 party explicitly offers to leave it and join the inviter. This does not reconnect the game
 to another server or open Steam's overlay.
 
-Steam still provides identity, presence and party transport internally. Discovery reads the
-current game-player dictionary, parses Steam account IDs from account details (not display
-names), and requests capability data only for those accounts. It does not create a global
-player directory or publish server addresses/passwords. Presence queries back off, roster
-and invitation lifetimes are bounded, malformed/other-recipient/outside-roster invitations
-are ignored, and no invitation automatically joins a party. Both players need the updated
-SDK. Steam exports missing from an older client disable discovery gracefully without
-breaking the existing party/tunnel.
+The game itself never tells a client anyone's Steam id: a server roster entry is only a FishNet
+client id, the name the server gave the player and a host/player role. So Play Together players
+on a server meet in an invisible Steam lobby (found by lobby searches, hidden from friends, and
+allowed beside the party's own lobby), named by a hash of the server's longest-connected player
+(lowest client id) and their name. Every client of the server computes the same name; it changes
+only when that player leaves. Two players who make the lobby at the same moment both move to the
+lower-numbered one within 30 seconds.
 
-The roster reader and two simulated Steam clients are tested outside the game. Actual
-current-server account data and invitation delivery timing need a two-player in-game check.
+Each member writes its protocol, client id and server name as lobby member data. A member is
+shown only while that client id is on this game's own roster under that name (a client that
+can't read its client id is matched by name, and only when exactly one roster player has it), so
+someone who joins the lobby from elsewhere shows nobody. Invitations are member data naming the
+recipient, the party lobby and a nonce; they expire after 45 seconds, are ignored unless they
+come from a shown player, and never join automatically. Server addresses and passwords are never
+published. Both players need the updated SDK; older clients advertised through Steam rich
+presence, which Steam doesn't show to players who aren't friends.
 
-Valve documents [requesting presence for non-friends on the same server](https://partner.steamgames.com/doc/api/ISteamFriends#RequestFriendRichPresence).
-Current roster members are marked as played with before requesting their names/capabilities;
-no avatar downloads are requested. Diagnostics: `jibbers_play.players` reports roster/account/
-capability counts without server addresses or passwords.
+The lobby logic is tested outside the game with simulated Steam clients. Diagnostics:
+`jibbers_play.players` reports the roster size, server-lobby member count and shown players,
+without server addresses or passwords.

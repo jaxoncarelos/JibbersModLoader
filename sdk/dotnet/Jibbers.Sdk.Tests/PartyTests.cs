@@ -13,13 +13,13 @@ static class PartyTests
             public readonly Dictionary<string, string> Data = new();
             public readonly Dictionary<(SteamId, string), string> MemberData = new();
             public bool Joinable = true;
+            public bool Invisible;
         }
         public readonly Dictionary<SteamId, Lobby> Lobbies = new();
         public readonly Dictionary<SteamId, Queue<(SteamId, byte[])>> Inboxes = new();
         public readonly Dictionary<ulong, (SteamId Client, SteamId Lobby, bool Ok)> Calls = new();
         public ulong NextCall = 100, NextLobby = 9000;
         public double Now;
-        public readonly Dictionary<(SteamId,string),string> Rich = new();
     }
 
     internal sealed class FakeSteam(FakeNet net, ulong id, string name) : ISteamBackend
@@ -35,7 +35,7 @@ static class PartyTests
         public string NameOf(SteamId other) => names.TryGetValue(other.Value, out var n) ? n : "";
         public static readonly Dictionary<ulong, string> names = new();
         public IReadOnlyList<SteamId> OnlineFriends() => Friends;
-        public SteamId FriendLobby(SteamId friend) => net.Lobbies.FirstOrDefault(l => l.Value.Members.Contains(friend)).Key;
+        public SteamId FriendLobby(SteamId friend) => net.Lobbies.FirstOrDefault(l => !l.Value.Invisible && l.Value.Members.Contains(friend)).Key;
 
         public ulong CreateLobby(int maxMembers)
         {
@@ -43,6 +43,12 @@ static class PartyTests
             net.Lobbies[lobby] = new FakeNet.Lobby { Owner = Id, Members = { Id } };
             var call = net.NextCall++;
             net.Calls[call] = (Id, lobby, true);
+            return call;
+        }
+        public ulong CreateInvisibleLobby(int maxMembers)
+        {
+            var call = CreateLobby(maxMembers);
+            net.Lobbies[net.Calls[call].Lobby].Invisible = true;
             return call;
         }
         public CallStatus LobbyCreated(ulong call, out SteamId lobby)
@@ -89,16 +95,13 @@ static class PartyTests
         public int SteamInvites, OverlayOpens;
         public bool InviteToLobby(SteamId lobby, SteamId friend) { SteamInvites++; return true; }
         public void OpenInviteOverlay(SteamId lobby) { OverlayOpens++; }
-        public readonly List<SteamId> PresenceRequests = new();
         public readonly List<SteamId> PlayedWith = new();
         public void MarkPlayedWith(SteamId player) => PlayedWith.Add(player);
-        public void RequestPresence(SteamId player) => PresenceRequests.Add(player);
-        public string RichPresence(SteamId player, string key) => net.Rich.GetValueOrDefault((player,key), "");
         public readonly Dictionary<string, string> Presence = new();
         public void SetRichPresence(string key, string? value)
         {
-            if (string.IsNullOrEmpty(value)) { Presence.Remove(key); net.Rich.Remove((Id,key)); }
-            else { Presence[key] = value; net.Rich[(Id,key)] = value; }
+            if (string.IsNullOrEmpty(value)) Presence.Remove(key);
+            else Presence[key] = value;
         }
         public bool Send(SteamId to, ReadOnlySpan<byte> data, bool reliable)
         {
@@ -197,7 +200,7 @@ static class PartyTests
         var (net, a, b) = Pair();
         var stranger = new FakeSteam(net, 99, "Eve");
         stranger.Send(a.Steam.Id, Wire.Frame(Wire.KindMod, "slvsh", "boo"u8), true);
-        b.Steam.Send(a.Steam.Id, "JB\u0001\u0000ÃƒÂ¿broken"u8, true);
+        b.Steam.Send(a.Steam.Id, "JB\u0001\u0000ÿbroken"u8, true);
         b.Steam.Send(a.Steam.Id, "not a frame"u8, true);
         Run(net, a, b);
         Assert.Equal(0, a.Got.Count);

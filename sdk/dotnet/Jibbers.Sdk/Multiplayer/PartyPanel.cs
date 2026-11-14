@@ -84,7 +84,7 @@ internal static class PartyPanel
 
         // Caption, what you're in, and the code to share.
         f.Text("PARTY", Pad, 12, 70, 14, 11, Theme.Text, bold: true, spacing: Theme.Tracked);
-        var role = s.State == PartyState.InParty && s.Host?.IsLocal == true ? (s.Locked ? "HOST ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· LOCKED" : "HOST") : "";
+        var role = s.State == PartyState.InParty && s.Host?.IsLocal == true ? (s.Locked ? "HOST · LOCKED" : "HOST") : "";
         if (role.Length > 0) f.Text(role, Pad + 62, 12, 140, 14, 11, Theme.Mint, spacing: Theme.Tracked);
         var title = s.State switch
         {
@@ -122,13 +122,13 @@ internal static class PartyPanel
                 var nameWidth = Width - Pad * 2 - 110;
                 f.Text(m.Name, Pad, y + 2, nameWidth, 20, 15, Theme.Text, bold: m.IsLocal);
                 var mods = m.Mods.Keys.Select(Pretty).ToList();
-                f.Text(mods.Count == 0 ? "No multiplayer mods" : string.Join(" ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ", mods), Pad, y + 21, nameWidth, 14, 11, Theme.Dim);
+                f.Text(mods.Count == 0 ? "No multiplayer mods" : string.Join(" · ", mods), Pad, y + 21, nameWidth, 14, 11, Theme.Dim);
                 if (!m.IsLocal)
                 {
-                    var (text, c) = m.PingMs switch { < 0 => ("ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦", Theme.Dim), < 80 => ($"{m.PingMs} ms", Theme.Good), < 160 => ($"{m.PingMs} ms", Theme.Warn), _ => ($"{m.PingMs} ms", Theme.Bad) };
+                    var (text, c) = m.PingMs switch { < 0 => ("…", Theme.Dim), < 80 => ($"{m.PingMs} ms", Theme.Good), < 160 => ($"{m.PingMs} ms", Theme.Warn), _ => ($"{m.PingMs} ms", Theme.Bad) };
                     f.Text(text, Width - Pad - 60, y + 3, 60, 18, 13, c, HudTextAlignment.Right);
                 }
-                var tag = m.IsLocal ? (m.IsHost ? "YOU ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· HOST" : "YOU") : m.IsHost ? "HOST" : "";
+                var tag = m.IsLocal ? (m.IsHost ? "YOU · HOST" : "YOU") : m.IsHost ? "HOST" : "";
                 if (tag.Length > 0) f.Text(tag, Width - Pad - 110, y + (m.IsLocal ? 5 : 22), 110, 14, 10, m.IsHost ? Theme.Mint : Theme.Caption, HudTextAlignment.Right, spacing: Theme.Tracked);
                 y += RowMember;
             }
@@ -228,7 +228,7 @@ internal static class PartyPanel
         return f;
     }
 
-    /// <summary>"slvsh" ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ "SLVSH", "my_mod" ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ "My Mod": short ids read as names.</summary>
+    /// <summary>"slvsh" → "SLVSH", "my_mod" → "My Mod": short ids read as names.</summary>
     internal static string Pretty(string modId) => modId.Length <= 5 && !modId.Contains('_')
         ? modId.ToUpperInvariant()
         : string.Join(' ', modId.Split('_', StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpperInvariant(w[0]) + w[1..]));

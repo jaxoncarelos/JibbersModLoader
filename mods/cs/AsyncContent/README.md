@@ -6,7 +6,7 @@ This is a functional import-path replacement for the supported decoding stages, 
 
 ## Installation
 
-Async Content installs automatically with the loader on launch, including existing updater installations. It is enabled by default; its Enabled toggle in Options > Mods can turn it off. Options â†’ Mods â†’ Async Content has an enable switch and a content work budget of 1â€“5 ms (default 2 ms). A new DLL loads on the next game launch.
+Async Content installs automatically with the loader on launch, including existing updater installations. It is enabled by default; its Enabled toggle in Options > Mods can turn it off. Options → Mods → Async Content has an enable switch and a content work budget of 1–5 ms (default 2 ms). A new DLL loads on the next game launch.
 
 Before enabling its hooks, the mod runs small, local comparisons against the original Unity loaders. PNG pixels/alpha/mipmap count and OBJ vertices, normals, UVs, indices and tangents must match. A missing API, changed coroutine state layout or parity failure prevents acceleration from loading. Check `jibbers_hotload.log` for the result.
 
@@ -44,7 +44,7 @@ Offline tests cover 19 PNG format fixtures, all filters and Adam7 passes, hidden
 
 ### Texture upload path in 0.1.4
 
-The 0.1.2 live logs identified large normal PNGs rejected by the old 32 MiB cap (about 0.6â€“0.7 seconds of native decoding), plus expensive default texture initialization, Color32 conversion and mip generation. The entry limit now matches the game's 64 MiB validation; raw mip copying replaces per-pixel Color32 conversion where available. An uninitialized texture constructor skips redundant clear/initial-upload work, with the fully initialized texture kept private until upload completes.
+The 0.1.2 live logs identified large normal PNGs rejected by the old 32 MiB cap (about 0.6–0.7 seconds of native decoding), plus expensive default texture initialization, Color32 conversion and mip generation. The entry limit now matches the game's 64 MiB validation; raw mip copying replaces per-pixel Color32 conversion where available. An uninitialized texture constructor skips redundant clear/initial-upload work, with the fully initialized texture kept private until upload completes.
 
 Opaque power-of-two textures may also generate their complete mip chain on the decoder worker. This is enabled only if a candidate filter matches every byte of every mip from multiple native PNG fixtures, and the actual raw-chain upload also matches. Transparent/non-power-of-two images and unmatched filtering keep native mip generation. The log records the chosen filter and available upload paths. Base size, color values, CPU readability and mip count are preserved; mip optimization is rejected when exact native results cannot be reproduced.
 
