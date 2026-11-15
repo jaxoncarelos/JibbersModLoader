@@ -5,7 +5,7 @@
 //       Interop.*.g.cs   raw bindings for every class of the dumped images (real names)
 //   jibbers-gen docs --dump <dump.json>... --sdk <Jibbers.Sdk.dll> --out <docs/data>
 //       api.json         every SDK type and member, every symbol, every raw class, for the docs site
-//   jibbers-gen lint | resolve --dump <dump.json>
+//   jibbers-gen lint | resolve --dump <dump.json> [--symbols <mod symbols.json>]...
 //   jibbers-gen import --managed <dir> [--images <ScriptingAssemblies.json>] --build <text> --out <dump.json>
 //       a dump of .NET assemblies (Unity's engine modules: their names are not obfuscated)
 //
@@ -66,6 +66,11 @@ try
         case "resolve":
         {
             var snap = LoadDumps(Opts(argv, "--dump"));
+            // --symbols adds a mod's private symbol file (same format), resolved with the built-in ones.
+            foreach (var extra in Opts(argv, "--symbols"))
+            {
+                catalogue.Symbols.AddRange(Catalogue.Parse(File.ReadAllText(extra)).Symbols);
+            }
             var res = Shape.Resolve(catalogue, snap);
             foreach (var s in catalogue.Symbols)
             {

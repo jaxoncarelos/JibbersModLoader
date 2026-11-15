@@ -549,16 +549,6 @@
       "members": {}
     },
     {
-      "id": "event.ambient_color_changed",
-      "summary": "The ambient light colour and intensity changed.",
-      "tags": ["event"],
-      "match": {"name": "AmbientColorChangedEvent", "valuetype": true},
-      "members": {
-        "color": {"field": {"name": "color"}},
-        "intensity": {"field": {"name": "intensity"}}
-      }
-    },
-    {
       "id": "event.time_changed",
       "summary": "The time of day changed.",
       "tags": ["event"],

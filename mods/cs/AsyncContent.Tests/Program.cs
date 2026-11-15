@@ -257,15 +257,15 @@ if (args is ["--dump", var dump])
     var catalogue = Catalogue.Parse(ContentBindings.CatalogueJson);
     Check(Shape.Lint(catalogue).Count == 0, "Production symbol catalogue failed lint.");
     var resolution = Shape.Resolve(catalogue, snapshot);
-    Check(resolution.Failed.Count == 0 && resolution.Ok.Count == 3, "Production symbols did not resolve: " + string.Join(", ", resolution.Failed));
-    var parser = resolution.Ok["async_content.obj_parser"].Members["parse"];
-    // Native caller disassembly establishes this declaration as the real text-to-mesh entry point.
-    Check(Shape.MemberName(snapshot, parser).StartsWith("cll(", StringComparison.Ordinal), "Validated parser ordinal changed.");
+    // Build 26688799 reads, decodes and parses session content on its own worker tasks: the
+    // synchronous PNG reader and OBJ parser are gone, and the mod leaves imports to the game.
+    Check(resolution.Ok.Count == 2 && resolution.Failed.Keys.Order().SequenceEqual(["async_content.obj_parser", "async_content.texture_reader"]),
+        "Production symbols did not resolve as expected: " + string.Join(", ", resolution.Failed));
     var state = resolution.Ok["async_content.iterator"].Members["state"];
-    Check(Shape.MemberName(snapshot, state) == "rla", "Validated coroutine state field changed.");
-    Check(Shape.MemberName(snapshot, resolution.Ok["async_content.importer"].Members["register"]).StartsWith("gdn(", StringComparison.Ordinal),
+    Check(Shape.MemberName(snapshot, state) == "xpl", "Validated coroutine state field changed.");
+    Check(Shape.MemberName(snapshot, resolution.Ok["async_content.importer"].Members["register"]).StartsWith("imw(", StringComparison.Ordinal),
         "Registration timing hook resolved the wrong signature.");
-    Console.WriteLine("PASS production importer, iterator and parser bindings against the real game dump");
+    Console.WriteLine("PASS production importer and iterator bindings against the real game dump; the game parses on its own workers");
 }
 
 if (args is ["--assets", var assetRoot])

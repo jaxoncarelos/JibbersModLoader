@@ -36,7 +36,7 @@
     },
     {
       "id": "async_content.obj_parser",
-      "summary": "Native OBJ parser called by the archive coroutine. Declaration ordinal verified against native callers (Cpp2IL call analysis) in the validated November build 26596007; it was ordinal 1 in the October build.",
+      "summary": "Native OBJ parser called by the archive coroutine. Declaration ordinal verified against native callers (Cpp2IL call analysis) in build 26596007; it was ordinal 1 in the October build. Optional: from build 26688799 the game reads, decodes and parses session content on its own worker tasks, this parser is gone, and the mod leaves imports to the game.",
       "match": {
         "obfuscated": true,
         "methods": [

@@ -21,26 +21,26 @@ internal static unsafe class GamePlayers
     public static List<GameRider> Others()
     {
         var list = new List<GameRider>();
-        var manager = qk.vsz;
-        if (manager.IsNull || Unity.IsNull(manager.Ptr)) manager = qk.Live().FirstOrDefault(m => !m.IsNull && !Unity.IsNull(m.Ptr));
+        var manager = NetPlayers.xig;
+        if (manager.IsNull || Unity.IsNull(manager.Ptr)) manager = NetPlayers.Live().FirstOrDefault(m => !m.IsNull && !Unity.IsNull(m.Ptr));
         if (manager.IsNull) return list;
-        var players = manager.vtb;
-        var details = manager.vtc;
+        var players = manager.xii;
+        var details = manager.xij;
         if (players == 0) return list;
         foreach (var id in Keys(players))
         {
-            var player = new qk_qh(Get(players, id));
+            var player = new NetPlayers_sk(Get(players, id));
             if (player.IsNull) continue;
-            var puppet = player.vra;
+            var puppet = player.xge;
             if (puppet.IsNull) continue; // you have no puppet: you are your ragdoll
-            var root = puppet._wdy_k__BackingField.Ptr;
+            var root = puppet._xuj_k__BackingField.Ptr;
             if (root == 0 || Unity.IsNull(root)) continue;
             string name;
             try { name = manager.Name(id) ?? ""; }
             catch (Exception e) when (e is InvalidOperationException or MissingMethodException or Il2CppException) { name = ""; }
             var info = new List<string>();
-            if (details != 0 && Contains(details, id) && new pp(Get(details, id)) is { IsNull: false } d)
-                info.AddRange(new[] { d.vnv, d.vnx, d.vny, d.vnz, d.vnu.ToString(), d.vnw.ToString() }.Where(s => !string.IsNullOrEmpty(s)));
+            if (details != 0 && Contains(details, id) && new rq(Get(details, id)) is { IsNull: false } d)
+                info.AddRange(new[] { d.xaw, d.xay, d.xaz, d.xba, d.xav.ToString(), d.xax.ToString() }.Where(s => !string.IsNullOrEmpty(s)));
             list.Add(new GameRider(id, name, info, Body(puppet, root)));
         }
         return list;
@@ -50,14 +50,14 @@ internal static unsafe class GamePlayers
     /// The part of a puppet that moves with the rider: its hips (or pelvis) when the rig has them,
     /// else a ski, else its root (which may stay put while the bones move). Cached per puppet.
     /// </summary>
-    static nint Body(sb puppet, nint root)
+    static nint Body(uh puppet, nint root)
     {
         if (bodies.TryGetValue(root, out var known) && !Unity.IsNull(known.Target)) return known.Target;
         if (bodies.Count > 64) { foreach (var r in bodies.Values) r.Dispose(); bodies.Clear(); }
         if (transform.IsNull) transform = Unity.Class("UnityEngine.Transform");
         var body = Unity.GetComponentsInChildren(root, transform, includeInactive: true)
             .FirstOrDefault(t => Unity.Name(t).ToLowerInvariant() is var n && (n.Contains("hips") || n.Contains("pelvis")));
-        if (body == 0 && !puppet._wea_k__BackingField.IsNull) body = Unity.Transform(puppet._wea_k__BackingField.Ptr);
+        if (body == 0 && !puppet._xul_k__BackingField.IsNull) body = Unity.Transform(puppet._xul_k__BackingField.Ptr);
         if (body == 0 || Unity.IsNull(body)) body = root;
         bodies[root] = new GameRef(body);
         return body;
