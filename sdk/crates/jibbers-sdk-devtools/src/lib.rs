@@ -231,7 +231,7 @@ unsafe extern "C" fn record(_ctx: usize, arg: usize, _m: *const c_void) {
 unsafe fn selftest(_req: &Value) -> R<Value> {
     use jibbers_mod_sdk::delegates;
     let mut out = serde_json::Map::new();
-    for id in ["event.show_mouse_cursor", "event.time_changed", "event.slow_mo_debug", "event.session_marker_set", "event.ambient_color_changed", "event.trick_performed"] {
+    for id in ["event.show_mouse_cursor", "event.time_changed", "event.slow_mo_debug", "event.session_marker_set", "event.trick_performed"] {
         let r = (|| -> R<Value> {
             let k = symbols::class(id)?;
             let size = delegates::value_size(k);

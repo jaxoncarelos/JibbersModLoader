@@ -7341,600 +7341,608 @@ namespace Jibbers.Interop.Mujoco
         /// <summary>Field `s_PostStep: Unity.Profiling.ProfilerMarker` (static). (no C# mirror for this type: use the field reference).</summary>
         public static global::Jibbers.Sdk.Interop.Il2CppField s_PostStep_Field => __f33.Field;
         static global::Jibbers.Sdk.Symbols.RawFieldRef? __f34_;
-        static global::Jibbers.Sdk.Symbols.RawFieldRef __f34 => __f34_ ??= new(Class, "hasDoneFirstUpdate");
-        /// <summary>Field `hasDoneFirstUpdate: System.Boolean`.</summary>
-        public bool hasDoneFirstUpdate { get => __f34.Get<bool>(Ptr); set => __f34.Set(Ptr, value); }
+        static global::Jibbers.Sdk.Symbols.RawFieldRef __f34 => __f34_ ??= new(Class, "s_Rebuild");
+        /// <summary>Field `s_Rebuild: Unity.Profiling.ProfilerMarker` (static). (no C# mirror for this type: use the field reference).</summary>
+        public static global::Jibbers.Sdk.Interop.Il2CppField s_Rebuild_Field => __f34.Field;
         static global::Jibbers.Sdk.Symbols.RawFieldRef? __f35_;
-        static global::Jibbers.Sdk.Symbols.RawFieldRef __f35 => __f35_ ??= new(Class, "SceneRecreationAtLateUpdateRequested");
-        /// <summary>Field `SceneRecreationAtLateUpdateRequested: System.Boolean`.</summary>
-        public bool SceneRecreationAtLateUpdateRequested { get => __f35.Get<bool>(Ptr); set => __f35.Set(Ptr, value); }
+        static global::Jibbers.Sdk.Symbols.RawFieldRef __f35 => __f35_ ??= new(Class, "hasDoneFirstUpdate");
+        /// <summary>Field `hasDoneFirstUpdate: System.Boolean`.</summary>
+        public bool hasDoneFirstUpdate { get => __f35.Get<bool>(Ptr); set => __f35.Set(Ptr, value); }
         static global::Jibbers.Sdk.Symbols.RawFieldRef? __f36_;
-        static global::Jibbers.Sdk.Symbols.RawFieldRef __f36 => __f36_ ??= new(Class, "<HasCreatedScene>k__BackingField");
-        /// <summary>Field `&lt;HasCreatedScene&gt;k__BackingField: System.Boolean`.</summary>
-        public bool _HasCreatedScene_k__BackingField { get => __f36.Get<bool>(Ptr); set => __f36.Set(Ptr, value); }
+        static global::Jibbers.Sdk.Symbols.RawFieldRef __f36 => __f36_ ??= new(Class, "SceneRecreationAtLateUpdateRequested");
+        /// <summary>Field `SceneRecreationAtLateUpdateRequested: System.Boolean`.</summary>
+        public bool SceneRecreationAtLateUpdateRequested { get => __f36.Get<bool>(Ptr); set => __f36.Set(Ptr, value); }
         static global::Jibbers.Sdk.Symbols.RawFieldRef? __f37_;
-        static global::Jibbers.Sdk.Symbols.RawFieldRef __f37 => __f37_ ??= new(Class, "_generationContext");
+        static global::Jibbers.Sdk.Symbols.RawFieldRef __f37 => __f37_ ??= new(Class, "RecreationRequester");
+        /// <summary>Field `RecreationRequester: System.String`.</summary>
+        public string RecreationRequester { get => __f37.GetString(Ptr); set => __f37.SetString(Ptr, value); }
+        static global::Jibbers.Sdk.Symbols.RawFieldRef? __f38_;
+        static global::Jibbers.Sdk.Symbols.RawFieldRef __f38 => __f38_ ??= new(Class, "<HasCreatedScene>k__BackingField");
+        /// <summary>Field `&lt;HasCreatedScene&gt;k__BackingField: System.Boolean`.</summary>
+        public bool _HasCreatedScene_k__BackingField { get => __f38.Get<bool>(Ptr); set => __f38.Set(Ptr, value); }
+        static global::Jibbers.Sdk.Symbols.RawFieldRef? __f39_;
+        static global::Jibbers.Sdk.Symbols.RawFieldRef __f39 => __f39_ ??= new(Class, "_generationContext");
         /// <summary>Field `_generationContext: Mujoco.MjcfGenerationContext`.</summary>
-        public global::Jibbers.Interop.Mujoco.MjcfGenerationContext _generationContext { get => new(__f37.GetObject(Ptr)); set => __f37.SetObject(Ptr, value.Ptr); }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m38_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m38 => __m38_ ??= new(Class, "get_LastRebuildMs");
+        public global::Jibbers.Interop.Mujoco.MjcfGenerationContext _generationContext { get => new(__f39.GetObject(Ptr)); set => __f39.SetObject(Ptr, value.Ptr); }
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m40_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m40 => __m40_ ??= new(Class, "get_LastRebuildMs");
         /// <summary>The method reference of get_LastRebuildMs: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_LastRebuildMs_Method => __m38;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_LastRebuildMs_Method => __m40;
         /// <summary>`get_LastRebuildMs() -&gt; System.Double`.</summary>
         public double get_LastRebuildMs()
         {
-            return __m38.Invoke<double>(Ptr);
+            return __m40.Invoke<double>(Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m39_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m39 => __m39_ ??= new(Class, "set_LastRebuildMs", "System.Double");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m41_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m41 => __m41_ ??= new(Class, "set_LastRebuildMs", "System.Double");
         /// <summary>The method reference of set_LastRebuildMs: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_LastRebuildMs_Method => __m39;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_LastRebuildMs_Method => __m41;
         /// <summary>`set_LastRebuildMs(System.Double) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.Double</c></param>
         public void set_LastRebuildMs(double value)
         {
             var p0 = value;
-            __m39.Invoke(Ptr, (nint)(&p0));
+            __m41.Invoke(Ptr, (nint)(&p0));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m40_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m40 => __m40_ ??= new(Class, "get_LastFullBuildBreakdown");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m42_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m42 => __m42_ ??= new(Class, "get_LastFullBuildBreakdown");
         /// <summary>The method reference of get_LastFullBuildBreakdown: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_LastFullBuildBreakdown_Method => __m40;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_LastFullBuildBreakdown_Method => __m42;
         /// <summary>`get_LastFullBuildBreakdown() -&gt; System.String`.</summary>
         public string get_LastFullBuildBreakdown()
         {
-            return global::Jibbers.Sdk.Interop.Il2Cpp.ReadString(__m40.Invoke(Ptr));
+            return global::Jibbers.Sdk.Interop.Il2Cpp.ReadString(__m42.Invoke(Ptr));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m41_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m41 => __m41_ ??= new(Class, "set_LastFullBuildBreakdown", "System.String");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m43_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m43 => __m43_ ??= new(Class, "set_LastFullBuildBreakdown", "System.String");
         /// <summary>The method reference of set_LastFullBuildBreakdown: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_LastFullBuildBreakdown_Method => __m41;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_LastFullBuildBreakdown_Method => __m43;
         /// <summary>`set_LastFullBuildBreakdown(System.String) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.String</c></param>
         public void set_LastFullBuildBreakdown(string? value)
         {
-            __m41.Invoke(Ptr, value is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(value));
+            __m43.Invoke(Ptr, value is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(value));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m42_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m42 => __m42_ ??= new(Class, "get_FullBuildCount");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m44_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m44 => __m44_ ??= new(Class, "get_FullBuildCount");
         /// <summary>The method reference of get_FullBuildCount: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_FullBuildCount_Method => __m42;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_FullBuildCount_Method => __m44;
         /// <summary>`get_FullBuildCount() -&gt; System.Int32`.</summary>
         public int get_FullBuildCount()
         {
-            return __m42.Invoke<int>(Ptr);
+            return __m44.Invoke<int>(Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m43_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m43 => __m43_ ??= new(Class, "set_FullBuildCount", "System.Int32");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m45_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m45 => __m45_ ??= new(Class, "set_FullBuildCount", "System.Int32");
         /// <summary>The method reference of set_FullBuildCount: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_FullBuildCount_Method => __m43;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_FullBuildCount_Method => __m45;
         /// <summary>`set_FullBuildCount(System.Int32) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.Int32</c></param>
         public void set_FullBuildCount(int value)
         {
             var p0 = value;
-            __m43.Invoke(Ptr, (nint)(&p0));
+            __m45.Invoke(Ptr, (nint)(&p0));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m44_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m44 => __m44_ ??= new(Class, "get_GenerationContext");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m46_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m46 => __m46_ ??= new(Class, "get_GenerationContext");
         /// <summary>The method reference of get_GenerationContext: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_GenerationContext_Method => __m44;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_GenerationContext_Method => __m46;
         /// <summary>`get_GenerationContext() -&gt; Mujoco.MjcfGenerationContext`.</summary>
         public global::Jibbers.Interop.Mujoco.MjcfGenerationContext get_GenerationContext()
         {
-            return new(__m44.Invoke(Ptr));
+            return new(__m46.Invoke(Ptr));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m45_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m45 => __m45_ ??= new(Class, "get_Instance");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m47_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m47 => __m47_ ??= new(Class, "get_Instance");
         /// <summary>The method reference of get_Instance: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_Instance_Method => __m45;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_Instance_Method => __m47;
         /// <summary>`get_Instance() -&gt; Mujoco.MjScene` (static).</summary>
         public static global::Jibbers.Interop.Mujoco.MjScene get_Instance()
         {
-            return new(__m45.Invoke(0));
+            return new(__m47.Invoke(0));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m46_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m46 => __m46_ ??= new(Class, "get_InstanceExists");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m48_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m48 => __m48_ ??= new(Class, "get_InstanceExists");
         /// <summary>The method reference of get_InstanceExists: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_InstanceExists_Method => __m46;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_InstanceExists_Method => __m48;
         /// <summary>`get_InstanceExists() -&gt; System.Boolean` (static).</summary>
         public static bool get_InstanceExists()
         {
-            return __m46.Invoke<bool>(0);
+            return __m48.Invoke<bool>(0);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m47_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m47 => __m47_ ??= new(Class, "Awake");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m49_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m49 => __m49_ ??= new(Class, "Awake");
         /// <summary>The method reference of Awake: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef Awake_Method => __m47;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef Awake_Method => __m49;
         /// <summary>`Awake() -&gt; System.Void`.</summary>
         public void Awake()
         {
-            __m47.Invoke(Ptr);
+            __m49.Invoke(Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m48_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m48 => __m48_ ??= new(Class, "add_postInitEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m50_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m50 => __m50_ ??= new(Class, "add_postInitEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of add_postInitEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_postInitEvent_Method => __m48;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_postInitEvent_Method => __m50;
         /// <summary>`add_postInitEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void add_postInitEvent(nint value)
         {
-            __m48.Invoke(Ptr, value);
+            __m50.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m49_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m49 => __m49_ ??= new(Class, "remove_postInitEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m51_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m51 => __m51_ ??= new(Class, "remove_postInitEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of remove_postInitEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_postInitEvent_Method => __m49;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_postInitEvent_Method => __m51;
         /// <summary>`remove_postInitEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void remove_postInitEvent(nint value)
         {
-            __m49.Invoke(Ptr, value);
+            __m51.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m50_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m50 => __m50_ ??= new(Class, "add_firstUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m52_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m52 => __m52_ ??= new(Class, "add_firstUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of add_firstUpdateEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_firstUpdateEvent_Method => __m50;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_firstUpdateEvent_Method => __m52;
         /// <summary>`add_firstUpdateEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void add_firstUpdateEvent(nint value)
         {
-            __m50.Invoke(Ptr, value);
+            __m52.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m51_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m51 => __m51_ ??= new(Class, "remove_firstUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m53_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m53 => __m53_ ??= new(Class, "remove_firstUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of remove_firstUpdateEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_firstUpdateEvent_Method => __m51;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_firstUpdateEvent_Method => __m53;
         /// <summary>`remove_firstUpdateEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void remove_firstUpdateEvent(nint value)
         {
-            __m51.Invoke(Ptr, value);
+            __m53.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m52_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m52 => __m52_ ??= new(Class, "add_preUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m54_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m54 => __m54_ ??= new(Class, "add_preUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of add_preUpdateEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preUpdateEvent_Method => __m52;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preUpdateEvent_Method => __m54;
         /// <summary>`add_preUpdateEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void add_preUpdateEvent(nint value)
         {
-            __m52.Invoke(Ptr, value);
+            __m54.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m53_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m53 => __m53_ ??= new(Class, "remove_preUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m55_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m55 => __m55_ ??= new(Class, "remove_preUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of remove_preUpdateEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preUpdateEvent_Method => __m53;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preUpdateEvent_Method => __m55;
         /// <summary>`remove_preUpdateEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void remove_preUpdateEvent(nint value)
         {
-            __m53.Invoke(Ptr, value);
+            __m55.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m54_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m54 => __m54_ ??= new(Class, "add_ctrlCallback", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m56_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m56 => __m56_ ??= new(Class, "add_ctrlCallback", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of add_ctrlCallback: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_ctrlCallback_Method => __m54;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_ctrlCallback_Method => __m56;
         /// <summary>`add_ctrlCallback(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void add_ctrlCallback(nint value)
         {
-            __m54.Invoke(Ptr, value);
+            __m56.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m55_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m55 => __m55_ ??= new(Class, "remove_ctrlCallback", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m57_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m57 => __m57_ ??= new(Class, "remove_ctrlCallback", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of remove_ctrlCallback: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_ctrlCallback_Method => __m55;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_ctrlCallback_Method => __m57;
         /// <summary>`remove_ctrlCallback(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void remove_ctrlCallback(nint value)
         {
-            __m55.Invoke(Ptr, value);
+            __m57.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m56_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m56 => __m56_ ??= new(Class, "add_postUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m58_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m58 => __m58_ ??= new(Class, "add_postUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of add_postUpdateEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_postUpdateEvent_Method => __m56;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_postUpdateEvent_Method => __m58;
         /// <summary>`add_postUpdateEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void add_postUpdateEvent(nint value)
         {
-            __m56.Invoke(Ptr, value);
+            __m58.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m57_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m57 => __m57_ ??= new(Class, "remove_postUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m59_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m59 => __m59_ ??= new(Class, "remove_postUpdateEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of remove_postUpdateEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_postUpdateEvent_Method => __m57;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_postUpdateEvent_Method => __m59;
         /// <summary>`remove_postUpdateEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void remove_postUpdateEvent(nint value)
         {
-            __m57.Invoke(Ptr, value);
+            __m59.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m58_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m58 => __m58_ ??= new(Class, "add_preDestroyEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m60_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m60 => __m60_ ??= new(Class, "add_preDestroyEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of add_preDestroyEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preDestroyEvent_Method => __m58;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preDestroyEvent_Method => __m60;
         /// <summary>`add_preDestroyEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void add_preDestroyEvent(nint value)
         {
-            __m58.Invoke(Ptr, value);
+            __m60.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m59_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m59 => __m59_ ??= new(Class, "remove_preDestroyEvent", "System.EventHandler<Mujoco.MjStepArgs>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m61_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m61 => __m61_ ??= new(Class, "remove_preDestroyEvent", "System.EventHandler<Mujoco.MjStepArgs>");
         /// <summary>The method reference of remove_preDestroyEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preDestroyEvent_Method => __m59;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preDestroyEvent_Method => __m61;
         /// <summary>`remove_preDestroyEvent(System.EventHandler&lt;Mujoco.MjStepArgs&gt;) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.EventHandler&lt;Mujoco.MjStepArgs&gt;</c>: pointer to the value (structs, byrefs) or the object</param>
         public void remove_preDestroyEvent(nint value)
         {
-            __m59.Invoke(Ptr, value);
+            __m61.Invoke(Ptr, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m60_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m60 => __m60_ ??= new(Class, "add_preCreateSceneEvent", "System.Action");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m62_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m62 => __m62_ ??= new(Class, "add_preCreateSceneEvent", "System.Action");
         /// <summary>The method reference of add_preCreateSceneEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preCreateSceneEvent_Method => __m60;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preCreateSceneEvent_Method => __m62;
         /// <summary>`add_preCreateSceneEvent(System.Action) -&gt; System.Void` (static).</summary>
         /// <param name="value"><c>System.Action</c></param>
         public static void add_preCreateSceneEvent(nint value)
         {
-            __m60.Invoke(0, value);
+            __m62.Invoke(0, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m61_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m61 => __m61_ ??= new(Class, "remove_preCreateSceneEvent", "System.Action");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m63_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m63 => __m63_ ??= new(Class, "remove_preCreateSceneEvent", "System.Action");
         /// <summary>The method reference of remove_preCreateSceneEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preCreateSceneEvent_Method => __m61;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preCreateSceneEvent_Method => __m63;
         /// <summary>`remove_preCreateSceneEvent(System.Action) -&gt; System.Void` (static).</summary>
         /// <param name="value"><c>System.Action</c></param>
         public static void remove_preCreateSceneEvent(nint value)
         {
-            __m61.Invoke(0, value);
+            __m63.Invoke(0, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m62_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m62 => __m62_ ??= new(Class, "add_preGenerateMcjfEvent", "System.Action");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m64_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m64 => __m64_ ??= new(Class, "add_preGenerateMcjfEvent", "System.Action");
         /// <summary>The method reference of add_preGenerateMcjfEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preGenerateMcjfEvent_Method => __m62;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_preGenerateMcjfEvent_Method => __m64;
         /// <summary>`add_preGenerateMcjfEvent(System.Action) -&gt; System.Void` (static).</summary>
         /// <param name="value"><c>System.Action</c></param>
         public static void add_preGenerateMcjfEvent(nint value)
         {
-            __m62.Invoke(0, value);
+            __m64.Invoke(0, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m63_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m63 => __m63_ ??= new(Class, "remove_preGenerateMcjfEvent", "System.Action");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m65_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m65 => __m65_ ??= new(Class, "remove_preGenerateMcjfEvent", "System.Action");
         /// <summary>The method reference of remove_preGenerateMcjfEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preGenerateMcjfEvent_Method => __m63;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_preGenerateMcjfEvent_Method => __m65;
         /// <summary>`remove_preGenerateMcjfEvent(System.Action) -&gt; System.Void` (static).</summary>
         /// <param name="value"><c>System.Action</c></param>
         public static void remove_preGenerateMcjfEvent(nint value)
         {
-            __m63.Invoke(0, value);
+            __m65.Invoke(0, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m64_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m64 => __m64_ ??= new(Class, "add_physicsErrorEvent", "System.Action");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m66_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m66 => __m66_ ??= new(Class, "add_physicsErrorEvent", "System.Action");
         /// <summary>The method reference of add_physicsErrorEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_physicsErrorEvent_Method => __m64;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef add_physicsErrorEvent_Method => __m66;
         /// <summary>`add_physicsErrorEvent(System.Action) -&gt; System.Void` (static).</summary>
         /// <param name="value"><c>System.Action</c></param>
         public static void add_physicsErrorEvent(nint value)
         {
-            __m64.Invoke(0, value);
+            __m66.Invoke(0, value);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m65_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m65 => __m65_ ??= new(Class, "remove_physicsErrorEvent", "System.Action");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m67_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m67 => __m67_ ??= new(Class, "remove_physicsErrorEvent", "System.Action");
         /// <summary>The method reference of remove_physicsErrorEvent: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_physicsErrorEvent_Method => __m65;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef remove_physicsErrorEvent_Method => __m67;
         /// <summary>`remove_physicsErrorEvent(System.Action) -&gt; System.Void` (static).</summary>
         /// <param name="value"><c>System.Action</c></param>
         public static void remove_physicsErrorEvent(nint value)
         {
-            __m65.Invoke(0, value);
-        }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m66_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m66 => __m66_ ??= new(Class, "Start");
-        /// <summary>The method reference of Start: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef Start_Method => __m66;
-        /// <summary>`Start() -&gt; System.Void`.</summary>
-        public void Start()
-        {
-            __m66.Invoke(Ptr);
-        }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m67_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m67 => __m67_ ??= new(Class, "OnDestroy");
-        /// <summary>The method reference of OnDestroy: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef OnDestroy_Method => __m67;
-        /// <summary>`OnDestroy() -&gt; System.Void`.</summary>
-        public void OnDestroy()
-        {
-            __m67.Invoke(Ptr);
+            __m67.Invoke(0, value);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m68_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m68 => __m68_ ??= new(Class, "FixedUpdate");
-        /// <summary>The method reference of FixedUpdate: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef FixedUpdate_Method => __m68;
-        /// <summary>`FixedUpdate() -&gt; System.Void`.</summary>
-        public void FixedUpdate()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m68 => __m68_ ??= new(Class, "Start");
+        /// <summary>The method reference of Start: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef Start_Method => __m68;
+        /// <summary>`Start() -&gt; System.Void`.</summary>
+        public void Start()
         {
             __m68.Invoke(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m69_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m69 => __m69_ ??= new(Class, "get_HasCreatedScene");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m69 => __m69_ ??= new(Class, "OnDestroy");
+        /// <summary>The method reference of OnDestroy: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef OnDestroy_Method => __m69;
+        /// <summary>`OnDestroy() -&gt; System.Void`.</summary>
+        public void OnDestroy()
+        {
+            __m69.Invoke(Ptr);
+        }
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m70_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m70 => __m70_ ??= new(Class, "FixedUpdate");
+        /// <summary>The method reference of FixedUpdate: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef FixedUpdate_Method => __m70;
+        /// <summary>`FixedUpdate() -&gt; System.Void`.</summary>
+        public void FixedUpdate()
+        {
+            __m70.Invoke(Ptr);
+        }
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m71_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m71 => __m71_ ??= new(Class, "get_HasCreatedScene");
         /// <summary>The method reference of get_HasCreatedScene: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_HasCreatedScene_Method => __m69;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef get_HasCreatedScene_Method => __m71;
         /// <summary>`get_HasCreatedScene() -&gt; System.Boolean`.</summary>
         public bool get_HasCreatedScene()
         {
-            return __m69.Invoke<bool>(Ptr);
+            return __m71.Invoke<bool>(Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m70_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m70 => __m70_ ??= new(Class, "set_HasCreatedScene", "System.Boolean");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m72_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m72 => __m72_ ??= new(Class, "set_HasCreatedScene", "System.Boolean");
         /// <summary>The method reference of set_HasCreatedScene: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_HasCreatedScene_Method => __m70;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef set_HasCreatedScene_Method => __m72;
         /// <summary>`set_HasCreatedScene(System.Boolean) -&gt; System.Void`.</summary>
         /// <param name="value"><c>System.Boolean</c></param>
         public void set_HasCreatedScene(bool value)
         {
             var p0 = value;
-            __m70.Invoke(Ptr, (nint)(&p0));
+            __m72.Invoke(Ptr, (nint)(&p0));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m71_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m71 => __m71_ ??= new(Class, "LateUpdate");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m73_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m73 => __m73_ ??= new(Class, "LateUpdate");
         /// <summary>The method reference of LateUpdate: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef LateUpdate_Method => __m71;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef LateUpdate_Method => __m73;
         /// <summary>`LateUpdate() -&gt; System.Void`.</summary>
         public void LateUpdate()
         {
-            __m71.Invoke(Ptr);
+            __m73.Invoke(Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m72_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m72 => __m72_ ??= new(Class, "CreateScene", "System.Boolean");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m74_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m74 => __m74_ ??= new(Class, "CreateScene", "System.Boolean");
         /// <summary>The method reference of CreateScene: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef CreateScene_Method => __m72;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef CreateScene_Method => __m74;
         /// <summary>`CreateScene(System.Boolean) -&gt; System.Xml.XmlDocument`.</summary>
         /// <param name="skipCompile"><c>System.Boolean</c></param>
         public nint CreateScene(bool skipCompile)
         {
             var p0 = skipCompile;
-            return __m72.Invoke(Ptr, (nint)(&p0));
+            return __m74.Invoke(Ptr, (nint)(&p0));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m73_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m73 => __m73_ ??= new(Class, "CollectComponents");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m75_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m75 => __m75_ ??= new(Class, "CollectComponents");
         /// <summary>The method reference of CollectComponents: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef CollectComponents_Method => __m73;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef CollectComponents_Method => __m75;
         /// <summary>`CollectComponents() -&gt; System.Void`.</summary>
         public void CollectComponents()
         {
-            __m73.Invoke(Ptr);
+            __m75.Invoke(Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m74_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m74 => __m74_ ??= new(Class, "AddSubtree", "UnityEngine.Transform");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m76_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m76 => __m76_ ??= new(Class, "AddSubtree", "UnityEngine.Transform");
         /// <summary>The method reference of AddSubtree: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef AddSubtree_Method => __m74;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef AddSubtree_Method => __m76;
         /// <summary>`AddSubtree(UnityEngine.Transform) -&gt; System.Boolean`.</summary>
         /// <param name="root"><c>UnityEngine.Transform</c></param>
         public bool AddSubtree(global::Jibbers.Interop.UnityEngine.Transform root)
         {
-            return __m74.Invoke<bool>(Ptr, root.Ptr);
+            return __m76.Invoke<bool>(Ptr, root.Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m75_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m75 => __m75_ ??= new(Class, "RemoveSubtree", "UnityEngine.Transform");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m77_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m77 => __m77_ ??= new(Class, "RemoveSubtree", "UnityEngine.Transform");
         /// <summary>The method reference of RemoveSubtree: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef RemoveSubtree_Method => __m75;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef RemoveSubtree_Method => __m77;
         /// <summary>`RemoveSubtree(UnityEngine.Transform) -&gt; System.Boolean`.</summary>
         /// <param name="root"><c>UnityEngine.Transform</c></param>
         public bool RemoveSubtree(global::Jibbers.Interop.UnityEngine.Transform root)
         {
-            return __m75.Invoke<bool>(Ptr, root.Ptr);
+            return __m77.Invoke<bool>(Ptr, root.Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m76_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m76 => __m76_ ??= new(Class, "WrapWorldbodyInFrame", "System.Xml.XmlDocument", "System.String");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m78_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m78 => __m78_ ??= new(Class, "WrapWorldbodyInFrame", "System.Xml.XmlDocument", "System.String");
         /// <summary>The method reference of WrapWorldbodyInFrame: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef WrapWorldbodyInFrame_Method => __m76;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef WrapWorldbodyInFrame_Method => __m78;
         /// <summary>`WrapWorldbodyInFrame(System.Xml.XmlDocument, System.String) -&gt; System.Void` (static).</summary>
         /// <param name="doc"><c>System.Xml.XmlDocument</c></param>
         /// <param name="frameName"><c>System.String</c></param>
         public static void WrapWorldbodyInFrame(nint doc, string? frameName)
         {
-            __m76.Invoke(0, doc, frameName is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(frameName));
+            __m78.Invoke(0, doc, frameName is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(frameName));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m77_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m77 => __m77_ ??= new(Class, "GenerateSubtreeMjcf", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>", "System.String");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m79_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m79 => __m79_ ??= new(Class, "GenerateSubtreeMjcf", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>", "System.String");
         /// <summary>The method reference of GenerateSubtreeMjcf: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef GenerateSubtreeMjcf_Method => __m77;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef GenerateSubtreeMjcf_Method => __m79;
         /// <summary>`GenerateSubtreeMjcf(System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;, System.String) -&gt; System.Xml.XmlDocument`.</summary>
         /// <param name="components"><c>System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;</c></param>
         /// <param name="namePrefix"><c>System.String</c></param>
         public nint GenerateSubtreeMjcf(nint components, string? namePrefix)
         {
-            return __m77.Invoke(Ptr, components, namePrefix is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(namePrefix));
+            return __m79.Invoke(Ptr, components, namePrefix is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(namePrefix));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m78_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m78 => __m78_ ??= new(Class, "ReleaseAttachedSpecs", "System.Collections.Generic.List<System.IntPtr>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m80_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m80 => __m80_ ??= new(Class, "ReleaseAttachedSpecs", "System.Collections.Generic.List<System.IntPtr>");
         /// <summary>The method reference of ReleaseAttachedSpecs: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef ReleaseAttachedSpecs_Method => __m78;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef ReleaseAttachedSpecs_Method => __m80;
         /// <summary>`ReleaseAttachedSpecs(System.Collections.Generic.List&lt;System.IntPtr&gt;) -&gt; System.Void`.</summary>
         /// <param name="specs"><c>System.Collections.Generic.List&lt;System.IntPtr&gt;</c></param>
         public void ReleaseAttachedSpecs(nint specs)
         {
-            __m78.Invoke(Ptr, specs);
+            __m80.Invoke(Ptr, specs);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m79_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m79 => __m79_ ??= new(Class, "CompileScene", "System.Xml.XmlDocument", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m81_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m81 => __m81_ ??= new(Class, "CompileScene", "System.Xml.XmlDocument", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>");
         /// <summary>The method reference of CompileScene: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef CompileScene_Method => __m79;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef CompileScene_Method => __m81;
         /// <summary>`CompileScene(System.Xml.XmlDocument, System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;) -&gt; System.Void`.</summary>
         /// <param name="mjcf"><c>System.Xml.XmlDocument</c></param>
         /// <param name="components"><c>System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;</c></param>
         public void CompileScene(nint mjcf, nint components)
         {
-            __m79.Invoke(Ptr, mjcf, components);
+            __m81.Invoke(Ptr, mjcf, components);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m80_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m80 => __m80_ ??= new(Class, "RecordBuildStep", "System.String");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m82_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m82 => __m82_ ??= new(Class, "RecordBuildStep", "System.String");
         /// <summary>The method reference of RecordBuildStep: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef RecordBuildStep_Method => __m80;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef RecordBuildStep_Method => __m82;
         /// <summary>`RecordBuildStep(System.String) -&gt; System.Void`.</summary>
         /// <param name="stepName"><c>System.String</c></param>
         public void RecordBuildStep(string? stepName)
         {
-            __m80.Invoke(Ptr, stepName is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(stepName));
+            __m82.Invoke(Ptr, stepName is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(stepName));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m81_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m81 => __m81_ ??= new(Class, "RegisterUnnamedGeom");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m83_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m83 => __m83_ ??= new(Class, "RegisterUnnamedGeom");
         /// <summary>The method reference of RegisterUnnamedGeom: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef RegisterUnnamedGeom_Method => __m81;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef RegisterUnnamedGeom_Method => __m83;
         /// <summary>`RegisterUnnamedGeom() -&gt; System.Int32`.</summary>
         public int RegisterUnnamedGeom()
         {
-            return __m81.Invoke<int>(Ptr);
+            return __m83.Invoke<int>(Ptr);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m82_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m82 => __m82_ ??= new(Class, "MujocoIdOfUnnamedGeom", "System.Int32");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m84_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m84 => __m84_ ??= new(Class, "MujocoIdOfUnnamedGeom", "System.Int32");
         /// <summary>The method reference of MujocoIdOfUnnamedGeom: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef MujocoIdOfUnnamedGeom_Method => __m82;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef MujocoIdOfUnnamedGeom_Method => __m84;
         /// <summary>`MujocoIdOfUnnamedGeom(System.Int32) -&gt; System.Int32`.</summary>
         /// <param name="unnamedGeomTag"><c>System.Int32</c></param>
         public int MujocoIdOfUnnamedGeom(int unnamedGeomTag)
         {
             var p0 = unnamedGeomTag;
-            return __m82.Invoke<int>(Ptr, (nint)(&p0));
-        }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m83_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m83 => __m83_ ??= new(Class, "MapUnnamedGeomIds");
-        /// <summary>The method reference of MapUnnamedGeomIds: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef MapUnnamedGeomIds_Method => __m83;
-        /// <summary>`MapUnnamedGeomIds() -&gt; System.Void`.</summary>
-        public void MapUnnamedGeomIds()
-        {
-            __m83.Invoke(Ptr);
-        }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m84_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m84 => __m84_ ??= new(Class, "TryFastRebuild");
-        /// <summary>The method reference of TryFastRebuild: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef TryFastRebuild_Method => __m84;
-        /// <summary>`TryFastRebuild() -&gt; System.Boolean`.</summary>
-        public bool TryFastRebuild()
-        {
-            return __m84.Invoke<bool>(Ptr);
+            return __m84.Invoke<int>(Ptr, (nint)(&p0));
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m85_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m85 => __m85_ ??= new(Class, "DeleteSpec");
-        /// <summary>The method reference of DeleteSpec: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef DeleteSpec_Method => __m85;
-        /// <summary>`DeleteSpec() -&gt; System.Void`.</summary>
-        public void DeleteSpec()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m85 => __m85_ ??= new(Class, "MapUnnamedGeomIds");
+        /// <summary>The method reference of MapUnnamedGeomIds: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef MapUnnamedGeomIds_Method => __m85;
+        /// <summary>`MapUnnamedGeomIds() -&gt; System.Void`.</summary>
+        public void MapUnnamedGeomIds()
         {
             __m85.Invoke(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m86_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m86 => __m86_ ??= new(Class, "SyncUnityToMjState");
-        /// <summary>The method reference of SyncUnityToMjState: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef SyncUnityToMjState_Method => __m86;
-        /// <summary>`SyncUnityToMjState() -&gt; System.Void`.</summary>
-        public void SyncUnityToMjState()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m86 => __m86_ ??= new(Class, "TryFastRebuild");
+        /// <summary>The method reference of TryFastRebuild: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef TryFastRebuild_Method => __m86;
+        /// <summary>`TryFastRebuild() -&gt; System.Boolean`.</summary>
+        public bool TryFastRebuild()
         {
-            __m86.Invoke(Ptr);
+            return __m86.Invoke<bool>(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m87_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m87 => __m87_ ??= new(Class, "RecreateScene");
-        /// <summary>The method reference of RecreateScene: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef RecreateScene_Method => __m87;
-        /// <summary>`RecreateScene() -&gt; System.Void`.</summary>
-        public void RecreateScene()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m87 => __m87_ ??= new(Class, "DeleteSpec");
+        /// <summary>The method reference of DeleteSpec: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef DeleteSpec_Method => __m87;
+        /// <summary>`DeleteSpec() -&gt; System.Void`.</summary>
+        public void DeleteSpec()
         {
             __m87.Invoke(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m88_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m88 => __m88_ ??= new(Class, "DestroyScene");
-        /// <summary>The method reference of DestroyScene: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef DestroyScene_Method => __m88;
-        /// <summary>`DestroyScene() -&gt; System.Void`.</summary>
-        public void DestroyScene()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m88 => __m88_ ??= new(Class, "SyncUnityToMjState");
+        /// <summary>The method reference of SyncUnityToMjState: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef SyncUnityToMjState_Method => __m88;
+        /// <summary>`SyncUnityToMjState() -&gt; System.Void`.</summary>
+        public void SyncUnityToMjState()
         {
             __m88.Invoke(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m89_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m89 => __m89_ ??= new(Class, "StepScene");
-        /// <summary>The method reference of StepScene: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef StepScene_Method => __m89;
-        /// <summary>`StepScene() -&gt; System.Void`.</summary>
-        public void StepScene()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m89 => __m89_ ??= new(Class, "RecreateScene");
+        /// <summary>The method reference of RecreateScene: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef RecreateScene_Method => __m89;
+        /// <summary>`RecreateScene() -&gt; System.Void`.</summary>
+        public void RecreateScene()
         {
             __m89.Invoke(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m90_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m90 => __m90_ ??= new(Class, "CheckPhysicsStuff");
-        /// <summary>The method reference of CheckPhysicsStuff: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef CheckPhysicsStuff_Method => __m90;
-        /// <summary>`CheckPhysicsStuff() -&gt; System.Void`.</summary>
-        public void CheckPhysicsStuff()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m90 => __m90_ ??= new(Class, "DestroyScene");
+        /// <summary>The method reference of DestroyScene: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef DestroyScene_Method => __m90;
+        /// <summary>`DestroyScene() -&gt; System.Void`.</summary>
+        public void DestroyScene()
         {
             __m90.Invoke(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m91_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m91 => __m91_ ??= new(Class, "CheckForPhysicsException");
-        /// <summary>The method reference of CheckForPhysicsException: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef CheckForPhysicsException_Method => __m91;
-        /// <summary>`CheckForPhysicsException() -&gt; System.Void`.</summary>
-        public void CheckForPhysicsException()
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m91 => __m91_ ??= new(Class, "StepScene");
+        /// <summary>The method reference of StepScene: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef StepScene_Method => __m91;
+        /// <summary>`StepScene() -&gt; System.Void`.</summary>
+        public void StepScene()
         {
             __m91.Invoke(Ptr);
         }
         static global::Jibbers.Sdk.Symbols.RawMethodRef? __m92_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m92 => __m92_ ??= new(Class, "GenerateSceneMjcf", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m92 => __m92_ ??= new(Class, "CheckPhysicsStuff");
+        /// <summary>The method reference of CheckPhysicsStuff: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef CheckPhysicsStuff_Method => __m92;
+        /// <summary>`CheckPhysicsStuff() -&gt; System.Void`.</summary>
+        public void CheckPhysicsStuff()
+        {
+            __m92.Invoke(Ptr);
+        }
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m93_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m93 => __m93_ ??= new(Class, "CheckForPhysicsException");
+        /// <summary>The method reference of CheckForPhysicsException: detour or pre-hook it.</summary>
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef CheckForPhysicsException_Method => __m93;
+        /// <summary>`CheckForPhysicsException() -&gt; System.Void`.</summary>
+        public void CheckForPhysicsException()
+        {
+            __m93.Invoke(Ptr);
+        }
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m94_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m94 => __m94_ ??= new(Class, "GenerateSceneMjcf", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>");
         /// <summary>The method reference of GenerateSceneMjcf: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef GenerateSceneMjcf_Method => __m92;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef GenerateSceneMjcf_Method => __m94;
         /// <summary>`GenerateSceneMjcf(System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;) -&gt; System.Xml.XmlDocument`.</summary>
         /// <param name="components"><c>System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;</c></param>
         public nint GenerateSceneMjcf(nint components)
         {
-            return __m92.Invoke(Ptr, components);
+            return __m94.Invoke(Ptr, components);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m93_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m93 => __m93_ ??= new(Class, "GenerateMjcfSection", "System.Xml.XmlDocument", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>", "System.String");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m95_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m95 => __m95_ ??= new(Class, "GenerateMjcfSection", "System.Xml.XmlDocument", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>", "System.String");
         /// <summary>The method reference of GenerateMjcfSection: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef GenerateMjcfSection_Method => __m93;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef GenerateMjcfSection_Method => __m95;
         /// <summary>`GenerateMjcfSection(System.Xml.XmlDocument, System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;, System.String) -&gt; System.Xml.XmlElement`.</summary>
         /// <param name="doc"><c>System.Xml.XmlDocument</c></param>
         /// <param name="components"><c>System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;</c></param>
         /// <param name="sectionName"><c>System.String</c></param>
         public nint GenerateMjcfSection(nint doc, nint components, string? sectionName)
         {
-            return __m93.Invoke(Ptr, doc, components, sectionName is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(sectionName));
+            return __m95.Invoke(Ptr, doc, components, sectionName is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(sectionName));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m94_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m94 => __m94_ ??= new(Class, "BuildHierarchicalMjcf", "System.Xml.XmlDocument", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>", "System.Xml.XmlElement");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m96_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m96 => __m96_ ??= new(Class, "BuildHierarchicalMjcf", "System.Xml.XmlDocument", "System.Collections.Generic.IEnumerable<Mujoco.MjComponent>", "System.Xml.XmlElement");
         /// <summary>The method reference of BuildHierarchicalMjcf: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef BuildHierarchicalMjcf_Method => __m94;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef BuildHierarchicalMjcf_Method => __m96;
         /// <summary>`BuildHierarchicalMjcf(System.Xml.XmlDocument, System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;, System.Xml.XmlElement) -&gt; System.Void`.</summary>
         /// <param name="doc"><c>System.Xml.XmlDocument</c></param>
         /// <param name="components"><c>System.Collections.Generic.IEnumerable&lt;Mujoco.MjComponent&gt;</c></param>
         /// <param name="worldMjcf"><c>System.Xml.XmlElement</c></param>
         public void BuildHierarchicalMjcf(nint doc, nint components, nint worldMjcf)
         {
-            __m94.Invoke(Ptr, doc, components, worldMjcf);
+            __m96.Invoke(Ptr, doc, components, worldMjcf);
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m95_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m95 => __m95_ ??= new(Class, "SaveToFile", "System.Xml.XmlDocument", "System.String");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m97_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m97 => __m97_ ??= new(Class, "SaveToFile", "System.Xml.XmlDocument", "System.String");
         /// <summary>The method reference of SaveToFile: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef SaveToFile_Method => __m95;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef SaveToFile_Method => __m97;
         /// <summary>`SaveToFile(System.Xml.XmlDocument, System.String) -&gt; System.Void`.</summary>
         /// <param name="document"><c>System.Xml.XmlDocument</c></param>
         /// <param name="filePath"><c>System.String</c></param>
         public void SaveToFile(nint document, string? filePath)
         {
-            __m95.Invoke(Ptr, document, filePath is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(filePath));
+            __m97.Invoke(Ptr, document, filePath is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(filePath));
         }
-        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m96_;
-        static global::Jibbers.Sdk.Symbols.RawMethodRef __m96 => __m96_ ??= new(Class, ".ctor");
+        static global::Jibbers.Sdk.Symbols.RawMethodRef? __m98_;
+        static global::Jibbers.Sdk.Symbols.RawMethodRef __m98 => __m98_ ??= new(Class, ".ctor");
         /// <summary>The method reference of New: detour or pre-hook it.</summary>
-        public static global::Jibbers.Sdk.Symbols.RawMethodRef New_Method => __m96;
+        public static global::Jibbers.Sdk.Symbols.RawMethodRef New_Method => __m98;
         /// <summary>`.ctor() -&gt; System.Void`.</summary>
         public static MjScene New()
         {
             var __o = Class.Class.New();
-            __m96.Invoke(__o);
+            __m98.Invoke(__o);
             return new(__o);
         }
     }

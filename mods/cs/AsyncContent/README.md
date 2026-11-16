@@ -4,6 +4,8 @@ Prepares downloaded session PNG textures, OBJ meshes and JSON text on a backgrou
 
 This is a functional import-path replacement for the supported decoding stages, not a telemetry-only mod. It does not replace mod.io downloading or the game's networking. Live logs confirm the accelerated path is active; remaining engine work can still cause a hitch.
 
+**Game build 26688799 and later:** the game itself now reads, decodes and parses session content on worker tasks and only creates Unity objects on the main thread. The synchronous OBJ parser and PNG reader this mod replaced are gone, so on these builds the mod detects that, logs it, and leaves imports entirely to the game (`async_content.status` reports `active: false`). Older builds keep the behavior described below.
+
 ## Installation
 
 Async Content installs automatically with the loader on launch, including existing updater installations. It is enabled by default; its Enabled toggle in Options > Mods can turn it off. Options → Mods → Async Content has an enable switch and a content work budget of 1–5 ms (default 2 ms). A new DLL loads on the next game launch.

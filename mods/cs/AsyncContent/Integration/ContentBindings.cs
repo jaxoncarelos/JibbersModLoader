@@ -55,6 +55,12 @@ internal sealed class ContentBindings
         if (Step.Invoke<bool>(instance))
             throw new NotSupportedException("Stopped archive coroutine unexpectedly resumed.");
     }
+    /// <summary>
+    /// False on builds that read, decode and parse session content on their own worker tasks
+    /// (26688799 onwards): the synchronous OBJ parser this mod prepares meshes for is gone, and the
+    /// game's text reader runs on those workers, where the mod's hooks must not run.
+    /// </summary>
+    public static bool GameImportsOnMainThread() => OptionalMethod("async_content.obj_parser.parse") is not null;
     static MethodRef? OptionalMethod(string path)
     {
         var method = new MethodRef(path);

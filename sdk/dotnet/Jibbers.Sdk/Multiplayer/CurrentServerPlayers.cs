@@ -3,18 +3,18 @@ using Jibbers.Sdk.Interop;
 
 namespace Jibbers.Sdk.Multiplayer;
 
-// Read-only access to the game's player manager (qk): who is on the current server, by FishNet
+// Read-only access to the game's player manager (NetPlayers): who is on the current server, by FishNet
 // client id and the name the server gave them. The game never sends Steam ids (its only Steam
 // call is GetPersonaName; a roster entry is a name, a host/player role and, server side, an IP),
 // so Play Together players find each other through a Steam lobby instead (ServerPresenceDiscovery).
 // This never sends anything through FishNet or changes another player's state.
 internal static unsafe class CurrentServerPlayers
 {
-    static readonly SceneObjectCache<qk> manager = new(() =>
+    static readonly SceneObjectCache<NetPlayers> manager = new(() =>
     {
-        var current = qk.vsz;
+        var current = NetPlayers.xig;
         if (!current.IsNull && !Unity.IsNull(current.Ptr)) return current;
-        foreach (var candidate in qk.Live()) if (!candidate.IsDead()) return candidate;
+        foreach (var candidate in NetPlayers.Live()) if (!candidate.IsDead()) return candidate;
         return null;
     });
     static Il2CppClass int32;
@@ -26,12 +26,12 @@ internal static unsafe class CurrentServerPlayers
     {
         RosterCount = 0;
         if (manager.Get() is not { } current) return ServerRoster.Empty;
-        // vtb: client id -> player, vtc: client id -> account details (pp, sent by the server).
+        // xii: client id -> player, xij: client id -> account details (rq, sent by the server).
         var ids = new SortedSet<int>();
-        Keys(current.vtb, ids);
-        Keys(current.vtc, ids);
+        Keys(current.xii, ids);
+        Keys(current.xij, ids);
         if (ids.Count is 0 or > 256) return ServerRoster.Empty;
-        var details = current.vtc;
+        var details = current.xij;
         var detailType = details == 0 ? default : Il2Cpp.ClassOf(details);
         var get = detailType.IsNull ? default : detailType.Method("get_Item", 1);
         var contains = detailType.IsNull ? default : detailType.Method("ContainsKey", 1);
@@ -42,8 +42,8 @@ internal static unsafe class CurrentServerPlayers
             string? name = null;
             if (!contains.IsNull && contains.Invoke<bool>(details, (nint)(&id)))
             {
-                var detail = new pp(get.Invoke(details, (nint)(&id)));
-                if (!detail.IsNull) name = detail.vnv; // the name the server gave this player
+                var detail = new rq(get.Invoke(details, (nint)(&id)));
+                if (!detail.IsNull) name = detail.xaw; // the name the server gave this player
             }
             if (string.IsNullOrWhiteSpace(name)) name = current.Name(id);
             if (!string.IsNullOrWhiteSpace(name)) players.Add(new(id, name));

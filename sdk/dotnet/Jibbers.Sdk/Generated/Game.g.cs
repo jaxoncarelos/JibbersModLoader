@@ -38,7 +38,7 @@ namespace Jibbers.Sdk.Game.Env
             __m0.Invoke(Ptr);
         }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("env.manager.beautify");
-        /// <summary>Field beautify (`ulz: Beautify.Universal.Beautify`). (no C# mirror for this type: use the field reference).</summary>
+        /// <summary>Field beautify (`vtt: Beautify.Universal.Beautify`). (no C# mirror for this type: use the field reference).</summary>
         public static global::Jibbers.Sdk.Interop.Il2CppField Beautify_Field => __f1.Field;
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("env.manager.ambient_saturation");
         /// <summary>Field ambient_saturation (`ambientSaturation: System.Single`).</summary>
@@ -70,7 +70,7 @@ namespace Jibbers.Sdk.Game.Env
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m0 = new("env.map_load_handler.on_map_load");
         /// <summary>The method reference of OnMapLoad: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef OnMapLoadMethod => __m0;
-        /// <summary>Calls on_map_load (`gak(MapLoadEvent) -&gt; System.Void`).</summary>
+        /// <summary>Calls on_map_load (`gji(MapLoadEvent) -&gt; System.Void`).</summary>
         /// <param name="a"><c>MapLoadEvent</c>: pointer to the value (structs, byrefs) or the object</param>
         public void OnMapLoad(nint a)
         {
@@ -106,7 +106,7 @@ namespace Jibbers.Sdk.Game.Terrain
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m0 = new("terrain.painter.on_map_load");
         /// <summary>The method reference of OnMapLoad: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef OnMapLoadMethod => __m0;
-        /// <summary>Calls on_map_load (`cor(MapLoadEvent) -&gt; System.Void`).</summary>
+        /// <summary>Calls on_map_load (`cug(MapLoadEvent) -&gt; System.Void`).</summary>
         /// <param name="a"><c>MapLoadEvent</c>: pointer to the value (structs, byrefs) or the object</param>
         public void OnMapLoad(nint a)
         {
@@ -162,15 +162,15 @@ namespace Jibbers.Sdk.Game.Map
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.MapRuntimeImporter Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("map.importer.instance");
-        /// <summary>Field instance (`&lt;qwn&gt;k__BackingField: MapRuntimeImporter`).</summary>
+        /// <summary>Field instance (`&lt;ryz&gt;k__BackingField: MapRuntimeImporter`).</summary>
         public static global::Jibbers.Sdk.Game.Map.Importer Instance { get => new(__f0.GetObject(0)); set => __f0.SetObject(0, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("map.importer.terrains");
-        /// <summary>Field terrains (`qwp: UnityEngine.Terrain[]`).</summary>
+        /// <summary>Field terrains (`rzc: UnityEngine.Terrain[]`).</summary>
         public nint Terrains { get => __f1.GetObject(Ptr); set => __f1.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m2 = new("map.importer.import");
         /// <summary>The method reference of Import: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef ImportMethod => __m2;
-        /// <summary>Calls import (`byi() -&gt; System.Void`).</summary>
+        /// <summary>Calls import (`cde() -&gt; System.Void`).</summary>
         public void Import()
         {
             __m2.Invoke(Ptr);
@@ -178,7 +178,7 @@ namespace Jibbers.Sdk.Game.Map
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m3 = new("map.importer.build_terrains");
         /// <summary>The method reference of BuildTerrains: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef BuildTerrainsMethod => __m3;
-        /// <summary>Calls build_terrains (`byk(Jibbers.MapTools.MapData) -&gt; UnityEngine.Terrain[]`).</summary>
+        /// <summary>Calls build_terrains (`cdg(Jibbers.MapTools.MapData) -&gt; UnityEngine.Terrain[]`).</summary>
         /// <param name="a"><c>Jibbers.MapTools.MapData</c></param>
         public nint BuildTerrains(global::Jibbers.Sdk.Game.Map.Data a)
         {
@@ -290,16 +290,16 @@ namespace Jibbers.Sdk.Game.Player
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.RagdollSpawner Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("player.ragdoll_spawner.rider");
-        /// <summary>Field rider (`tdr: RagdollController`).</summary>
+        /// <summary>Field rider (`ukm: RagdollController`).</summary>
         public global::Jibbers.Sdk.Game.Player.Ragdoll Rider { get => new(__f0.GetObject(Ptr)); set => __f0.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("player.ragdoll_spawner.camera");
-        /// <summary>Field camera (`tds: FollowCam`).</summary>
+        /// <summary>Field camera (`ukn: FollowCam`).</summary>
         public global::Jibbers.Sdk.Game.Camera.Follow Camera { get => new(__f1.GetObject(Ptr)); set => __f1.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("player.ragdoll_spawner.spawn_points");
-        /// <summary>Field spawn_points (`tdm: Jibbers.MapTools.SpawnPointData[]`).</summary>
+        /// <summary>Field spawn_points (`ukh: Jibbers.MapTools.SpawnPointData[]`).</summary>
         public nint SpawnPoints { get => __f2.GetObject(Ptr); set => __f2.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f3 = new("player.ragdoll_spawner.custom_spawn");
-        /// <summary>Field custom_spawn (`tdw: Jibbers.MapTools.SpawnPointData`).</summary>
+        /// <summary>Field custom_spawn (`ukr: Jibbers.MapTools.SpawnPointData`).</summary>
         public global::Jibbers.Sdk.Game.Map.SpawnPoint CustomSpawn { get => new(__f3.GetObject(Ptr)); set => __f3.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f4 = new("player.ragdoll_spawner.can_change_spawn");
         /// <summary>Field can_change_spawn (`canChangeSpawn: System.Boolean`).</summary>
@@ -307,7 +307,7 @@ namespace Jibbers.Sdk.Game.Player
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m5 = new("player.ragdoll_spawner.selected_spawn");
         /// <summary>The method reference of SelectedSpawn: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SelectedSpawnMethod => __m5;
-        /// <summary>Calls selected_spawn (`elu() -&gt; Jibbers.MapTools.SpawnPointData`).</summary>
+        /// <summary>Calls selected_spawn (`etp() -&gt; Jibbers.MapTools.SpawnPointData`).</summary>
         public global::Jibbers.Sdk.Game.Map.SpawnPoint SelectedSpawn()
         {
             return new(__m5.Invoke(Ptr));
@@ -315,7 +315,7 @@ namespace Jibbers.Sdk.Game.Player
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m6 = new("player.ragdoll_spawner.on_map_load");
         /// <summary>The method reference of OnMapLoad: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef OnMapLoadMethod => __m6;
-        /// <summary>Calls on_map_load (`emq(MapLoadEvent) -&gt; System.Void`).</summary>
+        /// <summary>Calls on_map_load (`eul(MapLoadEvent) -&gt; System.Void`).</summary>
         /// <param name="a"><c>MapLoadEvent</c>: pointer to the value (structs, byrefs) or the object</param>
         public void OnMapLoad(nint a)
         {
@@ -359,7 +359,7 @@ namespace Jibbers.Sdk.Game.Player
 
 namespace Jibbers.Sdk.Game.Replay
 {
-    /// <summary>The replay clip class (obfuscated): an indexed list of recorded frames that can Add and Serialize. Symbol <c>replay.clip</c>; <c>te</c> on the build these bindings came from.</summary>
+    /// <summary>The replay clip class (obfuscated): an indexed list of recorded frames that can Add and Serialize. Symbol <c>replay.clip</c>; <c>vl</c> on the build these bindings came from.</summary>
     /// <remarks>Reshred saves its int and double fields when it rewinds.</remarks>
     public readonly unsafe partial struct Clip : global::Jibbers.Sdk.IGameObject
     {
@@ -376,7 +376,7 @@ namespace Jibbers.Sdk.Game.Replay
         /// <summary>Wraps <paramref name="p"/> if it is an instance of this class, else null.</summary>
         public static Clip? Cast(nint p) => Class.IsInstance(p) ? new Clip(p) : null;
         /// <summary>The same object through the raw binding (every real member).</summary>
-        public global::Jibbers.Interop.Game.te Raw => new(Ptr);
+        public global::Jibbers.Interop.Game.vl Raw => new(Ptr);
     }
 
     /// <summary>Recorder: the replay recorder singleton. Symbol <c>replay.recorder</c>; <c>Recorder</c> on the build these bindings came from.</summary>
@@ -401,13 +401,13 @@ namespace Jibbers.Sdk.Game.Replay
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.Recorder Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("replay.recorder.instance");
-        /// <summary>Field instance (`&lt;uab&gt;k__BackingField: Recorder`).</summary>
+        /// <summary>Field instance (`&lt;vhm&gt;k__BackingField: Recorder`).</summary>
         public static global::Jibbers.Sdk.Game.Replay.Recorder Instance { get => new(__f0.GetObject(0)); set => __f0.SetObject(0, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("replay.recorder.ragdoll");
-        /// <summary>Field ragdoll (`ubs: RagdollController`).</summary>
+        /// <summary>Field ragdoll (`vje: RagdollController`).</summary>
         public global::Jibbers.Sdk.Game.Player.Ragdoll Ragdoll { get => new(__f1.GetObject(Ptr)); set => __f1.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("replay.recorder.clip");
-        /// <summary>Field clip (`ubv: te`).</summary>
+        /// <summary>Field clip (`vjh: vl`).</summary>
         public global::Jibbers.Sdk.Game.Replay.Clip Clip { get => new(__f2.GetObject(Ptr)); set => __f2.SetObject(Ptr, value.Ptr); }
     }
 
@@ -456,7 +456,7 @@ namespace Jibbers.Sdk.Game.Camera
             __m0.Invoke(Ptr);
         }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("camera.follow.mode");
-        /// <summary>Field mode (`tub: FollowCam.CamState`).</summary>
+        /// <summary>Field mode (`vbl: FollowCam.CamState`).</summary>
         public int Mode { get => __f1.Get<int>(Ptr); set => __f1.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("camera.follow.target");
         /// <summary>Field target (`target: UnityEngine.Transform`).</summary>
@@ -531,18 +531,18 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.TabMenu Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("ui.tab_menu.buttons");
-        /// <summary>Field buttons (`xda: Button[]`).</summary>
+        /// <summary>Field buttons (`ytl: Button[]`).</summary>
         public nint Buttons { get => __f0.GetObject(Ptr); set => __f0.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("ui.tab_menu.pages");
-        /// <summary>Field pages (`xdb: System.ValueTuple&lt;UnityEngine.RectTransform,NavigatableMenu&gt;[]`).</summary>
+        /// <summary>Field pages (`ytm: System.ValueTuple&lt;UnityEngine.RectTransform,NavigatableMenu&gt;[]`).</summary>
         public nint Pages { get => __f1.GetObject(Ptr); set => __f1.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("ui.tab_menu.current");
-        /// <summary>Field current (`xdc: System.Int32`).</summary>
+        /// <summary>Field current (`ytn: System.Int32`).</summary>
         public int Current { get => __f2.Get<int>(Ptr); set => __f2.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m3 = new("ui.tab_menu.switch_to");
         /// <summary>The method reference of SwitchTo: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SwitchToMethod => __m3;
-        /// <summary>Calls switch_to (`jct(System.Int32, System.Boolean, System.Boolean) -&gt; System.Void`).</summary>
+        /// <summary>Calls switch_to (`jtu(System.Int32, System.Boolean, System.Boolean) -&gt; System.Void`).</summary>
         /// <param name="a"><c>System.Int32</c></param>
         /// <param name="b"><c>System.Boolean</c></param>
         /// <param name="c"><c>System.Boolean</c></param>
@@ -578,13 +578,13 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.UIBehaviour Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("ui.behaviour.interactable");
-        /// <summary>Field interactable (`&lt;zyx&gt;k__BackingField: System.Boolean`).</summary>
+        /// <summary>Field interactable (`&lt;bbvv&gt;k__BackingField: System.Boolean`).</summary>
         public bool Interactable { get => __f0.Get<bool>(Ptr); set => __f0.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("ui.behaviour.rect");
-        /// <summary>Field rect (`&lt;zyy&gt;k__BackingField: UnityEngine.RectTransform`).</summary>
+        /// <summary>Field rect (`&lt;bbvw&gt;k__BackingField: UnityEngine.RectTransform`).</summary>
         public global::Jibbers.Interop.UnityEngine.RectTransform Rect { get => new(__f1.GetObject(Ptr)); set => __f1.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("ui.behaviour.menu");
-        /// <summary>Field menu (`&lt;zza&gt;k__BackingField: NavigatableMenu`).</summary>
+        /// <summary>Field menu (`&lt;bbvy&gt;k__BackingField: NavigatableMenu`).</summary>
         public global::Jibbers.Sdk.Game.Ui.NavigatableMenu Menu { get => new(__f2.GetObject(Ptr)); set => __f2.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f3 = new("ui.behaviour.tooltip");
         /// <summary>Field tooltip (`tooltip: System.String`).</summary>
@@ -592,7 +592,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m4 = new("ui.behaviour.set_interactable");
         /// <summary>The method reference of SetInteractable: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SetInteractableMethod => __m4;
-        /// <summary>Calls set_interactable (`ndg(System.Boolean) -&gt; System.Void`).</summary>
+        /// <summary>Calls set_interactable (`nzr(System.Boolean) -&gt; System.Void`).</summary>
         /// <param name="a"><c>System.Boolean</c></param>
         public void SetInteractable(bool a)
         {
@@ -624,7 +624,7 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.NavigatableMenu Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("ui.navigatable_menu.rows");
-        /// <summary>Field rows (`&lt;wwz&gt;k__BackingField: System.Collections.Generic.List&lt;System.Collections.Generic.List&lt;UIBehaviour&gt;&gt;`).</summary>
+        /// <summary>Field rows (`&lt;ynk&gt;k__BackingField: System.Collections.Generic.List&lt;System.Collections.Generic.List&lt;UIBehaviour&gt;&gt;`).</summary>
         public nint Rows { get => __f0.GetObject(Ptr); set => __f0.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("ui.navigatable_menu.content");
         /// <summary>Field content (`contentRect: UnityEngine.RectTransform`).</summary>
@@ -632,7 +632,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m2 = new("ui.navigatable_menu.collect");
         /// <summary>The method reference of Collect: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef CollectMethod => __m2;
-        /// <summary>Calls collect (`iwe() -&gt; System.Void`).</summary>
+        /// <summary>Calls collect (`jnd() -&gt; System.Void`).</summary>
         public void Collect()
         {
             __m2.Invoke(Ptr);
@@ -640,7 +640,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m3 = new("ui.navigatable_menu.layout");
         /// <summary>The method reference of Layout: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef LayoutMethod => __m3;
-        /// <summary>Calls layout (`ium() -&gt; System.Void`).</summary>
+        /// <summary>Calls layout (`jll() -&gt; System.Void`).</summary>
         public void Layout()
         {
             __m3.Invoke(Ptr);
@@ -648,7 +648,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m4 = new("ui.navigatable_menu.add_button");
         /// <summary>The method reference of AddButton: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef AddButtonMethod => __m4;
-        /// <summary>Calls add_button (`iwr(UIBehaviour) -&gt; System.Void`).</summary>
+        /// <summary>Calls add_button (`jnr(UIBehaviour) -&gt; System.Void`).</summary>
         /// <param name="a"><c>UIBehaviour</c></param>
         public void AddButton(global::Jibbers.Sdk.Game.Ui.Behaviour a)
         {
@@ -679,18 +679,18 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.Button Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("ui.button.on_click");
-        /// <summary>Field on_click (`wuv: System.Action&lt;Button&gt;`).</summary>
+        /// <summary>Field on_click (`ylg: System.Action&lt;Button&gt;`).</summary>
         public nint OnClick { get => __f0.GetObject(Ptr); set => __f0.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("ui.button.label");
-        /// <summary>Field label (`wuy: TMPro.TMP_Text`).</summary>
+        /// <summary>Field label (`ylj: TMPro.TMP_Text`).</summary>
         public nint Label { get => __f1.GetObject(Ptr); set => __f1.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("ui.button.pressed_color");
-        /// <summary>Field pressed_color (`wuz: UnityEngine.Color`).</summary>
+        /// <summary>Field pressed_color (`ylk: UnityEngine.Color`).</summary>
         public global::Jibbers.Sdk.Color PressedColor { get => __f2.Get<global::Jibbers.Sdk.Color>(Ptr); set => __f2.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m3 = new("ui.button.create");
         /// <summary>The method reference of Create: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef CreateMethod => __m3;
-        /// <summary>Calls create (`isy(UnityEngine.Transform, System.String, System.Action&lt;Button&gt;) -&gt; Button`), static.</summary>
+        /// <summary>Calls create (`jjx(UnityEngine.Transform, System.String, System.Action&lt;Button&gt;) -&gt; Button`), static.</summary>
         /// <param name="a"><c>UnityEngine.Transform</c></param>
         /// <param name="b"><c>System.String</c></param>
         /// <param name="c"><c>System.Action&lt;Button&gt;</c></param>
@@ -732,12 +732,12 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>Field save (`save: System.Boolean`).</summary>
         public bool Save { get => __f2.Get<bool>(Ptr); set => __f2.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f3 = new("ui.toggle_button.on_change");
-        /// <summary>Field on_change (`xdd: System.Action&lt;System.Boolean&gt;`).</summary>
+        /// <summary>Field on_change (`yto: System.Action&lt;System.Boolean&gt;`).</summary>
         public nint OnChange { get => __f3.GetObject(Ptr); set => __f3.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m4 = new("ui.toggle_button.refresh");
         /// <summary>The method reference of Refresh: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef RefreshMethod => __m4;
-        /// <summary>Calls refresh (`jda() -&gt; System.Void`).</summary>
+        /// <summary>Calls refresh (`jub() -&gt; System.Void`).</summary>
         public void Refresh()
         {
             __m4.Invoke(Ptr);
@@ -775,15 +775,15 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>Field save (`save: System.Boolean`).</summary>
         public bool Save { get => __f2.Get<bool>(Ptr); set => __f2.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f3 = new("ui.arrow_selection.on_change");
-        /// <summary>Field on_change (`wuo: System.Action&lt;System.Int32&gt;`).</summary>
+        /// <summary>Field on_change (`ykz: System.Action&lt;System.Int32&gt;`).</summary>
         public nint OnChange { get => __f3.GetObject(Ptr); set => __f3.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f4 = new("ui.arrow_selection.options");
-        /// <summary>Field options (`wus: System.String[]`).</summary>
+        /// <summary>Field options (`yld: System.String[]`).</summary>
         public nint Options { get => __f4.GetObject(Ptr); set => __f4.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m5 = new("ui.arrow_selection.set_options");
         /// <summary>The method reference of SetOptions: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SetOptionsMethod => __m5;
-        /// <summary>Calls set_options (`isd(System.String[], System.Int32, System.Boolean) -&gt; System.Void`).</summary>
+        /// <summary>Calls set_options (`jjc(System.String[], System.Int32, System.Boolean) -&gt; System.Void`).</summary>
         /// <param name="a"><c>System.String[]</c></param>
         /// <param name="b"><c>System.Int32</c></param>
         /// <param name="c"><c>System.Boolean</c></param>
@@ -796,7 +796,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m6 = new("ui.arrow_selection.select");
         /// <summary>The method reference of Select: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SelectMethod => __m6;
-        /// <summary>Calls select (`ise(System.Int32, System.Boolean) -&gt; System.Void`).</summary>
+        /// <summary>Calls select (`jjd(System.Int32, System.Boolean) -&gt; System.Void`).</summary>
         /// <param name="a"><c>System.Int32</c></param>
         /// <param name="b"><c>System.Boolean</c></param>
         public void Select(int a, bool b)
@@ -836,15 +836,15 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>Field save (`save: System.Boolean`).</summary>
         public bool Save { get => __f1.Get<bool>(Ptr); set => __f1.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("ui.labeled_slider.slider");
-        /// <summary>Field slider (`&lt;wwl&gt;k__BackingField: UnityEngine.UI.Slider`).</summary>
+        /// <summary>Field slider (`&lt;ymw&gt;k__BackingField: UnityEngine.UI.Slider`).</summary>
         public nint Slider { get => __f2.GetObject(Ptr); set => __f2.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f3 = new("ui.labeled_slider.on_change");
-        /// <summary>Field on_change (`wwn: System.Action&lt;System.Single&gt;`).</summary>
+        /// <summary>Field on_change (`ymy: System.Action&lt;System.Single&gt;`).</summary>
         public nint OnChange { get => __f3.GetObject(Ptr); set => __f3.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m4 = new("ui.labeled_slider.set_value");
         /// <summary>The method reference of SetValue: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SetValueMethod => __m4;
-        /// <summary>Calls set_value (`iva(System.Single, System.Boolean) -&gt; System.Void`).</summary>
+        /// <summary>Calls set_value (`jlz(System.Single, System.Boolean) -&gt; System.Void`).</summary>
         /// <param name="a"><c>System.Single</c></param>
         /// <param name="b"><c>System.Boolean</c></param>
         public void SetValue(float a, bool b)
@@ -879,7 +879,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m0 = new("ui.form_menu.create");
         /// <summary>The method reference of Create: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef CreateMethod => __m0;
-        /// <summary>Calls create (`jkv(UnityEngine.RectTransform, System.String) -&gt; FormMenu`), static.</summary>
+        /// <summary>Calls create (`kbv(UnityEngine.RectTransform, System.String) -&gt; FormMenu`), static.</summary>
         /// <param name="a"><c>UnityEngine.RectTransform</c></param>
         /// <param name="b"><c>System.String</c></param>
         public static global::Jibbers.Sdk.Game.Ui.FormMenu Create(global::Jibbers.Interop.UnityEngine.RectTransform a, string? b)
@@ -889,7 +889,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m1 = new("ui.form_menu.accordion");
         /// <summary>The method reference of Accordion: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef AccordionMethod => __m1;
-        /// <summary>Calls accordion (`Accordion(System.String, System.Action, System.Boolean) -&gt; xa`).</summary>
+        /// <summary>Calls accordion (`Accordion(System.String, System.Action, System.Boolean) -&gt; zd`).</summary>
         /// <param name="label"><c>System.String</c></param>
         /// <param name="buildContent"><c>System.Action</c></param>
         /// <param name="open"><c>System.Boolean</c></param>
@@ -901,7 +901,7 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m2 = new("ui.form_menu.slider");
         /// <summary>The method reference of Slider: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SliderMethod => __m2;
-        /// <summary>Calls slider (`Slider(System.String, System.Single, System.Single, System.Func&lt;System.Single&gt;, System.Action&lt;System.Single&gt;, System.Single, System.Int32) -&gt; wh`).</summary>
+        /// <summary>Calls slider (`Slider(System.String, System.Single, System.Single, System.Func&lt;System.Single&gt;, System.Action&lt;System.Single&gt;, System.Single, System.Int32) -&gt; yk`).</summary>
         /// <param name="label"><c>System.String</c></param>
         /// <param name="min"><c>System.Single</c></param>
         /// <param name="max"><c>System.Single</c></param>
@@ -909,7 +909,7 @@ namespace Jibbers.Sdk.Game.Ui
         /// <param name="set"><c>System.Action&lt;System.Single&gt;</c></param>
         /// <param name="initial"><c>System.Single</c></param>
         /// <param name="precision"><c>System.Int32</c></param>
-        public global::Jibbers.Interop.Game.wh Slider(string? label, float min, float max, nint get, nint set, float initial, int precision)
+        public global::Jibbers.Interop.Game.yk Slider(string? label, float min, float max, nint get, nint set, float initial, int precision)
         {
             var p1 = min;
             var p2 = max;
@@ -920,12 +920,12 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m3 = new("ui.form_menu.toggle");
         /// <summary>The method reference of Toggle: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef ToggleMethod => __m3;
-        /// <summary>Calls toggle (`jle(System.String, System.Func&lt;System.Boolean&gt;, System.Action&lt;System.Boolean&gt;, System.Boolean) -&gt; we`).</summary>
+        /// <summary>Calls toggle (`kce(System.String, System.Func&lt;System.Boolean&gt;, System.Action&lt;System.Boolean&gt;, System.Boolean) -&gt; yh`).</summary>
         /// <param name="a"><c>System.String</c></param>
         /// <param name="b"><c>System.Func&lt;System.Boolean&gt;</c></param>
         /// <param name="c"><c>System.Action&lt;System.Boolean&gt;</c></param>
         /// <param name="d"><c>System.Boolean</c></param>
-        public global::Jibbers.Interop.Game.we Toggle(string? a, nint b, nint c, bool d)
+        public global::Jibbers.Interop.Game.yh Toggle(string? a, nint b, nint c, bool d)
         {
             var p3 = d;
             return new(__m3.Invoke(Ptr, a is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(a), b, c, (nint)(&p3)));
@@ -933,25 +933,25 @@ namespace Jibbers.Sdk.Game.Ui
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m4 = new("ui.form_menu.choice");
         /// <summary>The method reference of Choice: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef ChoiceMethod => __m4;
-        /// <summary>Calls choice (`Options(System.String, System.String[], System.Func&lt;System.Int32&gt;, System.Action&lt;System.Int32&gt;, System.Int32) -&gt; wj`).</summary>
+        /// <summary>Calls choice (`Options(System.String, System.String[], System.Func&lt;System.Int32&gt;, System.Action&lt;System.Int32&gt;, System.Int32) -&gt; ym`).</summary>
         /// <param name="label"><c>System.String</c></param>
         /// <param name="options"><c>System.String[]</c></param>
         /// <param name="get"><c>System.Func&lt;System.Int32&gt;</c></param>
         /// <param name="set"><c>System.Action&lt;System.Int32&gt;</c></param>
         /// <param name="initial"><c>System.Int32</c></param>
-        public global::Jibbers.Interop.Game.wj Choice(string? label, nint options, nint get, nint set, int initial)
+        public global::Jibbers.Interop.Game.ym Choice(string? label, nint options, nint get, nint set, int initial)
         {
             var p4 = initial;
             return new(__m4.Invoke(Ptr, label is null ? 0 : global::Jibbers.Sdk.Interop.Il2Cpp.String(label), options, get, set, (nint)(&p4)));
         }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f5 = new("ui.form_menu.rows");
-        /// <summary>Field rows (`xkp: System.Collections.Generic.List&lt;vz&gt;`).</summary>
+        /// <summary>Field rows (`zba: System.Collections.Generic.List&lt;yc&gt;`).</summary>
         public nint Rows { get => __f5.GetObject(Ptr); set => __f5.SetObject(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.MethodRef __m6 = new("ui.form_menu.set_open");
         /// <summary>The method reference of SetOpen: pre-hook it (<c>.Before</c>) or detour it (<c>.Detour</c>).</summary>
         public static global::Jibbers.Sdk.Symbols.MethodRef SetOpenMethod => __m6;
-        /// <summary>Calls set_open (`jmb(xa, System.Boolean) -&gt; System.Void`).</summary>
-        /// <param name="a"><c>xa</c></param>
+        /// <summary>Calls set_open (`kdb(zd, System.Boolean) -&gt; System.Void`).</summary>
+        /// <param name="a"><c>zd</c></param>
         /// <param name="b"><c>System.Boolean</c></param>
         public void SetOpen(global::Jibbers.Sdk.Game.Ui.FormSection a, bool b)
         {
@@ -960,7 +960,7 @@ namespace Jibbers.Sdk.Game.Ui
         }
     }
 
-    /// <summary>One row of a FormMenu (obfuscated): its menu, section, label and layout state. Symbol <c>ui.form_row</c>; <c>vz</c> on the build these bindings came from.</summary>
+    /// <summary>One row of a FormMenu (obfuscated): its menu, section, label and layout state. Symbol <c>ui.form_row</c>; <c>yc</c> on the build these bindings came from.</summary>
     /// <remarks>`qj` on 2026-10-18. The only obfuscated System.Object subclass with a FormMenu backing field.</remarks>
     public readonly unsafe partial struct FormRow : global::Jibbers.Sdk.IGameObject
     {
@@ -977,19 +977,19 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>Wraps <paramref name="p"/> if it is an instance of this class, else null.</summary>
         public static FormRow? Cast(nint p) => Class.IsInstance(p) ? new FormRow(p) : null;
         /// <summary>The same object through the raw binding (every real member).</summary>
-        public global::Jibbers.Interop.Game.vz Raw => new(Ptr);
+        public global::Jibbers.Interop.Game.yc Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("ui.form_row.menu");
-        /// <summary>Field menu (`&lt;xmi&gt;k__BackingField: FormMenu`).</summary>
+        /// <summary>Field menu (`&lt;zct&gt;k__BackingField: FormMenu`).</summary>
         public global::Jibbers.Sdk.Game.Ui.FormMenu Menu { get => new(__f0.GetObject(Ptr)); set => __f0.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("ui.form_row.section");
-        /// <summary>Field section (`&lt;xmj&gt;k__BackingField: xa`).</summary>
+        /// <summary>Field section (`&lt;zcu&gt;k__BackingField: zd`).</summary>
         public global::Jibbers.Sdk.Game.Ui.FormSection Section { get => new(__f1.GetObject(Ptr)); set => __f1.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("ui.form_row.rect");
-        /// <summary>Field rect (`&lt;xmm&gt;k__BackingField: UnityEngine.RectTransform`).</summary>
+        /// <summary>Field rect (`&lt;zcx&gt;k__BackingField: UnityEngine.RectTransform`).</summary>
         public global::Jibbers.Interop.UnityEngine.RectTransform Rect { get => new(__f2.GetObject(Ptr)); set => __f2.SetObject(Ptr, value.Ptr); }
     }
 
-    /// <summary>A collapsible FormMenu section (obfuscated): a header button and the rows it contains. Symbol <c>ui.form_section</c>; <c>xa</c> on the build these bindings came from.</summary>
+    /// <summary>A collapsible FormMenu section (obfuscated): a header button and the rows it contains. Symbol <c>ui.form_section</c>; <c>zd</c> on the build these bindings came from.</summary>
     /// <remarks>`rg` on 2026-10-18. Its sibling `rh` (a plain group of rows) has the row list but no header button.</remarks>
     public readonly unsafe partial struct FormSection : global::Jibbers.Sdk.IGameObject
     {
@@ -1006,15 +1006,15 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>Wraps <paramref name="p"/> if it is an instance of this class, else null.</summary>
         public static FormSection? Cast(nint p) => Class.IsInstance(p) ? new FormSection(p) : null;
         /// <summary>The same object through the raw binding (every real member).</summary>
-        public global::Jibbers.Interop.Game.xa Raw => new(Ptr);
+        public global::Jibbers.Interop.Game.zd Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("ui.form_section.header");
-        /// <summary>Field header (`&lt;xql&gt;k__BackingField: Button`).</summary>
+        /// <summary>Field header (`&lt;zgy&gt;k__BackingField: Button`).</summary>
         public global::Jibbers.Sdk.Game.Ui.Button Header { get => new(__f0.GetObject(Ptr)); set => __f0.SetObject(Ptr, value.Ptr); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("ui.form_section.open");
-        /// <summary>Field open (`&lt;xqm&gt;k__BackingField: System.Boolean`).</summary>
+        /// <summary>Field open (`&lt;zgz&gt;k__BackingField: System.Boolean`).</summary>
         public bool Open { get => __f1.Get<bool>(Ptr); set => __f1.Set(Ptr, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("ui.form_section.rows");
-        /// <summary>Field rows (`xqn: System.Collections.Generic.List&lt;vz&gt;`).</summary>
+        /// <summary>Field rows (`zha: System.Collections.Generic.List&lt;yc&gt;`).</summary>
         public nint Rows { get => __f2.GetObject(Ptr); set => __f2.SetObject(Ptr, value); }
     }
 
@@ -1040,7 +1040,7 @@ namespace Jibbers.Sdk.Game.Ui
         /// <summary>The same object through the raw binding (every real member).</summary>
         public global::Jibbers.Interop.Game.MainMenu Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("ui.main_menu.options");
-        /// <summary>Field options (`yzq: OptionsMenu`).</summary>
+        /// <summary>Field options (`baqy: OptionsMenu`).</summary>
         public global::Jibbers.Interop.Game.OptionsMenu Options { get => new(__f0.GetObject(Ptr)); set => __f0.SetObject(Ptr, value.Ptr); }
     }
 
@@ -1149,7 +1149,7 @@ namespace Jibbers.Sdk.Game.Physics
 
 namespace Jibbers.Sdk.Game.Events
 {
-    /// <summary>The game's local event bus: listeners per event type, as (owner, Action&lt;T&gt;) pairs. Use the SDK's events module rather than this directly. Symbol <c>events.bus</c>; <c>biv</c> on the build these bindings came from.</summary>
+    /// <summary>The game's local event bus: listeners per event type, as (owner, Action&lt;T&gt;) pairs. Use the SDK's events module rather than this directly. Symbol <c>events.bus</c>; <c>bma</c> on the build these bindings came from.</summary>
     /// <remarks>Obfuscated class (`baa` on 2026-10-18). NetBus has a field of the same type but keeps its name: it is the network bus and is not covered.</remarks>
     public readonly unsafe partial struct Bus : global::Jibbers.Sdk.IGameObject
     {
@@ -1166,9 +1166,9 @@ namespace Jibbers.Sdk.Game.Events
         /// <summary>Wraps <paramref name="p"/> if it is an instance of this class, else null.</summary>
         public static Bus? Cast(nint p) => Class.IsInstance(p) ? new Bus(p) : null;
         /// <summary>The same object through the raw binding (every real member).</summary>
-        public global::Jibbers.Interop.Game.biv Raw => new(Ptr);
+        public global::Jibbers.Interop.Game.bma Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("events.bus.handlers");
-        /// <summary>Field handlers (`babx: System.Collections.Generic.Dictionary&lt;System.Type,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Delegate&gt;&gt;&gt;`).</summary>
+        /// <summary>Field handlers (`bbyv: System.Collections.Generic.Dictionary&lt;System.Type,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Delegate&gt;&gt;&gt;`).</summary>
         public static nint Handlers { get => __f0.GetObject(0); set => __f0.SetObject(0, value); }
     }
 
@@ -1176,7 +1176,7 @@ namespace Jibbers.Sdk.Game.Events
 
 namespace Jibbers.Sdk.Game.Game
 {
-    /// <summary>The game's global data registry: named settings (bool, float, int and string tables with change listeners), plus maps, outfits, characters and poses. Use the SDK's vars module for the settings. Symbol <c>game.vars</c>; <c>mb</c> on the build these bindings came from.</summary>
+    /// <summary>The game's global data registry: named settings (bool, float, int and string tables with change listeners), plus maps, outfits, characters and poses. Use the SDK's vars module for the settings. Symbol <c>game.vars</c>; <c>mx</c> on the build these bindings came from.</summary>
     /// <remarks>Obfuscated static class (`ia` on 2026-10-18).</remarks>
     public readonly unsafe partial struct Vars : global::Jibbers.Sdk.IGameObject
     {
@@ -1193,30 +1193,30 @@ namespace Jibbers.Sdk.Game.Game
         /// <summary>Wraps <paramref name="p"/> if it is an instance of this class, else null.</summary>
         public static Vars? Cast(nint p) => Class.IsInstance(p) ? new Vars(p) : null;
         /// <summary>The same object through the raw binding (every real member).</summary>
-        public global::Jibbers.Interop.Game.mb Raw => new(Ptr);
+        public global::Jibbers.Interop.Game.mx Raw => new(Ptr);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("game.vars.bools");
-        /// <summary>Field bools (`usd: System.Collections.Generic.Dictionary&lt;System.String,System.Boolean&gt;`).</summary>
+        /// <summary>Field bools (`vzw: System.Collections.Generic.Dictionary&lt;System.String,System.Boolean&gt;`).</summary>
         public static nint Bools { get => __f0.GetObject(0); set => __f0.SetObject(0, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("game.vars.bool_listeners");
-        /// <summary>Field bool_listeners (`use: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.Boolean&gt;&gt;&gt;&gt;`).</summary>
+        /// <summary>Field bool_listeners (`vzx: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.Boolean&gt;&gt;&gt;&gt;`).</summary>
         public static nint BoolListeners { get => __f1.GetObject(0); set => __f1.SetObject(0, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("game.vars.floats");
-        /// <summary>Field floats (`usf: System.Collections.Generic.Dictionary&lt;System.String,System.Single&gt;`).</summary>
+        /// <summary>Field floats (`vzy: System.Collections.Generic.Dictionary&lt;System.String,System.Single&gt;`).</summary>
         public static nint Floats { get => __f2.GetObject(0); set => __f2.SetObject(0, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f3 = new("game.vars.float_listeners");
-        /// <summary>Field float_listeners (`usg: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.Single&gt;&gt;&gt;&gt;`).</summary>
+        /// <summary>Field float_listeners (`vzz: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.Single&gt;&gt;&gt;&gt;`).</summary>
         public static nint FloatListeners { get => __f3.GetObject(0); set => __f3.SetObject(0, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f4 = new("game.vars.ints");
-        /// <summary>Field ints (`ush: System.Collections.Generic.Dictionary&lt;System.String,System.Int32&gt;`).</summary>
+        /// <summary>Field ints (`waa: System.Collections.Generic.Dictionary&lt;System.String,System.Int32&gt;`).</summary>
         public static nint Ints { get => __f4.GetObject(0); set => __f4.SetObject(0, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f5 = new("game.vars.int_listeners");
-        /// <summary>Field int_listeners (`usi: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.Int32&gt;&gt;&gt;&gt;`).</summary>
+        /// <summary>Field int_listeners (`wab: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.Int32&gt;&gt;&gt;&gt;`).</summary>
         public static nint IntListeners { get => __f5.GetObject(0); set => __f5.SetObject(0, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f6 = new("game.vars.strings");
-        /// <summary>Field strings (`usj: System.Collections.Generic.Dictionary&lt;System.String,System.String&gt;`).</summary>
+        /// <summary>Field strings (`wac: System.Collections.Generic.Dictionary&lt;System.String,System.String&gt;`).</summary>
         public static nint Strings { get => __f6.GetObject(0); set => __f6.SetObject(0, value); }
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f7 = new("game.vars.string_listeners");
-        /// <summary>Field string_listeners (`usk: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.String&gt;&gt;&gt;&gt;`).</summary>
+        /// <summary>Field string_listeners (`wad: System.Collections.Generic.Dictionary&lt;System.String,System.Collections.Generic.List&lt;System.ValueTuple&lt;System.Object,System.Action&lt;System.String&gt;&gt;&gt;&gt;`).</summary>
         public static nint StringListeners { get => __f7.GetObject(0); set => __f7.SetObject(0, value); }
     }
 
@@ -1361,7 +1361,7 @@ namespace Jibbers.Sdk.Game.Event
         /// <summary>Sends this event to every listener (game and mods) with zeroed data. Main thread.</summary>
         public static int RaiseEmpty() => global::Jibbers.Sdk.Events.Raise(Id);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("event.load_replay_clip.clip");
-        /// <summary>Field clip (`clip: te`).</summary>
+        /// <summary>Field clip (`clip: vl`).</summary>
         public global::Jibbers.Sdk.Game.Replay.Clip Clip => new(Event.GetObject(__f0));
     }
 
@@ -1379,8 +1379,8 @@ namespace Jibbers.Sdk.Game.Event
         /// <summary>Sends this event to every listener (game and mods) with zeroed data. Main thread.</summary>
         public static int RaiseEmpty() => global::Jibbers.Sdk.Events.Raise(Id);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("event.outfit_change.outfit");
-        /// <summary>Field outfit (`outfit: gf`).</summary>
-        public global::Jibbers.Interop.Game.gf Outfit => new(Event.GetObject(__f0));
+        /// <summary>Field outfit (`outfit: gv`).</summary>
+        public global::Jibbers.Interop.Game.gv Outfit => new(Event.GetObject(__f0));
     }
 
     /// <summary>Event: The rider changed gear. Symbol <c>event.gear_changed</c>; <c>GearChangedEvent</c> on the build these bindings came from. Subscribe with <see cref="Subscribe"/>.</summary>
@@ -1412,8 +1412,8 @@ namespace Jibbers.Sdk.Game.Event
         /// <summary>Sends this event to every listener (game and mods) with zeroed data. Main thread.</summary>
         public static int RaiseEmpty() => global::Jibbers.Sdk.Events.Raise(Id);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("event.character_change.character");
-        /// <summary>Field character (`character: dq`).</summary>
-        public global::Jibbers.Interop.Game.dq Character => new(Event.GetObject(__f0));
+        /// <summary>Field character (`character: dx`).</summary>
+        public global::Jibbers.Interop.Game.dx Character => new(Event.GetObject(__f0));
     }
 
     /// <summary>Event: The game is changing scene. Symbol <c>event.change_scene</c>; <c>ChangeSceneEvent</c> on the build these bindings came from. Subscribe with <see cref="Subscribe"/>.</summary>
@@ -1632,27 +1632,6 @@ namespace Jibbers.Sdk.Game.Event
         public static int RaiseEmpty() => global::Jibbers.Sdk.Events.Raise(Id);
     }
 
-    /// <summary>Event: The ambient light colour and intensity changed. Symbol <c>event.ambient_color_changed</c>; <c>AmbientColorChangedEvent</c> on the build these bindings came from. Subscribe with <see cref="Subscribe"/>.</summary>
-    public readonly unsafe struct AmbientColorChanged
-    {
-        /// <summary>The event symbol id.</summary>
-        public const string Id = "event.ambient_color_changed";
-        /// <summary>The received event (valid only during the callback).</summary>
-        public global::Jibbers.Sdk.GameEvent Event { get; }
-        /// <summary>Wraps a received event.</summary>
-        public AmbientColorChanged(global::Jibbers.Sdk.GameEvent e) { Event = e; }
-        /// <summary>Calls <paramref name="callback"/> on the main thread every time the game raises this event. Removed when your mod unloads.</summary>
-        public static global::Jibbers.Sdk.Subscription Subscribe(global::System.Action<AmbientColorChanged> callback) => global::Jibbers.Sdk.Events.Subscribe(Id, e => callback(new AmbientColorChanged(e)));
-        /// <summary>Sends this event to every listener (game and mods) with zeroed data. Main thread.</summary>
-        public static int RaiseEmpty() => global::Jibbers.Sdk.Events.Raise(Id);
-        static readonly global::Jibbers.Sdk.Symbols.FieldRef __f0 = new("event.ambient_color_changed.color");
-        /// <summary>Field color (`color: UnityEngine.Color`).</summary>
-        public global::Jibbers.Sdk.Color Color => Event.Get<global::Jibbers.Sdk.Color>(__f0);
-        static readonly global::Jibbers.Sdk.Symbols.FieldRef __f1 = new("event.ambient_color_changed.intensity");
-        /// <summary>Field intensity (`intensity: System.Single`).</summary>
-        public float Intensity => Event.Get<float>(__f1);
-    }
-
     /// <summary>Event: The time of day changed. Symbol <c>event.time_changed</c>; <c>TimeChangedEvent</c> on the build these bindings came from. Subscribe with <see cref="Subscribe"/>.</summary>
     public readonly unsafe struct TimeChanged
     {
@@ -1721,8 +1700,8 @@ namespace Jibbers.Sdk.Game.Event
         /// <summary>Field details (`details: System.String`).</summary>
         public string Details => Event.GetString(__f1);
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f2 = new("event.trick_performed.trick");
-        /// <summary>Field trick (`trick: hw`).</summary>
-        public global::Jibbers.Interop.Game.hw Trick => new(Event.GetObject(__f2));
+        /// <summary>Field trick (`trick: iq`).</summary>
+        public global::Jibbers.Interop.Game.iq Trick => new(Event.GetObject(__f2));
         static readonly global::Jibbers.Sdk.Symbols.FieldRef __f3 = new("event.trick_performed.sequence_id");
         /// <summary>Field sequence_id (`sequenceId: System.Int32`).</summary>
         public int SequenceId => Event.Get<int>(__f3);

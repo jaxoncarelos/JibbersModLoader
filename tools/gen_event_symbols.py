@@ -50,7 +50,6 @@ SUMMARY = {
     "ExitObjectPlacerEvent": "The object placer was closed.",
     "ToggleClothesEvent": "Cloth simulation was switched on or off.",
     "ToggleReplayInputVisualizerEvent": "The replay input visualizer was toggled.",
-    "AmbientColorChangedEvent": "The ambient light colour and intensity changed.",
     "TimeChangedEvent": "The time of day changed.",
     "HideMouseCursorEvent": "The mouse cursor was hidden.",
     "ShowMouseCursorEvent": "The mouse cursor was shown.",

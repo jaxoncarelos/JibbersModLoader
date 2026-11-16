@@ -16,11 +16,19 @@ public sealed class AsyncContentMod : JibbersMod
     public override void OnLoad()
     {
         SymbolTable.Register(ContentBindings.CatalogueJson);
+        if (!MainThread.Run(ContentBindings.GameImportsOnMainThread))
+        {
+            gameOwnsImports = true;
+            Log("This game build reads, decodes and parses session content on its own workers; Async Content leaves imports to the game.");
+            return;
+        }
         MainThread.Run(() => adapter = new GameContentAdapter(() => Enabled, () => GetDouble("frame_budget"), Log));
         Log("Async preparation installed. Native validation and content registration are unchanged.");
     }
+    bool gameOwnsImports;
     public override JsonNode? OnCommand(string command, JsonObject request) => command == "async_content.status"
-        ? MainThread.Run(() => adapter?.Status()) : null;
+        ? gameOwnsImports ? new JsonObject { ["active"] = false, ["reason"] = "the game imports session content on its own workers" } : MainThread.Run(() => adapter?.Status())
+        : null;
     public override void OnSettingChanged(string key, JsonNode value)
     {
         if (key == "enabled" && !Enabled) MainThread.Later(() => adapter?.CancelImports());
