@@ -6,6 +6,16 @@ Prevent downloaded session content from freezing active gameplay when a player j
 
 Status: 0.1.3 passed the expanded native PNG/OBJ checks and qualified exact worker mip filtering as PairFloorRows. Its first 11 live imports accelerated 32 textures and two meshes with zero decoding or upload fallbacks. The worst measured original step was 11.17 ms; the worst staged upload was 13.72 ms. This removes the observed large normal-map decoding fallbacks, but does not eliminate noticeable stutter. The 0.1.4 candidate splits large texture copies into bounded row batches across frames, verifies every mip against all 19 native PNG fixtures before enabling that path, and replaces per-byte archive snapshots with bulk copies. Offline tests pass; native activation and a matching live performance comparison for 0.1.4 are pending. Final Apply, registration and mesh work remain indivisible calls and are still measured separately.
 
+## Game build 26688799 (November 2026)
+
+The game now imports session content itself off the main thread: its archive coroutine reads every
+entry on a worker task (texts and bytes), starts a `Task<parsed OBJ>` per mesh and a decode task per
+texture, and only creates the Unity meshes and textures on the main thread. The synchronous OBJ parser
+(`async_content.obj_parser`) is gone, and the game's entry text reader now runs on those worker tasks,
+where this mod's hooks must not run. On this build the mod detects the missing parser, logs that the
+game imports on its own workers, installs no hooks, and `async_content.status` reports `active: false`.
+Older builds keep the behaviour below.
+
 ## Game build 26596007 (November 2026)
 
 The game now decodes session PNGs on its own worker: the archive coroutine reads each entry's bytes,
