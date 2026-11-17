@@ -113,6 +113,16 @@
       "description": "Uncaps the game's Terrain and Object Render Distance options past 1500 m (up to 50 km).",
       "legacy": false,
       "assets": []
+    },
+    {
+      "folder": "Snowcat",
+      "modId": "snowcat",
+      "authors": ["scotttucker1599"],
+      "id": "jibbers_snowcat",
+      "name": "Snowcat",
+      "description": "Drive a snowcat: blade that raises, lowers, angles and tilts to push snow",
+      "legacy": false,
+      "assets": []
     }
   ]
 }
